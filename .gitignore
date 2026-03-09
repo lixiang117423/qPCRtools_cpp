@@ -1,0 +1,74 @@
+# Build directories
+build/
+cmake-build-*/
+out/
+
+# IDE specific
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Qt specific
+*.autosave
+*.pro.user
+*.qmlc
+*.jsc
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# Compiled files
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.exe
+*.app
+*.a
+*.lib
+
+# Generated files
+moc/
+ui/
+rcc/
+*.moc
+
+# macOS
+.DS_Store
+*.dmg
+*.pkg
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Debug files
+*.pdb
+*.ilk
+
+# Test results
+Testing/
+tests/build/
+
+# Translation binaries
+*.qm
+translations/*.qm
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
