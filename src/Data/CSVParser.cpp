@@ -98,27 +98,24 @@ DataFrame CSVParser::parse(const QString& path, bool hasHeader) {
             }
 
             // Add data to columns
+            int rowIndex = currentRow - (hasHeader ? 1 : 0);
             for (int i = 0; i < qMin(fields.size(), columnNames.size()); ++i) {
                 QVariant value = convertValue(fields[i], i);
 
                 if (!df.hasColumn(columnNames[i])) {
-                    df.addColumn(columnNames[i], QVector<QVariant>());
+                    df.addColumn(columnNames[i], QVariant());
                 }
 
-                // Append value (we need to modify the internal data structure)
-                // This is a simplified approach
-                auto& column = df.m_data[columnNames[i]];
-                if (column.size() <= currentRow - (hasHeader ? 1 : 0)) {
-                    column.append(value);
-                }
+                // Use set method to add data
+                df.set(rowIndex, columnNames[i], value);
             }
 
             // Fill missing columns with QVariant()
             for (int i = fields.size(); i < columnNames.size(); ++i) {
-                auto& column = df.m_data[columnNames[i]];
-                if (column.size() <= currentRow - (hasHeader ? 1 : 0)) {
-                    column.append(QVariant());
+                if (!df.hasColumn(columnNames[i])) {
+                    df.addColumn(columnNames[i], QVariant());
                 }
+                df.set(rowIndex, columnNames[i], QVariant());
             }
         }
 
@@ -126,13 +123,6 @@ DataFrame CSVParser::parse(const QString& path, bool hasHeader) {
     }
 
     file.close();
-
-    // Update row count
-    if (hasHeader && currentRow > 0) {
-        df.m_rowCount = currentRow - 1;
-    } else {
-        df.m_rowCount = currentRow;
-    }
 
     return df;
 }

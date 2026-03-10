@@ -15,19 +15,21 @@ set(CMAKE_AUTORCC ON)
 find_package(Qt6 REQUIRED COMPONENTS
     Core
     Widgets
-    Charts
+    WebEngineCore
+    WebEngineWidgets
+    WebChannel
     PrintSupport
     LinguistTools
 )
 
 # 查找第三方库
-find_package(Eigen3 3.4 REQUIRED)
-find_package(GSL 2.7 REQUIRED)
+find_package(Eigen3 REQUIRED)
+find_package(GSL 2.7 QUIET)
 find_package(OpenXLSX QUIET)
 
 # 源文件
 set(SOURCES
-    src/main.cpp
+    src/main_simple.cpp
 
     # Core
     src/Core/StandardCurve.cpp
@@ -40,18 +42,11 @@ set(SOURCES
     src/Data/ExcelImporter.cpp
 
     # GUI
-    src/GUI/MainWindow.cpp
-    src/GUI/ImportPage.cpp
-    src/GUI/ConfigPage.cpp
-    src/GUI/ResultsPage.cpp
-    src/GUI/PlotWidgets/BoxPlotWidget.cpp
-    src/GUI/PlotWidgets/BarPlotWidget.cpp
-    src/GUI/PlotWidgets/StandardCurvePlot.cpp
+    src/GUI/WebMainWindow.cpp
+    src/GUI/WebBridge.cpp
 
-    # Utils
-    src/Utils/OutlierDetector.cpp
-    src/Utils/ExportManager.cpp
-    src/Utils/GgplotTheme.cpp
+    # Utils - 暂时注释，Web界面使用JavaScript实现ggplot2主题
+    # src/Utils/GgplotTheme.cpp
 )
 
 # 头文件
@@ -67,33 +62,26 @@ set(HEADERS
     include/Data/ExcelImporter.h
 
     # GUI
-    include/GUI/MainWindow.h
-    include/GUI/ImportPage.h
-    include/GUI/ConfigPage.h
-    include/GUI/ResultsPage.h
-    include/GUI/PlotWidgets/BoxPlotWidget.h
-    include/GUI/PlotWidgets/BarPlotWidget.h
-    include/GUI/PlotWidgets/StandardCurvePlot.h
+    include/GUI/WebMainWindow.h
+    include/GUI/WebBridge.h
 
-    # Utils
-    include/Utils/OutlierDetector.h
-    include/Utils/ExportManager.h
-    include/Utils/GgplotTheme.h
+    # Utils - 暂时注释
+    # include/Utils/GgplotTheme.h
 )
 
-# UI 文件
-set(UI_FILES
-    resources/ui/mainwindow.ui
-    resources/ui/importpage.ui
-    resources/ui/configpage.ui
-    resources/ui/resultspage.ui
-)
+# UI 文件 (暂时不用，我们用纯代码创建 UI)
+# set(UI_FILES
+#     resources/ui/mainwindow.ui
+#     resources/ui/importpage.ui
+#     resources/ui/configpage.ui
+#     resources/ui/resultspage.ui
+# )
 
 # 创建可执行文件
 add_executable(${PROJECT_NAME}
     ${SOURCES}
     ${HEADERS}
-    ${UI_FILES}
+    # ${UI_FILES}
 )
 
 # 链接库
@@ -101,12 +89,18 @@ target_link_libraries(${PROJECT_NAME}
     PRIVATE
     Qt6::Core
     Qt6::Widgets
-    Qt6::Charts
+    Qt6::WebEngineCore
+    Qt6::WebEngineWidgets
+    Qt6::WebChannel
     Qt6::PrintSupport
     Eigen3::Eigen
-    GSL::gsl
-    GSL::gslcblas
 )
+
+# 如果找到 GSL
+if(TARGET GSL::gsl)
+    target_link_libraries(${PROJECT_NAME} PRIVATE GSL::gsl GSL::gslcblas)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_GSL)
+endif()
 
 # 如果找到 OpenXLSX
 if(TARGET OpenXLSX::OpenXLSX)
@@ -130,7 +124,7 @@ set(TS_FILES
 )
 
 # 处理翻译文件
-qt_add_lts_update(${PROJECT_NAME} ${TS_FILES})
+qt_add_lupdate(${PROJECT_NAME} ${TS_FILES})
 qt_add_translations(${PROJECT_NAME} ${TS_FILES})
 
 # 安装配置
@@ -146,11 +140,11 @@ install(FILES ${QM_FILES}
 )
 
 # 打包配置
-include(cpack/CPackConfig.cmake)
-
-# 开发者选项
-option(BUILD_TESTS "Build test suite" OFF)
-if(BUILD_TESTS)
-    enable_testing()
-    add_subdirectory(tests)
-endif()
+#include(cpack/CPackConfig.cmake)
+#
+## 开发者选项
+#option(BUILD_TESTS "Build test suite" OFF)
+#if(BUILD_TESTS)
+#    enable_testing()
+#    add_subdirectory(tests)
+#endif()

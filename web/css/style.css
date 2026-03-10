@@ -1,0 +1,553 @@
+/* qPCRtools - Clean Simple Style */
+
+:root {
+    /* 从植物基因数据库借鉴的配色 */
+    --primary-color: #2e7d7c;
+    --secondary-color: #3498db;
+    --accent-color: #5dade2;
+
+    /* Semantic colors */
+    --success-color: #27ae60;
+    --danger-color: #e74c3c;
+    --warning-color: #f39c12;
+    --info-color: #3498db;
+
+    /* 背景色 */
+    --bg-color: #f5f7fa;
+    --surface-color: #ffffff;
+    --border-color: #e1e8ed;
+
+    /* 文字颜色 */
+    --text-primary: #2c3e50;
+    --text-secondary: #5a6c7d;
+    --text-muted: #7f8c8d;
+
+    /* 功能卡片渐变 */
+    --card-gradient-start: #6bb5b4;
+    --card-gradient-end: #4a9b9a;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: #2c3e50;
+    background: #f5f7fa;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+}
+
+/* Navigation */
+.navbar {
+    background-color: #ffffff !important;
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.5rem;
+    color: var(--primary-color) !important;
+}
+
+.nav-link {
+    color: var(--text-secondary) !important;
+    font-weight: 500;
+    padding: 10px 16px !important;
+    border-radius: 25px;
+    transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+    background-color: #f0f3f5;
+    color: var(--primary-color) !important;
+}
+
+.nav-link.active {
+    background-color: var(--primary-color) !important;
+    color: #ffffff !important;
+    font-weight: 600;
+}
+
+/* Pages */
+.page {
+    display: none;
+}
+
+.page.active {
+    display: block;
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Feature Cards - 植物数据库渐变风格 */
+.feature-card {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
+    background: linear-gradient(135deg, var(--card-gradient-start), var(--card-gradient-end)) !important;
+    color: white !important;
+    padding: 34px;
+    border-radius: 15px;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.feature-card h5 {
+    color: #FFFFFF !important;
+    font-weight: bold;
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+    text-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.5),
+        0 0 10px rgba(0, 0, 0, 0.3),
+        0 0 20px rgba(0, 0, 0, 0.2);
+}
+
+.feature-card p {
+    color: #FFFFFF !important;
+    font-size: 0.95rem;
+    opacity: 1;
+    text-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.6),
+        0 0 8px rgba(0, 0, 0, 0.4);
+    line-height: 1.4;
+}
+
+.feature-card i {
+    color: #FFFFFF !important;
+    opacity: 1;
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    filter:
+        drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6))
+        drop-shadow(0 0 8px rgba(0, 0, 0, 0.4));
+}
+
+/* Jumbotron */
+.jumbotron {
+    background: transparent !important;
+    padding: 40px 20px;
+    margin-bottom: 24px;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+}
+
+.jumbotron h1 {
+    color: #2c3e50 !important;
+    font-weight: 700;
+    font-size: 2.2rem;
+    margin-bottom: 0.5rem;
+    text-align: center;
+}
+
+.jumbotron .lead {
+    color: #556b7d !important;
+    font-size: 1.1rem;
+    font-weight: 400;
+    text-align: center;
+}
+
+.jumbotron p {
+    color: #556b7d !important;
+    font-size: 1rem;
+    font-weight: 400;
+    text-align: center;
+}
+
+.jumbotron hr {
+    border-color: rgba(0, 0, 0, 0.1);
+    margin: 30px 0;
+}
+
+/* Cards */
+.card {
+    background: #ffffff;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
+}
+
+.card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.card-header {
+    background-color: #f8f9fa !important;
+    color: #2c3e50 !important;
+    border-radius: 8px 8px 0 0 !important;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-color);
+    padding: 1rem 1.5rem;
+}
+
+.card-body {
+    padding: 1.5rem;
+    color: #2c3e50;
+}
+
+/* Buttons */
+.btn {
+    border-radius: 25px;
+    padding: 14px 29px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background: linear-gradient(45deg, #5dade2, #3498db) !important;
+    border: none;
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+}
+
+.btn-success {
+    background: linear-gradient(45deg, #5dade2, #3498db) !important;
+    border: none;
+    color: white;
+}
+
+.btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+}
+
+.btn-lg {
+    padding: 15px 35px;
+    font-size: 1.1rem;
+}
+
+/* Tables */
+.table {
+    color: #2c3e50;
+}
+
+.table thead th {
+    background: linear-gradient(45deg, #6bb5b4, #4a9b9a);
+    color: white;
+    font-weight: 600;
+    border-bottom: none;
+}
+
+.table tbody td {
+    color: #2c3e50;
+}
+
+.table tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+.table tbody tr:hover {
+    background-color: rgba(107, 181, 180, 0.1);
+}
+
+/* Forms */
+.form-control,
+.form-select {
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    padding: 0.6rem 0.75rem;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+/* Jumbotron */
+.jumbotron {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--info-color) 100%);
+    color: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.1);
+}
+
+.jumbotron h1 {
+    font-weight: 700;
+}
+
+.jumbotron hr {
+    border-color: rgba(255,255,255,.3);
+}
+
+/* Feature Cards */
+.feature-card {
+    text-align: center;
+    padding: 2rem;
+    height: 100%;
+}
+
+.feature-card i {
+    margin-bottom: 1rem;
+    opacity: 0.8;
+}
+
+/* Tabs */
+.nav-tabs {
+    border-bottom: 2px solid #dee2e6;
+}
+
+.nav-tabs .nav-link {
+    border: none;
+    border-radius: 25px;
+    color: var(--secondary-color);
+    font-weight: 500;
+    padding: 1rem 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.nav-tabs .nav-link:hover {
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--primary-color);
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--primary-color);
+    background-color: transparent;
+    border-bottom: 2px solid var(--primary-color);
+    font-weight: 600;
+}
+
+/* Progress Bar */
+.progress {
+    height: 25px;
+    border-radius: 15px;
+    background-color: #e9ecef;
+}
+
+.progress-bar {
+    background: linear-gradient(90deg, var(--primary-color), var(--info-color));
+    border-radius: 15px;
+    line-height: 25px;
+}
+
+/* Toast */
+.toast {
+    border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.15);
+}
+
+.toast-header {
+    background-color: var(--light-color);
+    border-bottom: 1px solid #dee2e6;
+    font-weight: 600;
+}
+
+/* Modal */
+.modal-content {
+    border-radius: 15px;
+    border: none;
+}
+
+.modal-header {
+    border-bottom: 1px solid #dee2e6;
+    border-radius: 15px 15px 0 0;
+}
+
+.modal-footer {
+    border-top: 1px solid #dee2e6;
+    border-radius: 0 0 15px 15px;
+}
+
+/* Loading Spinner */
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* Chart Container */
+#mainChart {
+    border-radius: 8px;
+}
+
+/* Data Preview */
+.table-responsive {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.table-sm {
+    font-size: 0.875rem;
+}
+
+/* Badge */
+.badge {
+    font-weight: 500;
+    padding: 0.35em 0.65em;
+    border-radius: 4px;
+}
+
+/* Dropdown Menu */
+.dropdown-menu {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.15);
+}
+
+.dropdown-item {
+    transition: background-color 0.2s ease;
+}
+
+.dropdown-item:hover {
+    background-color: var(--light-color);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--light-color);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--secondary-color);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-color);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .navbar-brand {
+        font-size: 1.2rem;
+    }
+
+    .jumbotron h1 {
+        font-size: 2rem;
+    }
+
+    .btn-lg {
+        padding: 0.5rem 1rem;
+        font-size: 1rem;
+    }
+
+    .card {
+        margin-bottom: 1rem;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .navbar,
+    .btn,
+    .modal,
+    .toast-container {
+        display: none !important;
+    }
+
+    .card {
+        box-shadow: none;
+        border: 1px solid #dee2e6;
+    }
+
+    .page {
+        page-break-inside: avoid;
+    }
+}
+
+/* ggplot2-style Chart Colors */
+.ggplot-nature-1 { background-color: #E64B35; }
+.ggplot-nature-2 { background-color: #4DBBD5; }
+.ggplot-nature-3 { background-color: #00A087; }
+.ggplot-nature-4 { background-color: #3C5488; }
+.ggplot-nature-5 { background-color: #F39B7F; }
+.ggplot-nature-6 { background-color: #8491B4; }
+.ggplot-nature-7 { background-color: #91D1C2; }
+.ggplot-nature-8 { background-color: #B09C85; }
+
+.ggplot-science-1 { background-color: #3C5488; }
+.ggplot-science-2 { background-color: #F39B7F; }
+.ggplot-science-3 { background-color: #8491B4; }
+.ggplot-science-4 { background-color: #91D1C2; }
+.ggplot-science-5 { background-color: #DC0000; }
+.ggplot-science-6 { background-color: #7E6148; }
+
+/* Status Indicators */
+.status-success {
+    color: var(--success-color);
+}
+
+.status-warning {
+    color: var(--warning-color);
+}
+
+.status-danger {
+    color: var(--danger-color);
+}
+
+.status-info {
+    color: var(--info-color);
+}
+
+/* Animations */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.loading {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Icon Sizes */
+.fa-xs {
+    font-size: 0.75em;
+}
+
+.fa-sm {
+    font-size: 0.875em;
+}
+
+.fa-lg {
+    font-size: 1.25em;
+}
+
+.fa-xl {
+    font-size: 1.5em;
+}
+
+.fa-2x {
+    font-size: 2em;
+}
+
+.fa-3x {
+    font-size: 3em;
+}

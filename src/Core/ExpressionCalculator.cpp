@@ -37,9 +37,10 @@ ExpressionResult ExpressionCalculator::calculateByDeltaCt(const DeltaCtParams& p
     // Process each target gene
     for (const QString& gene : geneSet) {
         // Get data for this gene and reference gene
-        DataFrame geneData = merged.filter([gene](const Row& row) {
+        const QString& refGene = params.referenceGene;
+        DataFrame geneData = merged.filter([gene, refGene](const Row& row) {
             return row.value("Gene").toString() == gene ||
-                   row.value("Gene").toString() == params.referenceGene;
+                   row.value("Gene").toString() == refGene;
         });
 
         // Group by BioRep and calculate mean Cq for technical replicates

@@ -207,9 +207,19 @@ QVariant DataFrame::get(int row, const QString& column) const {
 }
 
 void DataFrame::set(int row, const QString& column, const QVariant& value) {
-    if (row >= 0 && row < m_rowCount && hasColumn(column)) {
-        m_data[column][row] = value;
+    if (!hasColumn(column)) {
+        return;
     }
+
+    // Expand DataFrame if needed
+    if (row >= m_rowCount) {
+        for (const QString& col : m_columnNames) {
+            m_data[col].resize(row + 1);
+        }
+        m_rowCount = row + 1;
+    }
+
+    m_data[column][row] = value;
 }
 
 Row DataFrame::getRow(int row) const {
@@ -313,7 +323,7 @@ DataFrame DataFrame::groupBy(const QString& column) const {
 
         // Add to result
         for (const QString& col : m_columnNames) {
-            QString colName = col + "_" + QString::number(group);
+            QString colName = col + "_" + group;
             // ... implement grouping logic
         }
     }
@@ -376,10 +386,18 @@ DataFrame DataFrame::orderBy(const QString& column, bool ascending) const {
         QVariant valA = get(a, column);
         QVariant valB = get(b, column);
 
-        if (valA < valB) {
-            return ascending ? true : false;
-        } else if (valA > valB) {
-            return ascending ? false : true;
+        // Compare QVariants
+        if (valA.userType() == QMetaType::Double && valB.userType() == QMetaType::Double) {
+            double dA = valA.toDouble();
+            double dB = valB.toDouble();
+            if (dA < dB) return ascending ? true : false;
+            if (dA > dB) return ascending ? false : true;
+        } else {
+            // String comparison
+            QString strA = valA.toString();
+            QString strB = valB.toString();
+            if (strA < strB) return ascending ? true : false;
+            if (strA > strB) return ascending ? false : true;
         }
         return false;
     });
