@@ -30,6 +30,14 @@ public:
     DataFrame parse(const QString& path, bool hasHeader = true);
 
     /**
+     * @brief 从字符串解析 CSV 内容
+     * @param content CSV 格式的字符串内容
+     * @param hasHeader 是否有标题行
+     * @return DataFrame 对象
+     */
+    DataFrame parseString(const QString& content, bool hasHeader = true);
+
+    /**
      * @brief 设置分隔符
      * @param separator 分隔符字符
      */

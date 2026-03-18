@@ -127,6 +127,74 @@ DataFrame CSVParser::parse(const QString& path, bool hasHeader) {
     return df;
 }
 
+DataFrame CSVParser::parseString(const QString& content, bool hasHeader) {
+    m_errorString.clear();
+
+    QStringList lines = content.split('\n');
+
+    DataFrame df;
+    QStringList columnNames;
+    int currentRow = 0;
+
+    for (const QString& line : lines) {
+        // Skip empty lines if configured
+        if (m_skipEmptyLines && line.trimmed().isEmpty()) {
+            continue;
+        }
+
+        QStringList fields;
+        parseLine(line, fields);
+
+        if (fields.isEmpty()) {
+            continue;
+        }
+
+        if (currentRow == 0 && hasHeader) {
+            // First row is header
+            columnNames = fields;
+
+            // Initialize columns in DataFrame
+            for (const QString& name : columnNames) {
+                df.addColumn(name, QVector<QVariant>());
+            }
+        } else {
+            // Data row
+            if (columnNames.isEmpty() && !hasHeader) {
+                // Auto-generate column names
+                for (int i = 0; i < fields.size(); ++i) {
+                    columnNames.append(QString("V%1").arg(i + 1));
+                    df.addColumn(columnNames[i], QVector<QVariant>());
+                }
+            }
+
+            // Add data to columns
+            int rowIndex = currentRow - (hasHeader ? 1 : 0);
+            for (int i = 0; i < qMin(fields.size(), columnNames.size()); ++i) {
+                QVariant value = convertValue(fields[i], i);
+
+                if (!df.hasColumn(columnNames[i])) {
+                    df.addColumn(columnNames[i], QVariant());
+                }
+
+                // Use set method to add data
+                df.set(rowIndex, columnNames[i], value);
+            }
+
+            // Fill missing columns with QVariant()
+            for (int i = fields.size(); i < columnNames.size(); ++i) {
+                if (!df.hasColumn(columnNames[i])) {
+                    df.addColumn(columnNames[i], QVariant());
+                }
+                df.set(rowIndex, columnNames[i], QVariant());
+            }
+        }
+
+        currentRow++;
+    }
+
+    return df;
+}
+
 QString CSVParser::parseLine(const QString& line, QStringList& fields) {
     fields.clear();
 

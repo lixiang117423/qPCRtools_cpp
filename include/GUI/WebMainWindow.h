@@ -8,6 +8,10 @@
 #include <QLabel>
 #include "WebBridge.h"
 
+QT_BEGIN_NAMESPACE
+class QWebEngineDownloadRequest;
+QT_END_NAMESPACE
+
 namespace qpcr {
 
 /**
@@ -31,6 +35,7 @@ private slots:
     void onWebLoadFinished(bool success);
     void onError(const QString &error);
     void onProgressChanged(int progress, const QString &message);
+    void handleDownloadRequested(QWebEngineDownloadRequest *request);
 
 private:
     void setupUI();

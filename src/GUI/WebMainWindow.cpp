@@ -18,6 +18,8 @@
 #include <QDateTime>
 #include <QWebEngineProfile>
 #include <QWebEngineSettings>
+#include <QWebEnginePage>
+#include <QStandardPaths>
 
 namespace qpcr {
 
@@ -64,6 +66,10 @@ void WebMainWindow::setupUI()
     // 禁用缓存以防止浏览器缓存旧的CSS/JS文件
     m_webView->settings()->setAttribute(QWebEngineSettings::LocalContentCanAccessRemoteUrls, false);
     m_webView->settings()->setAttribute(QWebEngineSettings::LocalContentCanAccessFileUrls, true);
+
+    // 设置下载处理
+    connect(m_webView->page()->profile(), &QWebEngineProfile::downloadRequested,
+            this, &WebMainWindow::handleDownloadRequested);
 
     // 初始化成员变量
     m_menuBar = nullptr;
@@ -358,6 +364,24 @@ void WebMainWindow::onProgressChanged(int progress, const QString &message)
             m_progressBar->setVisible(false);
         });
     }
+}
+
+void WebMainWindow::handleDownloadRequested(QWebEngineDownloadRequest *request)
+{
+    // 设置下载目录为用户的下载文件夹
+    QString downloadPath = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+
+    // 获取文件名
+    QString suggestedFileName = request->suggestedFileName();
+    QString filePath = downloadPath + "/" + suggestedFileName;
+
+    // 设置下载路径
+    request->setDownloadFileName(filePath);
+
+    // 接受下载
+    request->accept();
+
+    m_statusLabel->setText(tr("Download started: %1").arg(suggestedFileName));
 }
 
 void WebMainWindow::closeEvent(QCloseEvent *event)

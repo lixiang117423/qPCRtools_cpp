@@ -79,12 +79,10 @@ const translations = {
 
         // Results
         'results.title': '分析结果',
-        'results.dataTable': '数据表',
+        'results.data': '数据',
         'results.charts': '图表',
-        'results.statistics': '统计结果',
-        'results.expressionData': '表达数据',
+        'results.summaryData': '汇总数据',
         'results.plots': '图表展示',
-        'results.statisticalTests': '统计检验结果',
 
         // Table
         'table.preview': '预览',
@@ -190,12 +188,10 @@ const translations = {
 
         // Results
         'results.title': 'Analysis Results',
-        'results.dataTable': 'Data Table',
+        'results.data': 'Data',
         'results.charts': 'Charts',
-        'results.statistics': 'Statistics',
-        'results.expressionData': 'Expression Data',
+        'results.summaryData': 'Summary Data',
         'results.plots': 'Plots',
-        'results.statisticalTests': 'Statistical Test Results',
 
         // Table
         'table.preview': 'Preview',
