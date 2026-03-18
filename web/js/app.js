@@ -645,10 +645,70 @@ function checkDataLoaded() {
     if (currentCqData && currentDesignData) {
         console.log('Both datasets loaded, enabling proceed button');
         proceedBtn.disabled = false;
+
+        // Update dropdown options
+        updateParameterDropdowns();
     } else {
         console.log('Missing data, proceed button remains disabled');
         if (!currentCqData) console.log('  - currentCqData is missing');
         if (!currentDesignData) console.log('  - currentDesignData is missing');
+    }
+}
+
+/**
+ * Update parameter dropdowns based on loaded data
+ */
+function updateParameterDropdowns() {
+    try {
+        // Update gene list from Cq data
+        const geneList = document.getElementById('geneList');
+        if (geneList && currentCqData && Array.isArray(currentCqData)) {
+            // Extract unique genes
+            const genes = new Set();
+            currentCqData.forEach(row => {
+                if (row.Gene) {
+                    genes.add(row.Gene);
+                }
+            });
+
+            // Clear existing options
+            geneList.innerHTML = '';
+
+            // Add new options
+            genes.forEach(gene => {
+                const option = document.createElement('option');
+                option.value = gene;
+                geneList.appendChild(option);
+            });
+
+            console.log('Updated gene list with', genes.size, 'unique genes');
+        }
+
+        // Update group list from Design data
+        const groupList = document.getElementById('groupList');
+        if (groupList && currentDesignData && Array.isArray(currentDesignData)) {
+            // Extract unique groups
+            const groups = new Set();
+            currentDesignData.forEach(row => {
+                if (row.Group) {
+                    groups.add(row.Group);
+                }
+            });
+
+            // Clear existing options
+            groupList.innerHTML = '';
+
+            // Add new options
+            groups.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group;
+                groupList.appendChild(option);
+            });
+
+            console.log('Updated group list with', groups.size, 'unique groups');
+        }
+    } catch (error) {
+        console.error('Error updating parameter dropdowns:', error);
     }
 }
 
@@ -1092,7 +1152,7 @@ function showNotification(message, type = 'info') {
     toastBody.textContent = message;
 
     const toast = new bootstrap.Toast(toastEl, {
-        delay: 3000,  // 3秒后自动关闭
+        delay: 1500,  // 1.5秒后自动关闭
         autohide: true
     });
     toast.show();

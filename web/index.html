@@ -97,17 +97,7 @@
 
             <!-- Features -->
             <div class="row mt-4">
-                <div class="col-md-3">
-                    <div class="card feature-card" data-action="start-analysis">
-                        <div class="card-body text-center">
-                            <h5 class="card-title" data-i18n="feature.standardCurve">Standard Curve</h5>
-                            <p class="card-text" data-i18n="feature.standardCurveDesc">
-                                Linear regression and amplification efficiency calculation
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
+                <div class="col-md-6">
                     <div class="card feature-card" data-action="start-analysis">
                         <div class="card-body text-center">
                             <h5 class="card-title" data-i18n="feature.deltaCt">ΔCt/ΔΔCt</h5>
@@ -117,22 +107,12 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-6">
                     <div class="card feature-card" data-action="start-analysis">
                         <div class="card-body text-center">
                             <h5 class="card-title" data-i18n="feature.statistics">Statistical Tests</h5>
                             <p class="card-text" data-i18n="feature.statisticsDesc">
                                 t-test, ANOVA, Wilcoxon test
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card feature-card" data-action="start-analysis">
-                        <div class="card-body text-center">
-                            <h5 class="card-title" data-i18n="feature.visualization">Visualization</h5>
-                            <p class="card-text" data-i18n="feature.visualizationDesc">
-                                ggplot2-style publication quality charts
                             </p>
                         </div>
                     </div>
@@ -289,11 +269,17 @@
                             <form id="analysisForm">
                                 <div class="mb-3">
                                     <label class="form-label" data-i18n="param.referenceGene">Reference Gene</label>
-                                    <input type="text" class="form-control" id="referenceGene" placeholder="e.g., GAPDH, ACTB">
+                                    <input type="text" class="form-control" id="referenceGene" list="geneList" placeholder="e.g., GAPDH, ACTB">
+                                    <datalist id="geneList">
+                                        <!-- Options will be populated dynamically from data -->
+                                    </datalist>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label" data-i18n="param.controlGroup">Control Group</label>
-                                    <input type="text" class="form-control" id="controlGroup" placeholder="e.g., Control, Wild Type">
+                                    <input type="text" class="form-control" id="controlGroup" list="groupList" placeholder="e.g., Control, Wild Type">
+                                    <datalist id="groupList">
+                                        <!-- Options will be populated dynamically from data -->
+                                    </datalist>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label" data-i18n="param.statisticalTest">Statistical Test</label>
