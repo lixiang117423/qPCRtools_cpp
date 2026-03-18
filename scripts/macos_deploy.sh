@@ -88,7 +88,6 @@ cp -R ../web/* "${APP_BUNDLE}/Contents/Resources/web/"
 echo "Deploying Qt libraries..."
 ${MACDEPLOYQT} "${APP_BUNDLE}" \
     -verbose=2 \
-    -appstore \
     -always-overwrite
 
 # Copy translation files
