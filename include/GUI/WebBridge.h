@@ -31,11 +31,39 @@ public:
     Q_INVOKABLE QString loadCqFile(const QString &filePath);
 
     /**
+     * @brief 从JSON加载Cq数据
+     * @param jsonData JSON格式的Cq数据
+     * @return 是否成功
+     */
+    Q_INVOKABLE bool setCqData(const QString &jsonData);
+
+    /**
+     * @brief 从CSV字符串加载Cq数据
+     * @param csvContent CSV格式的字符串内容
+     * @return JSON格式的数据预览
+     */
+    Q_INVOKABLE QString loadCqFromContent(const QString &csvContent);
+
+    /**
      * @brief 加载实验设计文件
      * @param filePath 文件路径
      * @return JSON格式的设计信息
      */
     Q_INVOKABLE QString loadDesignFile(const QString &filePath);
+
+    /**
+     * @brief 从JSON加载实验设计数据
+     * @param jsonData JSON格式的设计数据
+     * @return 是否成功
+     */
+    Q_INVOKABLE bool setDesignData(const QString &jsonData);
+
+    /**
+     * @brief 从CSV字符串加载Design数据
+     * @param csvContent CSV格式的字符串内容
+     * @return JSON格式的设计信息
+     */
+    Q_INVOKABLE QString loadDesignFromContent(const QString &csvContent);
 
     /**
      * @brief 计算标准曲线
@@ -47,9 +75,10 @@ public:
     /**
      * @brief 使用ΔCt方法计算基因表达
      * @param params JSON格式的参数
+     * @param statMethod 统计方法
      * @return JSON格式的结果
      */
-    Q_INVOKABLE QString calculateByDeltaCt(const QString &params);
+    Q_INVOKABLE QString calculateByDeltaCt(const QString &params, const QString &statMethod = "t.test");
 
     /**
      * @brief 使用ΔΔCt方法计算基因表达

@@ -8,6 +8,9 @@
 #include <QJsonArray>
 #include <QApplication>
 #include <QDebug>
+#include <QFile>
+#include <QTextStream>
+#include <QStringConverter>
 
 namespace qpcr {
 
@@ -56,6 +59,102 @@ QString WebBridge::loadCqFile(const QString &filePath)
     }
 }
 
+bool WebBridge::setCqData(const QString &jsonData)
+{
+    try {
+        qDebug() << "=== setCqData called ===";
+        qDebug() << "JSON data length:" << jsonData.length();
+        qDebug() << "JSON (first 500 chars):" << jsonData.left(500);
+
+        // Clear existing data
+        m_cqTable = DataFrame();
+
+        QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8());
+        if (!doc.isArray()) {
+            emit errorOccurred(tr("Invalid Cq data format"));
+            return false;
+        }
+
+        QJsonArray rows = doc.array();
+        if (rows.isEmpty()) {
+            emit errorOccurred(tr("Empty Cq data"));
+            return false;
+        }
+
+        qDebug() << "Parsed" << rows.size() << "rows from JSON";
+
+        // Get column names from first row
+        QJsonObject firstRow = rows[0].toObject();
+        QStringList columns;
+        for (auto it = firstRow.begin(); it != firstRow.end(); ++it) {
+            columns.append(it.key());
+        }
+
+        qDebug() << "Columns:" << columns;
+
+        // Collect data for each column
+        QHash<QString, QVector<QVariant>> columnData;
+        for (const QString &col : columns) {
+            columnData[col] = QVector<QVariant>();
+        }
+
+        // Parse all rows
+        for (const QJsonValue &rowValue : rows) {
+            QJsonObject rowObj = rowValue.toObject();
+            for (const QString &col : columns) {
+                if (rowObj.contains(col)) {
+                    QJsonValue val = rowObj[col];
+                    if (val.isDouble()) {
+                        columnData[col].append(val.toDouble());
+                    } else {
+                        columnData[col].append(val.toString());
+                    }
+                } else {
+                    columnData[col].append(QVariant());
+                }
+            }
+        }
+
+        // Add columns to DataFrame
+        for (const QString &col : columns) {
+            m_cqTable.addColumn(col, columnData[col]);
+        }
+
+        qDebug() << "Cq data loaded:" << m_cqTable.rowCount() << "rows," << m_cqTable.columnCount() << "columns";
+        qDebug() << "First 3 rows:";
+        for (int i = 0; i < qMin(3, m_cqTable.rowCount()); ++i) {
+            qDebug() << "  Row" << i << ": Position=" << m_cqTable.get(i, "Position").toString()
+                     << "Gene=" << m_cqTable.get(i, "Gene").toString()
+                     << "Cq=" << m_cqTable.get(i, "Cq").toDouble();
+        }
+
+        return true;
+
+    } catch (const std::exception &e) {
+        emit errorOccurred(tr("Failed to parse Cq data: %1").arg(e.what()));
+        return false;
+    }
+}
+
+QString WebBridge::loadCqFromContent(const QString &csvContent)
+{
+    emit progressChanged(10, tr("Parsing Cq data..."));
+
+    try {
+        CSVParser parser;
+        m_cqTable = parser.parseString(csvContent);
+
+        emit progressChanged(100, tr("Cq data loaded successfully"));
+        emit dataLoaded(true, tr("Loaded %1 rows").arg(m_cqTable.rowCount()));
+
+        return dataframeToVariantMap(m_cqTable)["data"].toString();
+
+    } catch (const std::exception &e) {
+        emit errorOccurred(tr("Failed to parse Cq data: %1").arg(e.what()));
+        return "{}";
+    }
+}
+
 QString WebBridge::loadDesignFile(const QString &filePath)
 {
     emit progressChanged(10, tr("Loading design file..."));
@@ -87,6 +186,101 @@ QString WebBridge::loadDesignFile(const QString &filePath)
 
     } catch (const std::exception &e) {
         emit errorOccurred(tr("Failed to load design file: %1").arg(e.what()));
+        return "{}";
+    }
+}
+
+bool WebBridge::setDesignData(const QString &jsonData)
+{
+    try {
+        qDebug() << "=== setDesignData called ===";
+        qDebug() << "JSON data length:" << jsonData.length();
+
+        // Clear existing data
+        m_designTable = DataFrame();
+
+        QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8());
+        if (!doc.isArray()) {
+            emit errorOccurred(tr("Invalid design data format"));
+            return false;
+        }
+
+        QJsonArray rows = doc.array();
+        if (rows.isEmpty()) {
+            emit errorOccurred(tr("Empty design data"));
+            return false;
+        }
+
+        qDebug() << "Parsed" << rows.size() << "rows from JSON";
+
+        // Get column names from first row
+        QJsonObject firstRow = rows[0].toObject();
+        QStringList columns;
+        for (auto it = firstRow.begin(); it != firstRow.end(); ++it) {
+            columns.append(it.key());
+        }
+
+        qDebug() << "Columns:" << columns;
+
+        // Collect data for each column
+        QHash<QString, QVector<QVariant>> columnData;
+        for (const QString &col : columns) {
+            columnData[col] = QVector<QVariant>();
+        }
+
+        // Parse all rows
+        for (const QJsonValue &rowValue : rows) {
+            QJsonObject rowObj = rowValue.toObject();
+            for (const QString &col : columns) {
+                if (rowObj.contains(col)) {
+                    QJsonValue val = rowObj[col];
+                    if (val.isDouble()) {
+                        columnData[col].append(val.toDouble());
+                    } else {
+                        columnData[col].append(val.toString());
+                    }
+                } else {
+                    columnData[col].append(QVariant());
+                }
+            }
+        }
+
+        // Add columns to DataFrame
+        for (const QString &col : columns) {
+            m_designTable.addColumn(col, columnData[col]);
+        }
+
+        qDebug() << "Design data loaded:" << m_designTable.rowCount() << "rows," << m_designTable.columnCount() << "columns";
+        qDebug() << "First 3 rows:";
+        for (int i = 0; i < qMin(3, m_designTable.rowCount()); ++i) {
+            qDebug() << "  Row" << i << ": Position=" << m_designTable.get(i, "Position").toString()
+                     << "Group=" << m_designTable.get(i, "Group").toString()
+                     << "BioRep=" << m_designTable.get(i, "BioRep").toString();
+        }
+
+        return true;
+
+    } catch (const std::exception &e) {
+        emit errorOccurred(tr("Failed to parse design data: %1").arg(e.what()));
+        return false;
+    }
+}
+
+QString WebBridge::loadDesignFromContent(const QString &csvContent)
+{
+    emit progressChanged(10, tr("Parsing design data..."));
+
+    try {
+        CSVParser parser;
+        m_designTable = parser.parseString(csvContent);
+
+        emit progressChanged(100, tr("Design data loaded successfully"));
+        emit dataLoaded(true, tr("Loaded %1 rows").arg(m_designTable.rowCount()));
+
+        return dataframeToVariantMap(m_designTable)["data"].toString();
+
+    } catch (const std::exception &e) {
+        emit errorOccurred(tr("Failed to parse design data: %1").arg(e.what()));
         return "{}";
     }
 }
@@ -123,59 +317,119 @@ QString WebBridge::calculateStandardCurve(const QString &params)
     return doc2.toJson(QJsonDocument::Compact);
 }
 
-QString WebBridge::calculateByDeltaCt(const QString &params)
+QString WebBridge::calculateByDeltaCt(const QString &params, const QString &statMethod)
 {
     emit progressChanged(10, tr("Calculating gene expression (ΔCt method)..."));
 
-    QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
-    if (!doc.isObject()) {
-        emit errorOccurred(tr("Invalid parameters"));
+    try {
+        QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
+        if (!doc.isObject()) {
+            emit errorOccurred(tr("Invalid parameters"));
+            emit calculationCompleted(false, tr("Invalid parameters"));
+            return "{}";
+        }
+
+        QJsonObject obj = doc.object();
+        DeltaCtParams dcParams;
+        dcParams.cqTable = m_cqTable;
+        dcParams.designTable = m_designTable;
+        dcParams.referenceGene = obj["referenceGene"].toString().trimmed();
+
+        qDebug() << "=== ΔCt calculation ===";
+        qDebug() << "Reference gene:" << dcParams.referenceGene;
+        qDebug() << "Statistical method:" << statMethod;
+
+        emit progressChanged(50, tr("Computing ΔCt values..."));
+
+        ExpressionResult result = m_expressionCalculator.calculateByDeltaCt(dcParams, statMethod);
+
+        qDebug() << "Result table rows:" << result.table.rowCount();
+
+        // Check if result is valid
+        if (result.table.rowCount() == 0) {
+            emit errorOccurred(tr("No valid results. Please check your data."));
+            emit calculationCompleted(false, tr("No valid results. Please check your data."));
+            return "{}";
+        }
+
+        emit progressChanged(100, tr("ΔCt calculation completed"));
+        emit calculationCompleted(true, tr("Calculation successful"));
+
+        return jsonFromResult(result);
+
+    } catch (const std::exception &e) {
+        emit errorOccurred(tr("Calculation failed: %1").arg(e.what()));
+        emit calculationCompleted(false, tr("Calculation failed: %1").arg(e.what()));
         return "{}";
     }
-
-    QJsonObject obj = doc.object();
-    DeltaCtParams dcParams;
-    dcParams.cqTable = m_cqTable;
-    dcParams.designTable = m_designTable;
-    dcParams.referenceGene = obj["referenceGene"].toString();
-    // Note: DeltaCtParams doesn't have removeOutliers, ignoring for now
-
-    emit progressChanged(50, tr("Computing ΔCt values..."));
-
-    ExpressionResult result = m_expressionCalculator.calculateByDeltaCt(dcParams);
-
-    emit progressChanged(100, tr("ΔCt calculation completed"));
-    emit calculationCompleted(true, tr("Calculation successful"));
-
-    return jsonFromResult(result);
 }
 
 QString WebBridge::calculateByDeltaDeltaCt(const QString &params, const QString &statMethod)
 {
     emit progressChanged(10, tr("Calculating gene expression (ΔΔCt method)..."));
 
-    QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
-    if (!doc.isObject()) {
-        emit errorOccurred(tr("Invalid parameters"));
+    try {
+        QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
+        if (!doc.isObject()) {
+            emit errorOccurred(tr("Invalid parameters"));
+            emit calculationCompleted(false, tr("Invalid parameters"));
+            return "{}";
+        }
+
+        QJsonObject obj = doc.object();
+        DeltaDeltaCtParams ddcParams;
+        ddcParams.cqTable = m_cqTable;
+        ddcParams.designTable = m_designTable;
+        ddcParams.referenceGene = obj["referenceGene"].toString().trimmed();
+        ddcParams.controlGroup = obj["controlGroup"].toString().trimmed();
+        ddcParams.removeOutliers = obj["removeOutliers"].toBool(false);
+
+        qDebug() << "Reference gene:" << ddcParams.referenceGene;
+        qDebug() << "Control group:" << ddcParams.controlGroup;
+
+        // Validate required parameters
+        if (ddcParams.referenceGene.isEmpty()) {
+            emit errorOccurred(tr("Reference gene is required"));
+            emit calculationCompleted(false, tr("Reference gene is required"));
+            return "{}";
+        }
+
+        if (ddcParams.controlGroup.isEmpty()) {
+            emit errorOccurred(tr("Control group is required"));
+            emit calculationCompleted(false, tr("Control group is required"));
+            return "{}";
+        }
+
+        emit progressChanged(50, tr("Computing ΔΔCt values..."));
+
+        qDebug() << "=== Starting ΔΔCt calculation ===";
+        qDebug() << "Cq table rows:" << m_cqTable.rowCount() << "columns:" << m_cqTable.columns();
+        qDebug() << "Design table rows:" << m_designTable.rowCount() << "columns:" << m_designTable.columns();
+        qDebug() << "Reference gene:" << ddcParams.referenceGene;
+        qDebug() << "Control group:" << ddcParams.controlGroup;
+
+        ExpressionResult result = m_expressionCalculator.calculateByDeltaDeltaCt(ddcParams, statMethod);
+
+        qDebug() << "Result table rows:" << result.table.rowCount();
+        qDebug() << "Result statistics count:" << result.statistics.count();
+
+        // Check if result is valid
+        if (result.table.rowCount() == 0) {
+            emit errorOccurred(tr("No valid results. Please check your data."));
+            emit calculationCompleted(false, tr("No valid results. Please check your data."));
+            return "{}";
+        }
+
+        emit progressChanged(100, tr("ΔΔCt calculation completed"));
+        emit calculationCompleted(true, tr("Calculation successful"));
+
+        return jsonFromResult(result);
+
+    } catch (const std::exception &e) {
+        emit errorOccurred(tr("Calculation failed: %1").arg(e.what()));
+        emit calculationCompleted(false, tr("Calculation failed: %1").arg(e.what()));
         return "{}";
     }
-
-    QJsonObject obj = doc.object();
-    DeltaDeltaCtParams ddcParams;
-    ddcParams.cqTable = m_cqTable;
-    ddcParams.designTable = m_designTable;
-    ddcParams.referenceGene = obj["referenceGene"].toString();
-    ddcParams.controlGroup = obj["controlGroup"].toString();
-    ddcParams.removeOutliers = obj["removeOutliers"].toBool(false);
-
-    emit progressChanged(50, tr("Computing ΔΔCt values..."));
-
-    ExpressionResult result = m_expressionCalculator.calculateByDeltaDeltaCt(ddcParams, statMethod);
-
-    emit progressChanged(100, tr("ΔΔCt calculation completed"));
-    emit calculationCompleted(true, tr("Calculation successful"));
-
-    return jsonFromResult(result);
 }
 
 QString WebBridge::calculateByStandardCurve(const QString &params, const QString &statMethod)
@@ -206,24 +460,133 @@ bool WebBridge::exportToCSV(const QString &data, const QString &filePath)
 {
     emit progressChanged(10, tr("Exporting to CSV..."));
 
-    // TODO: Implement CSV export
+    QJsonDocument doc = QJsonDocument::fromJson(data.toUtf8());
+    if (!doc.isObject()) {
+        emit errorOccurred(tr("Invalid data format for export"));
+        return false;
+    }
+
+    QJsonObject obj = doc.object();
+    if (!obj.contains("table") || !obj["table"].isArray()) {
+        emit errorOccurred(tr("No table data found"));
+        return false;
+    }
+
+    QJsonArray table = obj["table"].toArray();
+    if (table.isEmpty()) {
+        emit errorOccurred(tr("Table is empty"));
+        return false;
+    }
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        emit errorOccurred(tr("Cannot open file for writing: %1").arg(filePath));
+        return false;
+    }
+
+    QTextStream out(&file);
+    out.setEncoding(QStringConverter::Utf8);
+
+    // Write header
+    QJsonObject firstRow = table[0].toObject();
+    QStringList headers = firstRow.keys();
+    out << headers.join(",") << "\n";
+
+    // Write data rows
+    for (const QJsonValue &rowValue : table) {
+        QJsonObject rowObj = rowValue.toObject();
+        QStringList values;
+        for (const QString &header : headers) {
+            QJsonValue val = rowObj[header];
+            if (val.isDouble()) {
+                values.append(QString::number(val.toDouble(), 'f', 4));
+            } else if (val.isNull()) {
+                values.append("");
+            } else {
+                QString strVal = val.toString();
+                // Escape quotes if necessary
+                if (strVal.contains(",") || strVal.contains("\"") || strVal.contains("\n")) {
+                    strVal = "\"" + strVal.replace("\"", "\"\"") + "\"";
+                }
+                values.append(strVal);
+            }
+        }
+        out << values.join(",") << "\n";
+    }
+
+    file.close();
 
     emit progressChanged(100, tr("Export completed"));
+    emit dataLoaded(true, tr("Exported %1 rows to CSV").arg(table.size()));
     return true;
 }
 
 bool WebBridge::exportToExcel(const QString &data, const QString &filePath)
 {
-    emit progressChanged(10, tr("Exporting to Excel..."));
+    emit progressChanged(10, tr("Exporting to Excel (CSV format)..."));
 
-#ifdef HAS_OPENXLSX
-    // TODO: Implement Excel export
-#else
-    emit errorOccurred(tr("Excel support is not available"));
-    return false;
-#endif
+    // Since OpenXLSX is not available, export as CSV (Excel can open CSV files)
+    QJsonDocument doc = QJsonDocument::fromJson(data.toUtf8());
+    if (!doc.isObject()) {
+        emit errorOccurred(tr("Invalid data format for export"));
+        return false;
+    }
+
+    QJsonObject obj = doc.object();
+    if (!obj.contains("table") || !obj["table"].isArray()) {
+        emit errorOccurred(tr("No table data found"));
+        return false;
+    }
+
+    QJsonArray table = obj["table"].toArray();
+    if (table.isEmpty()) {
+        emit errorOccurred(tr("Table is empty"));
+        return false;
+    }
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        emit errorOccurred(tr("Cannot open file for writing: %1").arg(filePath));
+        return false;
+    }
+
+    QTextStream out(&file);
+    out.setEncoding(QStringConverter::Utf8);
+
+    // Write UTF-8 BOM for Excel to recognize encoding
+    out << "\xEF\xBB\xBF";
+
+    // Write header
+    QJsonObject firstRow = table[0].toObject();
+    QStringList headers = firstRow.keys();
+    out << headers.join(",") << "\n";
+
+    // Write data rows
+    for (const QJsonValue &rowValue : table) {
+        QJsonObject rowObj = rowValue.toObject();
+        QStringList values;
+        for (const QString &header : headers) {
+            QJsonValue val = rowObj[header];
+            if (val.isDouble()) {
+                values.append(QString::number(val.toDouble(), 'f', 4));
+            } else if (val.isNull()) {
+                values.append("");
+            } else {
+                QString strVal = val.toString();
+                // Escape quotes if necessary
+                if (strVal.contains(",") || strVal.contains("\"") || strVal.contains("\n")) {
+                    strVal = "\"" + strVal.replace("\"", "\"\"") + "\"";
+                }
+                values.append(strVal);
+            }
+        }
+        out << values.join(",") << "\n";
+    }
+
+    file.close();
 
     emit progressChanged(100, tr("Export completed"));
+    emit dataLoaded(true, tr("Exported %1 rows to Excel (CSV format)").arg(table.size()));
     return true;
 }
 
@@ -278,27 +641,26 @@ QVariantMap WebBridge::dataframeToVariantMap(const DataFrame &df)
 {
     QVariantMap result;
 
-    QJsonArray columns;
     QStringList columnNames = df.columns();
-    for (const QString &name : columnNames) {
-        columns.append(QJsonValue(name));
-    }
 
+    // Create array of objects (each row is an object with column names as keys)
     QJsonArray rows;
     for (int i = 0; i < df.rowCount(); ++i) {
-        QJsonArray row;
+        QJsonObject row;
         for (const QString &name : columnNames) {
             QVariant value = df.get(i, name);
             if (value.typeId() == QMetaType::Double) {
-                row.append(QJsonValue(value.toDouble()));
+                row[name] = value.toDouble();
+            } else if (value.isNull() || !value.isValid()) {
+                row[name] = QJsonValue(); // null value
             } else {
-                row.append(QJsonValue(value.toString()));
+                row[name] = value.toString();
             }
         }
         rows.append(row);
     }
 
-    result["columns"] = QJsonDocument(columns).toJson(QJsonDocument::Compact);
+    result["columns"] = QJsonDocument(QJsonArray::fromStringList(columnNames)).toJson(QJsonDocument::Compact);
     result["data"] = QJsonDocument(rows).toJson(QJsonDocument::Compact);
     result["rowCount"] = df.rowCount();
     result["columnCount"] = columnNames.size();

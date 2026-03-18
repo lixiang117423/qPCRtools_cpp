@@ -81,9 +81,13 @@ public:
      * Relative Expression = 2^-ΔCt
      *
      * @param params 计算参数
+     * @param statMethod 统计方法: "t.test", "wilcox.test", "anova"
      * @return 表达量结果
      */
-    static ExpressionResult calculateByDeltaCt(const DeltaCtParams& params);
+    static ExpressionResult calculateByDeltaCt(
+        const DeltaCtParams& params,
+        const QString& statMethod = "t.test"
+    );
 
     /**
      * @brief 使用 2^-ΔΔCt 方法计算表达量

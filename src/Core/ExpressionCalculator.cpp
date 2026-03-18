@@ -10,10 +10,17 @@ namespace qpcr {
 // ΔCt Method
 //=============================================================================
 
-ExpressionResult ExpressionCalculator::calculateByDeltaCt(const DeltaCtParams& params)
+ExpressionResult ExpressionCalculator::calculateByDeltaCt(
+    const DeltaCtParams& params,
+    const QString& statMethod)
 {
     ExpressionResult result;
     result.method = "2^-ΔCt";
+
+    qDebug() << "=== Starting ΔCt calculation ===";
+    qDebug() << "Cq table rows:" << params.cqTable.rowCount();
+    qDebug() << "Design table rows:" << params.designTable.rowCount();
+    qDebug() << "Reference gene:" << params.referenceGene;
 
     // Merge tables
     DataFrame merged = params.cqTable.join(params.designTable, "Position");
@@ -25,7 +32,13 @@ ExpressionResult ExpressionCalculator::calculateByDeltaCt(const DeltaCtParams& p
         return result;
     }
 
-    // Get target genes (exclude reference)
+    // Get unique groups and genes
+    auto groups = merged.getStringColumn("Group");
+    QSet<QString> groupSet;
+    for (const auto& g : groups) {
+        groupSet.insert(g);
+    }
+
     auto allGenes = merged.getStringColumn("Gene");
     QSet<QString> geneSet;
     for (const auto& gene : allGenes) {
@@ -34,19 +47,239 @@ ExpressionResult ExpressionCalculator::calculateByDeltaCt(const DeltaCtParams& p
         }
     }
 
-    // Process each target gene
-    for (const QString& gene : geneSet) {
-        // Get data for this gene and reference gene
-        const QString& refGene = params.referenceGene;
-        DataFrame geneData = merged.filter([gene, refGene](const Row& row) {
-            return row.value("Gene").toString() == gene ||
-                   row.value("Gene").toString() == refGene;
+    qDebug() << "Groups:" << groupSet;
+    qDebug() << "Target genes:" << geneSet;
+
+    // Storage for all expression values for statistical testing
+    // Structure: allData[group][gene] = QVector<double> expressions
+    QHash<QString, QHash<QString, QVector<double>>> allData;
+
+    // Step 1: Calculate mean Cq for reference gene in each (group, biorep) combination
+    // Key: "Group_BioRep", Value: mean Cq
+    QHash<QString, double> refGeneMeanCq;
+
+    for (const QString& group : groupSet) {
+        // Get all unique bioReps in this group
+        DataFrame groupData = merged.filter([group](const Row& row) {
+            return row.value("Group").toString() == group;
         });
 
-        // Group by BioRep and calculate mean Cq for technical replicates
-        // ... implementation details
+        auto bioReps = groupData.getStringColumn("BioRep");
+        QSet<QString> bioRepSet;
+        for (const auto& rep : bioReps) {
+            bioRepSet.insert(rep);
+        }
+
+        // For each bioRep, calculate mean Cq of reference gene
+        for (const QString& bioRep : bioRepSet) {
+            DataFrame refData = groupData.filter([bioRep, &params](const Row& row) {
+                return row.value("BioRep").toString() == bioRep &&
+                       row.value("Gene").toString() == params.referenceGene;
+            });
+
+            if (refData.rowCount() > 0) {
+                auto cqValues = refData.getNumericColumn("Cq");
+                double sum = 0.0;
+                for (double cq : cqValues) {
+                    sum += cq;
+                }
+                double meanCq = sum / cqValues.size();
+
+                QString key = group + "_" + bioRep;
+                refGeneMeanCq[key] = meanCq;
+
+                qDebug() << "Ref gene mean Cq for" << key << ":" << meanCq;
+            }
+        }
     }
 
+    // Step 2: Calculate expression for each target gene
+    // For each (group, biorep, gene) combination: expression = 2^(mean.ref.cq - target.cq)
+    QVector<QVariant> finalGroups, finalGenes, finalMeans, finalStdDevs;
+
+    for (const QString& group : groupSet) {
+        for (const QString& gene : geneSet) {
+            // Get all expression values for this (group, gene) combination
+            QVector<double> expressions;
+
+            // Get all bioReps for this group
+            DataFrame groupData = merged.filter([group](const Row& row) {
+                return row.value("Group").toString() == group;
+            });
+
+            auto bioReps = groupData.getStringColumn("BioRep");
+            QSet<QString> bioRepSet;
+            for (const auto& rep : bioReps) {
+                bioRepSet.insert(rep);
+            }
+
+            // For each bioRep, get target gene Cq and calculate expression
+            for (const QString& bioRep : bioRepSet) {
+                QString refKey = group + "_" + bioRep;
+                if (!refGeneMeanCq.contains(refKey)) {
+                    qWarning() << "No reference gene data for" << refKey;
+                    continue;
+                }
+
+                double meanRefCq = refGeneMeanCq[refKey];
+
+                // Get target gene Cq values for this bioRep
+                DataFrame targetData = groupData.filter([bioRep, gene](const Row& row) {
+                    return row.value("BioRep").toString() == bioRep &&
+                           row.value("Gene").toString() == gene;
+                });
+
+                if (targetData.rowCount() > 0) {
+                    auto targetCqValues = targetData.getNumericColumn("Cq");
+                    for (double targetCq : targetCqValues) {
+                        // Calculate expression: 2^(mean.ref.cq - target.cq)
+                        double deltaCt = meanRefCq - targetCq;
+                        double expression = std::pow(2.0, deltaCt);
+                        expressions.append(expression);
+                    }
+                }
+            }
+
+            if (expressions.isEmpty()) {
+                qWarning() << "No expression data for" << group << gene;
+                continue;
+            }
+
+            // Store all expression values for statistical testing
+            allData[group][gene] = expressions;
+
+            // Calculate statistics for this (group, gene) combination
+            double mean = std::accumulate(expressions.begin(), expressions.end(), 0.0) / expressions.size();
+
+            double sumSquaredDiff = 0.0;
+            for (double val : expressions) {
+                double diff = val - mean;
+                sumSquaredDiff += diff * diff;
+            }
+            double stdDev = (expressions.size() > 1) ?
+                std::sqrt(sumSquaredDiff / (expressions.size() - 1)) : 0.0;
+
+            finalGroups.append(group);
+            finalGenes.append(gene);
+            finalMeans.append(mean);
+            finalStdDevs.append(stdDev);
+
+            qDebug() << "DeltaCt result:" << group << gene << "n=" << expressions.size()
+                     << "mean=" << mean << "sd=" << stdDev;
+        }
+    }
+
+    // Build result table
+    DataFrame resultTable;
+    resultTable.addColumn("Gene", finalGenes);
+    resultTable.addColumn("Group", finalGroups);
+    resultTable.addColumn("Mean", finalMeans);
+    resultTable.addColumn("StdDev", finalStdDevs);
+
+    qDebug() << "Final result table rows:" << resultTable.rowCount();
+    qDebug() << "Final result table columns:" << resultTable.columns();
+
+    // Perform statistical tests
+    // For ΔCt, we compare between groups (use first group as reference for t-test)
+    QString refGroup = groupSet.isEmpty() ? "" : *groupSet.begin();
+
+    if (statMethod == "t.test") {
+        for (const QString& gene : geneSet) {
+            // Find test group (not reference)
+            QString testGroup;
+            for (const QString& grp : groupSet) {
+                if (grp != refGroup) {
+                    testGroup = grp;
+                    break;
+                }
+            }
+
+            if (testGroup.isEmpty()) continue;
+
+            // Get expression values from allData
+            QVector<double> refValues = allData.value(refGroup).value(gene);
+            QVector<double> testValues = allData.value(testGroup).value(gene);
+
+            // Perform t-test
+            StatisticalResult statResult = performTTest(refValues, testValues, gene, refGroup, testGroup);
+            result.statistics.append(statResult);
+        }
+    } else if (statMethod == "wilcox.test") {
+        for (const QString& gene : geneSet) {
+            QString testGroup;
+            for (const QString& grp : groupSet) {
+                if (grp != refGroup) {
+                    testGroup = grp;
+                    break;
+                }
+            }
+
+            if (testGroup.isEmpty()) continue;
+
+            // Get expression values from allData
+            QVector<double> refValues = allData.value(refGroup).value(gene);
+            QVector<double> testValues = allData.value(testGroup).value(gene);
+
+            StatisticalResult statResult = performWilcoxonTest(refValues, testValues, gene, refGroup, testGroup);
+            result.statistics.append(statResult);
+        }
+    } else if (statMethod == "anova") {
+        // ANOVA not yet supported for ΔCt method
+        qWarning() << "ANOVA not yet supported for ΔCt method, using t.test instead";
+        // Fall through to t-test
+        for (const QString& gene : geneSet) {
+            QString testGroup;
+            for (const QString& grp : groupSet) {
+                if (grp != refGroup) {
+                    testGroup = grp;
+                    break;
+                }
+            }
+
+            if (testGroup.isEmpty()) continue;
+
+            QVector<double> refValues = allData.value(refGroup).value(gene);
+            QVector<double> testValues = allData.value(testGroup).value(gene);
+
+            StatisticalResult statResult = performTTest(refValues, testValues, gene, refGroup, testGroup);
+            result.statistics.append(statResult);
+        }
+    }
+
+    // Add p-values and significance to table
+    QVector<QVariant> finalPValues, finalSignifs;
+
+    for (int i = 0; i < resultTable.rowCount(); ++i) {
+        QString group = resultTable.get(i, "Group").toString();
+        QString gene = resultTable.get(i, "Gene").toString();
+
+        // Find p-value for this group-gene combination
+        bool foundStat = false;
+        for (const auto& stat : result.statistics) {
+            if (stat.gene == gene && stat.group2 == group) {
+                finalPValues.append(stat.pValue);
+                finalSignifs.append(stat.significance);
+                foundStat = true;
+                break;
+            }
+        }
+
+        if (!foundStat) {
+            finalPValues.append(QVariant()); // No p-value (reference group)
+            finalSignifs.append(""); // No significance
+        }
+    }
+
+    // Rebuild table with all columns
+    resultTable = DataFrame();
+    resultTable.addColumn("Gene", finalGenes);
+    resultTable.addColumn("Group", finalGroups);
+    resultTable.addColumn("Mean", finalMeans);
+    resultTable.addColumn("StdDev", finalStdDevs);
+    resultTable.addColumn("PValue", finalPValues);
+    resultTable.addColumn("Significance", finalSignifs);
+
+    result.table = resultTable;
     return result;
 }
 
@@ -61,13 +294,35 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
     ExpressionResult result;
     result.method = "2^-ΔΔCt";
 
+    qDebug() << "[ExpressionCalculator] Input Cq rows:" << params.cqTable.rowCount()
+             << "columns:" << params.cqTable.columns();
+    qDebug() << "[ExpressionCalculator] Input Design rows:" << params.designTable.rowCount()
+             << "columns:" << params.designTable.columns();
+
     // Merge tables
     DataFrame merged = params.cqTable.join(params.designTable, "Position");
+
+    qDebug() << "[ExpressionCalculator] After join - Merged rows:" << merged.rowCount()
+             << "columns:" << merged.columns();
+
+    // Debug: Show first few rows of merged data
+    qDebug() << "First 6 rows of merged data:";
+    for (int i = 0; i < qMin(6, merged.rowCount()); ++i) {
+        qDebug() << "  Row" << i << ":"
+                 << "Position=" << merged.get(i, "Position").toString()
+                 << "Gene=" << merged.get(i, "Gene").toString()
+                 << "Cq=" << merged.get(i, "Cq").toDouble()
+                 << "Group=" << merged.get(i, "Group").toString()
+                 << "BioRep=" << merged.get(i, "BioRep").toString();
+    }
 
     // Check required columns
     if (!merged.hasColumn("Gene") || !merged.hasColumn("Cq") ||
         !merged.hasColumn("Group") || !merged.hasColumn("BioRep")) {
-        qWarning() << "Missing required columns";
+        qWarning() << "Missing required columns. Has Gene:" << merged.hasColumn("Gene")
+                   << "Cq:" << merged.hasColumn("Cq")
+                   << "Group:" << merged.hasColumn("Group")
+                   << "BioRep:" << merged.hasColumn("BioRep");
         return result;
     }
 
@@ -79,6 +334,11 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
             geneSet.insert(gene);
         }
     }
+
+    qDebug() << "All genes in data:" << allGenes;
+    qDebug() << "Reference gene:" << params.referenceGene;
+    qDebug() << "Target genes:" << geneSet.values();
+    qDebug() << "Target gene count:" << geneSet.size();
 
     // Get all groups
     auto allGroups = merged.getStringColumn("Group");
@@ -95,6 +355,8 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
     QHash<QString, double> controlDeltaCtByGene;
 
     for (const QString& gene : geneSet) {
+        qDebug() << "Processing gene:" << gene << "for control group";
+
         // Filter for control group
         DataFrame controlData = merged.filter(
             [params, gene](const Row& row) {
@@ -102,6 +364,8 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
                        (row.value("Gene").toString() == gene ||
                         row.value("Gene").toString() == params.referenceGene);
             });
+
+        qDebug() << "  Control data rows:" << controlData.rowCount();
 
         // Get mean Cq values
         QVector<double> targetCqs, refCqs;
@@ -127,7 +391,123 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
     // Process each group
     for (const QString& group : groupSet) {
         for (const QString& gene : geneSet) {
+            qDebug() << "Processing group:" << group << "gene:" << gene;
+
             // Filter for this group
+            DataFrame groupData = merged.filter(
+                [group, gene, params](const Row& row) {
+                    return row.value("Group").toString() == group &&
+                           (row.value("Gene").toString() == gene ||
+                            row.value("Gene").toString() == params.referenceGene);
+                });
+
+            qDebug() << "  Group data rows:" << groupData.rowCount();
+
+            // Group by BioRep
+            auto bioReps = groupData.getStringColumn("BioRep");
+            QSet<QString> bioRepSet;
+            for (const auto& rep : bioReps) {
+                bioRepSet.insert(rep);
+            }
+
+            qDebug() << "    BioReps in this group:" << bioReps << "Count:" << bioRepSet.size();
+
+            // Calculate expression for each biological replicate
+            QHash<QString, double> repExpression;
+
+            for (const QString& bioRep : bioRepSet) {
+                qDebug() << "    Processing BioRep:" << bioRep;
+
+                DataFrame repData = groupData.filter(
+                    [bioRep](const Row& row) {
+                        return row.value("BioRep").toString() == bioRep;
+                    });
+
+                qDebug() << "      RepData rows:" << repData.rowCount();
+
+                QVector<double> targetCqs, refCqs;
+
+                for (int i = 0; i < repData.rowCount(); ++i) {
+                    QString g = repData.get(i, "Gene").toString();
+                    double cq = repData.get(i, "Cq").toDouble();
+                    qDebug() << "        Gene:" << g << "Cq:" << cq;
+
+                    if (g == gene) {
+                        targetCqs.append(cq);
+                    } else if (g == params.referenceGene) {
+                        refCqs.append(cq);
+                    }
+                }
+
+                qDebug() << "      targetCqs:" << targetCqs << "refCqs:" << refCqs;
+
+                if (!targetCqs.isEmpty() && !refCqs.isEmpty()) {
+                    // Calculate mean Cq for technical replicates
+                    double meanTarget = std::accumulate(targetCqs.begin(), targetCqs.end(), 0.0) / targetCqs.size();
+                    double meanRef = std::accumulate(refCqs.begin(), refCqs.end(), 0.0) / refCqs.size();
+
+                    double deltaCt = meanTarget - meanRef;
+                    double deltaDeltaCt = deltaCt - controlDeltaCtByGene.value(gene, 0.0);
+
+                    double expression = calculateExpressionFromDeltaDeltaCt(deltaDeltaCt, 0.0);
+                    repExpression[bioRep] = expression;
+                    expressionValues.append(expression);
+                    qDebug() << "      Expression:" << expression;
+                } else {
+                    qDebug() << "      Missing target or ref Cqs, skipping";
+                }
+            }
+
+            // Remove outliers if requested
+            QVector<double> finalExpressions;
+
+            qDebug() << "    repExpression has" << repExpression.size() << "entries";
+
+            for (auto it = repExpression.begin(); it != repExpression.end(); ++it) {
+                groups.append(group);
+                genes.append(gene);
+                bioreps.append(it.key());
+                expressions.append(it.value());
+                finalExpressions.append(it.value());
+                qDebug() << "    Added to result: Group=" << group << "Gene=" << gene << "BioRep=" << it.key() << "Expression=" << it.value();
+            }
+
+            if (params.removeOutliers) {
+                finalExpressions = removeOutliers(finalExpressions);
+            }
+        }
+    }
+
+    // Build summary result table with mean, std dev, and p-values
+    DataFrame resultTable;
+
+    qDebug() << "Building summary result table:";
+
+    // Prepare vectors for summary table
+    QVector<QVariant> summaryGroups;
+    QVector<QVariant> summaryGenes;
+    QVector<QVariant> summaryMeans;
+    QVector<QVariant> summaryStdDevs;
+    QVector<QVariant> summaryPValues;
+    QVector<QVariant> summarySignificance;
+
+    // First, collect all expressions for each group-gene combination
+    QHash<QString, QVector<double>> groupGeneExpressions; // Key: "Group_Gene"
+
+    for (const QString& group : groupSet) {
+        for (const QString& gene : geneSet) {
+            QString key = group + "_" + gene;
+            groupGeneExpressions[key] = QVector<double>();
+        }
+    }
+
+    // Populate expressions from repExpression
+    // Note: We need to recalculate since repExpression is inside the loop
+    QHash<QString, QHash<QString, QVector<double>>> allData; // group -> gene -> values
+
+    for (const QString& group : groupSet) {
+        for (const QString& gene : geneSet) {
+            // Filter for this group and gene
             DataFrame groupData = merged.filter(
                 [group, gene, params](const Row& row) {
                     return row.value("Group").toString() == group &&
@@ -143,8 +523,6 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
             }
 
             // Calculate expression for each biological replicate
-            QHash<QString, double> repExpression;
-
             for (const QString& bioRep : bioRepSet) {
                 DataFrame repData = groupData.filter(
                     [bioRep](const Row& row) {
@@ -165,7 +543,6 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
                 }
 
                 if (!targetCqs.isEmpty() && !refCqs.isEmpty()) {
-                    // Calculate mean Cq for technical replicates
                     double meanTarget = std::accumulate(targetCqs.begin(), targetCqs.end(), 0.0) / targetCqs.size();
                     double meanRef = std::accumulate(refCqs.begin(), refCqs.end(), 0.0) / refCqs.size();
 
@@ -173,51 +550,71 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
                     double deltaDeltaCt = deltaCt - controlDeltaCtByGene.value(gene, 0.0);
 
                     double expression = calculateExpressionFromDeltaDeltaCt(deltaDeltaCt, 0.0);
-                    repExpression[bioRep] = expression;
-                    expressionValues.append(expression);
+                    allData[group][gene].append(expression);
                 }
-            }
-
-            // Remove outliers if requested
-            QVector<double> finalExpressions;
-            for (auto it = repExpression.begin(); it != repExpression.end(); ++it) {
-                groups.append(group);
-                genes.append(gene);
-                bioreps.append(it.key());
-                expressions.append(it.value());
-                finalExpressions.append(it.value());
-            }
-
-            if (params.removeOutliers) {
-                finalExpressions = removeOutliers(finalExpressions);
             }
         }
     }
 
-    // Build result table
-    DataFrame resultTable;
-    resultTable.addColumn("Group", groups);
-    resultTable.addColumn("Gene", genes);
-    resultTable.addColumn("BioRep", bioreps);
-    resultTable.addColumn("Expression", expressions);
+    // Calculate statistics for each group-gene combination
+    for (const QString& group : groupSet) {
+        for (const QString& gene : geneSet) {
+            QVector<double> values = allData[group][gene];
 
-    // Perform statistical tests
+            if (values.isEmpty()) {
+                continue;
+            }
+
+            // Calculate mean
+            double mean = std::accumulate(values.begin(), values.end(), 0.0) / values.size();
+
+            // Calculate standard deviation
+            double sumSquaredDiff = 0.0;
+            for (double val : values) {
+                double diff = val - mean;
+                sumSquaredDiff += diff * diff;
+            }
+            double stdDev = (values.size() > 1) ? std::sqrt(sumSquaredDiff / (values.size() - 1)) : 0.0;
+
+            summaryGroups.append(group);
+            summaryGenes.append(gene);
+            summaryMeans.append(mean);
+            summaryStdDevs.append(stdDev);
+
+            qDebug() << "Summary:" << group << gene << "n=" << values.size() << "mean=" << mean << "std=" << stdDev;
+        }
+    }
+
+    // Add columns to result table
+    resultTable.addColumn("Group", summaryGroups);
+    resultTable.addColumn("Gene", summaryGenes);
+    resultTable.addColumn("Mean", summaryMeans);
+    resultTable.addColumn("StdDev", summaryStdDevs);
+
+    qDebug() << "Summary table rows:" << resultTable.rowCount();
+
+    // Perform statistical tests and add p-values to the table
     if (statMethod == "t.test") {
         // t-test for each gene comparing to control
         for (const QString& gene : geneSet) {
             QVector<double> controlValues, treatedValues;
 
-            for (int i = 0; i < resultTable.rowCount(); ++i) {
-                if (resultTable.get(i, "Gene").toString() == gene) {
-                    double expr = resultTable.get(i, "Expression").toDouble();
-                    QString group = resultTable.get(i, "Group").toString();
+            // Get values from allData
+            if (allData.contains(params.controlGroup) && allData[params.controlGroup].contains(gene)) {
+                controlValues = allData[params.controlGroup][gene];
+            }
 
-                    if (group == params.controlGroup) {
-                        controlValues.append(expr);
-                    } else {
-                        treatedValues.append(expr);
-                    }
+            // Find treated group (not control)
+            QString treatedGroup;
+            for (const QString& grp : groupSet) {
+                if (grp != params.controlGroup) {
+                    treatedGroup = grp;
+                    break;
                 }
+            }
+
+            if (!treatedGroup.isEmpty() && allData.contains(treatedGroup) && allData[treatedGroup].contains(gene)) {
+                treatedValues = allData[treatedGroup][gene];
             }
 
             if (!controlValues.isEmpty() && !treatedValues.isEmpty()) {
@@ -226,12 +623,66 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
                     treatedValues,
                     gene,
                     params.controlGroup,
-                    "Treated"
+                    treatedGroup
                 );
                 result.statistics.append(stat);
+
+                // Find the row for treated group and gene, then add p-value
+                for (int i = 0; i < resultTable.rowCount(); ++i) {
+                    if (resultTable.get(i, "Group").toString() == treatedGroup &&
+                        resultTable.get(i, "Gene").toString() == gene) {
+                        // Add p-value and significance to this row
+                        // We need to modify the table, but DataFrame doesn't support adding columns after creation easily
+                        // So we'll store the p-value in the statistics list for now
+                    }
+                }
             }
         }
     }
+
+    // Create enhanced table with p-values included
+    // We need to rebuild the table to include p-values
+    QVector<QVariant> finalGroups, finalGenes, finalMeans, finalStdDevs, finalPValues, finalSignifs;
+
+    for (int i = 0; i < resultTable.rowCount(); ++i) {
+        QString group = resultTable.get(i, "Group").toString();
+        QString gene = resultTable.get(i, "Gene").toString();
+        double mean = resultTable.get(i, "Mean").toDouble();
+        double stdDev = resultTable.get(i, "StdDev").toDouble();
+
+        finalGroups.append(group);
+        finalGenes.append(gene);
+        finalMeans.append(mean);
+        finalStdDevs.append(stdDev);
+
+        // Find p-value for this group-gene combination
+        bool foundStat = false;
+        for (const auto& stat : result.statistics) {
+            if (stat.gene == gene && stat.group2 == group) {
+                finalPValues.append(stat.pValue);
+                finalSignifs.append(stat.significance);
+                foundStat = true;
+                break;
+            }
+        }
+
+        if (!foundStat) {
+            finalPValues.append(QVariant()); // No p-value (control group)
+            finalSignifs.append(""); // No significance
+        }
+    }
+
+    // Rebuild table with all columns
+    resultTable = DataFrame();
+    resultTable.addColumn("Gene", finalGenes);
+    resultTable.addColumn("Group", finalGroups);
+    resultTable.addColumn("Mean", finalMeans);
+    resultTable.addColumn("StdDev", finalStdDevs);
+    resultTable.addColumn("PValue", finalPValues);
+    resultTable.addColumn("Significance", finalSignifs);
+
+    qDebug() << "Final result table rows:" << resultTable.rowCount();
+    qDebug() << "Final result table columns:" << resultTable.columns();
 
     result.table = resultTable;
     return result;

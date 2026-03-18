@@ -388,6 +388,21 @@ body {
     border-radius: 8px;
 }
 
+/* Chart Pane - Full width and centered */
+#chartPane {
+    width: 100%;
+}
+
+#chartPane .card-body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#chartPane .card {
+    overflow: hidden;
+}
+
 /* Data Preview */
 .table-responsive {
     max-height: 400px;

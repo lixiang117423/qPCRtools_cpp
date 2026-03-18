@@ -255,19 +255,25 @@
                         </div>
                         <div class="card-body">
                             <div class="btn-group-vertical w-100" role="group">
-                                <input type="radio" class="btn-check" name="analysisMethod" id="methodStandardCurve" value="standardCurve">
-                                <label class="btn btn-outline-primary text-start" for="methodStandardCurve">
+                                <!-- Standard Curve temporarily disabled due to incomplete implementation -->
+                                <!--
+                                <input type="radio" class="btn-check" name="analysisMethod" id="methodStandardCurve" value="standardCurve" disabled>
+                                <label class="btn btn-outline-primary text-start disabled" for="methodStandardCurve">
                                     <span data-i18n="method.standardCurve">Standard Curve</span>
+                                    <small class="d-block text-muted">(Coming Soon)</small>
                                 </label>
+                                -->
 
                                 <input type="radio" class="btn-check" name="analysisMethod" id="methodDeltaCt" value="deltaCt">
                                 <label class="btn btn-outline-primary text-start" for="methodDeltaCt">
                                     <span data-i18n="method.deltaCt">ΔCt Method</span>
+                                    <small class="d-block text-muted">(Normalized to Reference Gene)</small>
                                 </label>
 
                                 <input type="radio" class="btn-check" name="analysisMethod" id="methodDeltaDeltaCt" value="deltaDeltaCt" checked>
                                 <label class="btn btn-outline-primary text-start" for="methodDeltaDeltaCt">
                                     <span data-i18n="method.deltaDeltaCt">ΔΔCt Method</span>
+                                    <small class="d-block text-muted">(Relative to Control Group)</small>
                                 </label>
                             </div>
                         </div>
@@ -321,7 +327,7 @@
             </div>
 
             <div class="row mt-3">
-                <div class="col-12">
+                <div class="col-12 text-end">
                     <button class="btn btn-lg btn-success" id="runAnalysis" data-i18n="btn.runAnalysis">
                         Run Analysis
                     </button>
@@ -339,32 +345,10 @@
 
             <div class="row mt-3">
                 <div class="col-12">
-                    <ul class="nav nav-tabs" id="resultTabs" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="tableTab" data-bs-toggle="tab" data-bs-target="#tablePane" type="button" role="tab">
-                                <span data-i18n="results.dataTable">Data Table</span>
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="chartTab" data-bs-toggle="tab" data-bs-target="#chartPane" type="button" role="tab">
-                                <span data-i18n="results.charts">Charts</span>
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="statsTab" data-bs-toggle="tab" data-bs-target="#statsPane" type="button" role="tab">
-                                <span data-i18n="results.statistics">Statistics</span>
-                            </button>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="tab-content mt-3" id="resultTabContent">
-                <!-- Data Table Pane -->
-                <div class="tab-pane fade show active" id="tablePane" role="tabpanel">
+                    <!-- Summary Data Card -->
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0" data-i18n="results.expressionData">Expression Data</h5>
+                            <h5 class="mb-0" data-i18n="results.summaryData">Summary Data</h5>
                             <div>
                                 <button class="btn btn-sm btn-outline-primary" id="exportCsv">
                                     CSV
@@ -381,45 +365,6 @@
                                     <tbody></tbody>
                                 </table>
                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Charts Pane -->
-                <div class="tab-pane fade" id="chartPane" role="tabpanel">
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0" data-i18n="results.plots">Plots</h5>
-                            <button class="btn btn-sm btn-outline-primary" id="exportChart">
-                                <span data-i18n="btn.export">Export</span>
-                            </button>
-                        </div>
-                        <div class="card-body">
-                            <div id="mainChart" style="width: 100%; height: 500px;"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Statistics Pane -->
-                <div class="tab-pane fade" id="statsPane" role="tabpanel">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0" data-i18n="results.statisticalTests">Statistical Test Results</h5>
-                        </div>
-                        <div class="card-body">
-                            <table class="table table-striped" id="statisticsTable">
-                                <thead>
-                                    <tr>
-                                        <th data-i18n="table.gene">Gene</th>
-                                        <th data-i18n="table.comparison">Comparison</th>
-                                        <th data-i18n="table.test">Test</th>
-                                        <th data-i18n="table.statistic">Statistic</th>
-                                        <th data-i18n="table.pvalue">P-value</th>
-                                        <th data-i18n="table.significance">Significance</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
                         </div>
                     </div>
                 </div>

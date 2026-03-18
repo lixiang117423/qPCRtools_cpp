@@ -206,24 +206,34 @@ function loadExampleData() {
  * Load example Cq data only
  */
 function loadExampleCqData() {
-    // Generate example Cq data
-    currentCqData = {
-        headers: ['Position', 'Gene', 'Cq'],
-        rows: [
-            { Position: 'A1', Gene: 'GAPDH', Cq: 18.5 },
-            { Position: 'A2', Gene: 'GAPDH', Cq: 18.6 },
-            { Position: 'A3', Gene: 'GAPDH', Cq: 18.4 },
-            { Position: 'B1', Gene: 'Target1', Cq: 22.3 },
-            { Position: 'B2', Gene: 'Target1', Cq: 22.5 },
-            { Position: 'B3', Gene: 'Target1', Cq: 22.4 },
-            { Position: 'C1', Gene: 'Target2', Cq: 25.1 },
-            { Position: 'C2', Gene: 'Target2', Cq: 25.3 },
-            { Position: 'C3', Gene: 'Target2', Cq: 25.2 }
-        ]
-    };
+    // Clear existing data first
+    currentCqData = null;
+
+    // Generate example Cq data - properly paired for ΔΔCt calculation
+    // Each position has one gene measurement
+    currentCqData = [
+        // Control group - 3 biological replicates, each with both GAPDH and Target1
+        { Position: 'A1', Gene: 'GAPDH', Cq: 18.5 },
+        { Position: 'A2', Gene: 'Target1', Cq: 22.3 },
+        { Position: 'A3', Gene: 'GAPDH', Cq: 18.6 },
+        { Position: 'A4', Gene: 'Target1', Cq: 22.5 },
+        { Position: 'A5', Gene: 'GAPDH', Cq: 18.4 },
+        { Position: 'A6', Gene: 'Target1', Cq: 22.4 },
+        // Treatment group
+        { Position: 'B1', Gene: 'GAPDH', Cq: 18.7 },
+        { Position: 'B2', Gene: 'Target1', Cq: 20.1 },
+        { Position: 'B3', Gene: 'GAPDH', Cq: 18.5 },
+        { Position: 'B4', Gene: 'Target1', Cq: 20.2 },
+        { Position: 'B5', Gene: 'GAPDH', Cq: 18.6 },
+        { Position: 'B6', Gene: 'Target1', Cq: 20.0 }
+    ];
+
+    console.log('Loaded example Cq data:', currentCqData.length, 'rows');
+    console.log('First 6 rows of Cq data:', currentCqData.slice(0, 6));
+    console.log('Full Cq data:', currentCqData);
 
     // Show preview
-    displayCqPreview(currentCqData.rows);
+    displayCqPreview(currentCqData);
 
     // Check if both files are loaded
     checkDataLoaded();
@@ -235,24 +245,29 @@ function loadExampleCqData() {
  * Load example Design data only
  */
 function loadExampleDesignData() {
-    // Generate example design data
-    currentDesignData = {
-        headers: ['Position', 'Group', 'BioRep'],
-        rows: [
-            { Position: 'A1', Group: 'Control', BioRep: '1' },
-            { Position: 'A2', Group: 'Control', BioRep: '2' },
-            { Position: 'A3', Group: 'Control', BioRep: '3' },
-            { Position: 'B1', Group: 'Treatment', BioRep: '1' },
-            { Position: 'B2', Group: 'Treatment', BioRep: '2' },
-            { Position: 'B3', Group: 'Treatment', BioRep: '3' },
-            { Position: 'C1', Group: 'Treatment', BioRep: '1' },
-            { Position: 'C2', Group: 'Treatment', BioRep: '2' },
-            { Position: 'C3', Group: 'Treatment', BioRep: '3' }
-        ]
-    };
+    // Generate example design data - matched to Cq data
+    // Each BioRep has both GAPDH and Target1 measured
+    currentDesignData = [
+        // Control group - 3 biological replicates
+        { Position: 'A1', Group: 'Control', BioRep: '1' },
+        { Position: 'A2', Group: 'Control', BioRep: '1' },
+        { Position: 'A3', Group: 'Control', BioRep: '2' },
+        { Position: 'A4', Group: 'Control', BioRep: '2' },
+        { Position: 'A5', Group: 'Control', BioRep: '3' },
+        { Position: 'A6', Group: 'Control', BioRep: '3' },
+        // Treatment group
+        { Position: 'B1', Group: 'Treatment', BioRep: '1' },
+        { Position: 'B2', Group: 'Treatment', BioRep: '1' },
+        { Position: 'B3', Group: 'Treatment', BioRep: '2' },
+        { Position: 'B4', Group: 'Treatment', BioRep: '2' },
+        { Position: 'B5', Group: 'Treatment', BioRep: '3' },
+        { Position: 'B6', Group: 'Treatment', BioRep: '3' }
+    ];
+
+    console.log('Loaded example Design data:', currentDesignData.length, 'rows');
 
     // Show preview
-    displayDesignPreview(currentDesignData.rows);
+    displayDesignPreview(currentDesignData);
 
     // Check if both files are loaded
     checkDataLoaded();
@@ -302,13 +317,58 @@ function navigateToPage(pageName) {
  */
 function setupImportPage() {
     // Cq file loading
-    document.getElementById('loadCqBtn').addEventListener('click', function() {
+    document.getElementById('loadCqBtn').addEventListener('click', async function() {
         const fileInput = document.getElementById('cqFileInput');
         if (fileInput.files.length === 0) {
             showNotification(i18n.t('msg.noFileSelected'), 'warning');
             return;
         }
-        loadCqFile(fileInput.files[0]);
+
+        const file = fileInput.files[0];
+        console.log('=== Loading Cq file ===');
+        console.log('File name:', file.name);
+        console.log('File size:', file.size);
+        console.log('File type:', file.type);
+
+        if (bridge) {
+            // Read file content and send to C++
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const content = e.target.result;
+                console.log('File content length:', content.length);
+                console.log('First 200 chars:', content.substring(0, 200));
+
+                // Call C++ method to parse CSV content
+                try {
+                    console.log('Calling bridge.loadCqFromContent...');
+                    const result = await bridge.loadCqFromContent(content);
+                    console.log('Raw result from C++:', result);
+                    console.log('Result type:', typeof result);
+                    console.log('Result length:', result ? result.length : 0);
+
+                    currentCqData = JSON.parse(result);
+                    console.log('Parsed currentCqData:', currentCqData);
+                    console.log('currentCqData type:', Array.isArray(currentCqData) ? 'array' : typeof currentCqData);
+                    console.log('currentCqData length:', currentCqData ? currentCqData.length : 0);
+
+                    displayCqPreview(currentCqData);
+                    checkDataLoaded();
+                    showNotification(i18n.t('msg.dataLoaded'), 'success');
+                } catch (error) {
+                    console.error('Error loading Cq file:', error);
+                    console.error('Error stack:', error.stack);
+                    showNotification('Failed to parse file: ' + error.message, 'danger');
+                }
+            };
+            reader.onerror = function(e) {
+                console.error('FileReader error:', e);
+                showNotification('Failed to read file', 'danger');
+            };
+            reader.readAsText(file);
+        } else {
+            // Demo mode: load in browser
+            loadCqFile(file);
+        }
     });
 
     // Cq example data loading
@@ -317,13 +377,58 @@ function setupImportPage() {
     });
 
     // Design file loading
-    document.getElementById('loadDesignBtn').addEventListener('click', function() {
+    document.getElementById('loadDesignBtn').addEventListener('click', async function() {
         const fileInput = document.getElementById('designFileInput');
         if (fileInput.files.length === 0) {
             showNotification(i18n.t('msg.noFileSelected'), 'warning');
             return;
         }
-        loadDesignFile(fileInput.files[0]);
+
+        const file = fileInput.files[0];
+        console.log('=== Loading Design file ===');
+        console.log('File name:', file.name);
+        console.log('File size:', file.size);
+        console.log('File type:', file.type);
+
+        if (bridge) {
+            // Read file content and send to C++
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const content = e.target.result;
+                console.log('File content length:', content.length);
+                console.log('First 200 chars:', content.substring(0, 200));
+
+                // Call C++ method to parse CSV content
+                try {
+                    console.log('Calling bridge.loadDesignFromContent...');
+                    const result = await bridge.loadDesignFromContent(content);
+                    console.log('Raw result from C++:', result);
+                    console.log('Result type:', typeof result);
+                    console.log('Result length:', result ? result.length : 0);
+
+                    currentDesignData = JSON.parse(result);
+                    console.log('Parsed currentDesignData:', currentDesignData);
+                    console.log('currentDesignData type:', Array.isArray(currentDesignData) ? 'array' : typeof currentDesignData);
+                    console.log('currentDesignData length:', currentDesignData ? currentDesignData.length : 0);
+
+                    displayDesignPreview(currentDesignData);
+                    checkDataLoaded();
+                    showNotification(i18n.t('msg.dataLoaded'), 'success');
+                } catch (error) {
+                    console.error('Error loading Design file:', error);
+                    console.error('Error stack:', error.stack);
+                    showNotification('Failed to parse file: ' + error.message, 'danger');
+                }
+            };
+            reader.onerror = function(e) {
+                console.error('FileReader error:', e);
+                showNotification('Failed to read file', 'danger');
+            };
+            reader.readAsText(file);
+        } else {
+            // Demo mode: load in browser
+            loadDesignFile(file);
+        }
     });
 
     // Design example data loading
@@ -343,8 +448,6 @@ function setupImportPage() {
  * Load Cq data file
  */
 function loadCqFile(file) {
-    showProgress(true, i18n.t('msg.processing'));
-
     if (bridge) {
         // Use Qt file dialog
         bridge.showFileDialog(i18n.t('import.cqData'), '*.csv;;*.xlsx *.xls').then(filePath => {
@@ -354,7 +457,6 @@ function loadCqFile(file) {
                 displayCqPreview(currentCqData);
                 checkDataLoaded();
             }
-            showProgress(false);
         });
     } else {
         // Demo mode: parse file in browser
@@ -369,7 +471,6 @@ function loadCqFile(file) {
             } catch (error) {
                 showNotification(i18n.t('msg.error') + ': ' + error.message, 'danger');
             }
-            showProgress(false);
         };
         reader.readAsText(file);
     }
@@ -379,8 +480,6 @@ function loadCqFile(file) {
  * Load design data file
  */
 function loadDesignFile(file) {
-    showProgress(true, i18n.t('msg.processing'));
-
     if (bridge) {
         bridge.showFileDialog(i18n.t('import.designData'), '*.csv;;*.xlsx *.xls').then(filePath => {
             if (filePath) {
@@ -389,7 +488,6 @@ function loadDesignFile(file) {
                 displayDesignPreview(currentDesignData);
                 checkDataLoaded();
             }
-            showProgress(false);
         });
     } else {
         // Demo mode
@@ -404,7 +502,6 @@ function loadDesignFile(file) {
             } catch (error) {
                 showNotification(i18n.t('msg.error') + ': ' + error.message, 'danger');
             }
-            showProgress(false);
         };
         reader.readAsText(file);
     }
@@ -414,14 +511,34 @@ function loadDesignFile(file) {
  * Display Cq data preview
  */
 function displayCqPreview(data) {
+    console.log('=== displayCqPreview ===');
+    console.log('Input data:', data);
+    console.log('Data type:', Array.isArray(data) ? 'array' : typeof data);
+    console.log('Data length:', data ? data.length : 0);
+
     const table = document.getElementById('cqPreviewTable');
     const thead = table.querySelector('thead tr');
     const tbody = table.querySelector('tbody');
 
-    if (!data || data.length === 0) {
+    if (!data) {
+        console.error('No data provided to displayCqPreview');
+        tbody.innerHTML = '<tr><td class="text-muted">No data</td></tr>';
+        return;
+    }
+
+    if (!Array.isArray(data)) {
+        console.error('Data is not an array:', typeof data, data);
+        tbody.innerHTML = '<tr><td class="text-muted">Invalid data format</td></tr>';
+        return;
+    }
+
+    if (data.length === 0) {
+        console.warn('Data array is empty');
         tbody.innerHTML = '<tr><td class="text-muted">' + i18n.t('table.noData') + '</td></tr>';
         return;
     }
+
+    console.log('First row:', data[0]);
 
     // Clear existing
     thead.innerHTML = '';
@@ -429,6 +546,7 @@ function displayCqPreview(data) {
 
     // Headers
     const headers = Object.keys(data[0]);
+    console.log('Headers:', headers);
     headers.forEach(header => {
         const th = document.createElement('th');
         th.textContent = header;
@@ -436,7 +554,9 @@ function displayCqPreview(data) {
     });
 
     // Rows (limit to first 10)
-    data.slice(0, 10).forEach(row => {
+    const displayRows = data.slice(0, 10);
+    console.log('Displaying', displayRows.length, 'rows');
+    displayRows.forEach(row => {
         const tr = document.createElement('tr');
         headers.forEach(header => {
             const td = document.createElement('td');
@@ -445,32 +565,57 @@ function displayCqPreview(data) {
         });
         tbody.appendChild(tr);
     });
+
+    console.log('Table rendered successfully');
 }
 
 /**
  * Display design data preview
  */
 function displayDesignPreview(data) {
+    console.log('=== displayDesignPreview ===');
+    console.log('Input data:', data);
+    console.log('Data type:', Array.isArray(data) ? 'array' : typeof data);
+    console.log('Data length:', data ? data.length : 0);
+
     const table = document.getElementById('designPreviewTable');
     const thead = table.querySelector('thead tr');
     const tbody = table.querySelector('tbody');
 
-    if (!data || data.length === 0) {
+    if (!data) {
+        console.error('No data provided to displayDesignPreview');
+        tbody.innerHTML = '<tr><td class="text-muted">No data</td></tr>';
+        return;
+    }
+
+    if (!Array.isArray(data)) {
+        console.error('Data is not an array:', typeof data, data);
+        tbody.innerHTML = '<tr><td class="text-muted">Invalid data format</td></tr>';
+        return;
+    }
+
+    if (data.length === 0) {
+        console.warn('Data array is empty');
         tbody.innerHTML = '<tr><td class="text-muted">' + i18n.t('table.noData') + '</td></tr>';
         return;
     }
+
+    console.log('First row:', data[0]);
 
     thead.innerHTML = '';
     tbody.innerHTML = '';
 
     const headers = Object.keys(data[0]);
+    console.log('Headers:', headers);
     headers.forEach(header => {
         const th = document.createElement('th');
         th.textContent = header;
         thead.appendChild(th);
     });
 
-    data.slice(0, 10).forEach(row => {
+    const displayRows = data.slice(0, 10);
+    console.log('Displaying', displayRows.length, 'rows');
+    displayRows.forEach(row => {
         const tr = document.createElement('tr');
         headers.forEach(header => {
             const td = document.createElement('td');
@@ -479,6 +624,8 @@ function displayDesignPreview(data) {
         });
         tbody.appendChild(tr);
     });
+
+    console.log('Table rendered successfully');
 }
 
 /**
@@ -486,8 +633,22 @@ function displayDesignPreview(data) {
  */
 function checkDataLoaded() {
     const proceedBtn = document.getElementById('proceedToAnalysis');
+
+    console.log('=== checkDataLoaded ===');
+    console.log('currentCqData:', currentCqData);
+    console.log('currentCqData type:', Array.isArray(currentCqData) ? 'array' : typeof currentCqData);
+    console.log('currentCqData length:', currentCqData ? currentCqData.length : 0);
+    console.log('currentDesignData:', currentDesignData);
+    console.log('currentDesignData type:', Array.isArray(currentDesignData) ? 'array' : typeof currentDesignData);
+    console.log('currentDesignData length:', currentDesignData ? currentDesignData.length : 0);
+
     if (currentCqData && currentDesignData) {
+        console.log('Both datasets loaded, enabling proceed button');
         proceedBtn.disabled = false;
+    } else {
+        console.log('Missing data, proceed button remains disabled');
+        if (!currentCqData) console.log('  - currentCqData is missing');
+        if (!currentDesignData) console.log('  - currentDesignData is missing');
     }
 }
 
@@ -498,18 +659,60 @@ function setupAnalysisPage() {
     document.getElementById('runAnalysis').addEventListener('click', function() {
         runAnalysis();
     });
+
+    // Add event listeners for method selection
+    const methodInputs = document.querySelectorAll('input[name="analysisMethod"]');
+    methodInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            updateAnalysisMethodUI();
+        });
+    });
+
+    // Initialize UI state
+    updateAnalysisMethodUI();
+}
+
+/**
+ * Update UI based on selected analysis method
+ */
+function updateAnalysisMethodUI() {
+    const method = document.querySelector('input[name="analysisMethod"]:checked').value;
+    const controlGroupField = document.getElementById('controlGroup').closest('.mb-3');
+    const statisticalTestField = document.getElementById('statisticalTest').closest('.mb-3');
+
+    if (method === 'deltaCt') {
+        // Hide control group for ΔCt method, but show statistical test
+        controlGroupField.style.display = 'none';
+        statisticalTestField.style.display = 'block';
+    } else if (method === 'deltaDeltaCt') {
+        // Show both for ΔΔCt method
+        controlGroupField.style.display = 'block';
+        statisticalTestField.style.display = 'block';
+    } else {
+        // For future methods (e.g., Standard Curve)
+        controlGroupField.style.display = 'none';
+        statisticalTestField.style.display = 'block';
+    }
 }
 
 /**
  * Run analysis
  */
-function runAnalysis() {
+async function runAnalysis() {
     const method = document.querySelector('input[name="analysisMethod"]:checked').value;
-    const referenceGene = document.getElementById('referenceGene').value;
-    const controlGroup = document.getElementById('controlGroup').value;
+    const referenceGene = document.getElementById('referenceGene').value.trim();
+    const controlGroup = document.getElementById('controlGroup').value.trim();
     const statisticalTest = document.getElementById('statisticalTest').value;
     const removeOutliers = document.getElementById('removeOutliers').checked;
     const colorPalette = document.getElementById('colorPalette').value;
+
+    console.log('=== Analysis Parameters ===');
+    console.log('Method:', method);
+    console.log('Reference Gene:', referenceGene);
+    console.log('Control Group:', controlGroup);
+    console.log('Statistical Test:', statisticalTest);
+    console.log('Remove Outliers:', removeOutliers);
+    console.log('Color Palette:', colorPalette);
 
     // Validation
     if (!referenceGene) {
@@ -522,7 +725,16 @@ function runAnalysis() {
         return;
     }
 
-    showProgress(true, i18n.t('msg.processing'));
+    // Check if data is loaded
+    if (!currentCqData || currentCqData.length === 0) {
+        showNotification('No Cq data loaded', 'danger');
+        return;
+    }
+
+    if (!currentDesignData || currentDesignData.length === 0) {
+        showNotification('No design data loaded', 'danger');
+        return;
+    }
 
     const params = {
         referenceGene: referenceGene,
@@ -532,21 +744,68 @@ function runAnalysis() {
     };
 
     if (bridge) {
-        // Call C++ backend
-        const result = bridge.calculateByDeltaDeltaCt(JSON.stringify(params), statisticalTest);
-        analysisResults = JSON.parse(result);
-        displayResults(analysisResults);
-        navigateToPage('results');
-        showProgress(false);
+        try {
+            // Send data to C++ backend first
+            console.log('=== Sending data to C++ ===');
+            console.log('Cq data type:', Array.isArray(currentCqData) ? 'array' : typeof currentCqData);
+            console.log('Cq data length:', currentCqData ? currentCqData.length : 0);
+            console.log('Cq data sample:', currentCqData ? currentCqData.slice(0, 6) : 'null');
+            console.log('Design data type:', Array.isArray(currentDesignData) ? 'array' : typeof currentDesignData);
+            console.log('Design data length:', currentDesignData ? currentDesignData.length : 0);
+            console.log('Design data sample:', currentDesignData ? currentDesignData.slice(0, 6) : 'null');
+
+            const cqJson = JSON.stringify(currentCqData);
+            const designJson = JSON.stringify(currentDesignData);
+            console.log('Cq JSON length:', cqJson.length);
+            console.log('Design JSON length:', designJson.length);
+            console.log('Cq JSON (first 500 chars):', cqJson.substring(0, 500));
+            console.log('Design JSON (first 300 chars):', designJson.substring(0, 300));
+
+            await bridge.setCqData(cqJson);
+            await bridge.setDesignData(designJson);
+
+            console.log('Data sent to C++ successfully');
+
+            // Call C++ backend based on selected method
+            let result;
+            if (method === 'standardCurve') {
+                result = await bridge.calculateByStandardCurve(JSON.stringify(params), statisticalTest);
+            } else if (method === 'deltaCt') {
+                result = await bridge.calculateByDeltaCt(JSON.stringify(params), statisticalTest);
+            } else { // deltaDeltaCt
+                result = await bridge.calculateByDeltaDeltaCt(JSON.stringify(params), statisticalTest);
+            }
+
+            console.log('Raw result from C++:', result);
+            analysisResults = JSON.parse(result);
+            console.log('Parsed analysisResults:', analysisResults);
+            console.log('Table data:', analysisResults.table);
+            console.log('Table length:', analysisResults.table ? analysisResults.table.length : 0);
+            console.log('Statistics:', analysisResults.statistics);
+
+            // Navigate to results page first
+            navigateToPage('results');
+
+            // Then display results with a small delay to ensure DOM is ready
+            setTimeout(() => {
+                displayResults(analysisResults);
+                showNotification(i18n.t('msg.analysisCompleted'), 'success');
+            }, 100);
+        } catch (error) {
+            showNotification('Analysis failed: ' + error.message, 'danger');
+        }
     } else {
         // Demo mode: generate mock results
+        analysisResults = generateMockResults();
+
+        // Navigate to results page first
+        navigateToPage('results');
+
+        // Then display results with a small delay to ensure DOM is ready
         setTimeout(() => {
-            analysisResults = generateMockResults();
             displayResults(analysisResults);
-            navigateToPage('results');
-            showProgress(false);
             showNotification(i18n.t('msg.analysisCompleted'), 'success');
-        }, 2000);
+        }, 100);
     }
 }
 
@@ -555,27 +814,54 @@ function runAnalysis() {
  */
 function displayResults(results) {
     displayResultsTable(results);
-    displayCharts(results);
-    displayStatistics(results);
+    // displayCharts(results);  // Charts feature temporarily disabled
+    // Statistics are now integrated into the main table
 }
 
 /**
  * Display results table
  */
 function displayResultsTable(results) {
+    console.log('displayResultsTable called with:', results);
+
     const table = document.getElementById('resultsTable');
     const thead = table.querySelector('thead');
     const tbody = table.querySelector('tbody');
 
-    if (!results || !results.table || results.table.length === 0) {
+    if (!results) {
+        console.error('No results provided');
+        tbody.innerHTML = '<tr><td colspan="5">No results</td></tr>';
+        return;
+    }
+
+    if (!results.table) {
+        console.error('No table in results:', results);
+        tbody.innerHTML = '<tr><td colspan="5">No table data</td></tr>';
+        return;
+    }
+
+    if (!Array.isArray(results.table)) {
+        console.error('Table is not an array:', typeof results.table, results.table);
+        tbody.innerHTML = '<tr><td colspan="5">Invalid table format</td></tr>';
+        return;
+    }
+
+    if (results.table.length === 0) {
+        console.warn('Table is empty');
         tbody.innerHTML = '<tr><td colspan="5">' + i18n.t('table.noData') + '</td></tr>';
         return;
     }
 
+    console.log('Table has', results.table.length, 'rows');
+    console.log('First row:', results.table[0]);
+
     thead.innerHTML = '';
     tbody.innerHTML = '';
 
-    const headers = Object.keys(results.table[0]);
+    // Define the desired column order
+    const headers = ['Gene', 'Group', 'Mean', 'StdDev', 'PValue', 'Significance'];
+    console.log('Headers:', headers);
+
     const headerRow = document.createElement('tr');
     headers.forEach(header => {
         const th = document.createElement('th');
@@ -588,11 +874,19 @@ function displayResultsTable(results) {
         const tr = document.createElement('tr');
         headers.forEach(header => {
             const td = document.createElement('td');
-            td.textContent = row[header];
+            const value = row[header];
+            // Format numeric values
+            if (typeof value === 'number') {
+                td.textContent = value.toFixed(4);
+            } else {
+                td.textContent = value || '';
+            }
             tr.appendChild(td);
         });
         tbody.appendChild(tr);
     });
+
+    console.log('Table rendered with', tbody.children.length, 'rows');
 }
 
 /**
@@ -679,32 +973,6 @@ function displayCharts(results) {
 }
 
 /**
- * Display statistical results
- */
-function displayStatistics(results) {
-    const tbody = document.getElementById('statisticsTable').querySelector('tbody');
-    tbody.innerHTML = '';
-
-    if (!results || !results.statistics || results.statistics.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6">' + i18n.t('table.noData') + '</td></tr>';
-        return;
-    }
-
-    results.statistics.forEach(stat => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${stat.gene}</td>
-            <td>${stat.group1} vs ${stat.group2}</td>
-            <td>t-test</td>
-            <td>${stat.tStatistic ? stat.tStatistic.toFixed(4) : 'N/A'}</td>
-            <td>${stat.pValue ? stat.pValue.toExponential(4) : 'N/A'}</td>
-            <td>${stat.significance || 'NS'}</td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-/**
  * Setup results page
  */
 function setupResultsPage() {
@@ -716,9 +984,10 @@ function setupResultsPage() {
         exportResults('excel');
     });
 
-    document.getElementById('exportChart').addEventListener('click', function() {
-        exportChart();
-    });
+    // Chart export feature temporarily disabled
+    // document.getElementById('exportChart').addEventListener('click', function() {
+    //     exportChart();
+    // });
 }
 
 /**
@@ -823,7 +1092,7 @@ function showNotification(message, type = 'info') {
     toastBody.textContent = message;
 
     const toast = new bootstrap.Toast(toastEl, {
-        delay: 2500,  // 2.5秒后自动关闭
+        delay: 3000,  // 3秒后自动关闭
         autohide: true
     });
     toast.show();
@@ -841,6 +1110,8 @@ function onDataLoaded(success, message) {
 }
 
 function onCalculationCompleted(success, message) {
+    console.log('onCalculationCompleted called:', success, message);
+
     if (success) {
         showNotification(i18n.t('msg.analysisCompleted') + ': ' + message, 'success');
     } else {
