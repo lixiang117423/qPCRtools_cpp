@@ -10,7 +10,8 @@ on:
   workflow_dispatch:
 
 env:
-  QT_VERSION: '6.5.3'  # 使用更稳定的 6.5.3 版本
+  QT_VERSION: '6.5.3'
+  QT_MODULES: 'qtwebengine qtwebchannel qtpositioning'
 
 jobs:
   build-windows:
@@ -30,7 +31,7 @@ jobs:
         target: 'desktop'
         arch: 'win64_msvc2019_64'
         cache: true
-        modules: 'qtwebengine qtwebchannel'
+        modules: ${{ env.QT_MODULES }}
 
     - name: Setup MSVC
       uses: ilammy/msvc-dev-cmd@v1
@@ -45,7 +46,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        ./vcpkg/vcpkg install eigen3:x64-windows --recurse
+        ./vcpkg/vcpkg install --triplet x64-windows
 
     - name: Configure CMake
       run: |
@@ -112,7 +113,7 @@ jobs:
         target: 'desktop'
         arch: 'clang_64'
         cache: true
-        modules: 'qtwebengine qtwebchannel'
+        modules: ${{ env.QT_MODULES }}
 
     - name: Install dependencies
       run: |
