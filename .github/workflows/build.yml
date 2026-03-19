@@ -128,13 +128,30 @@ jobs:
           -GNinja
 
     - name: Build
-      run: cmake --build build
+      run: |
+        cmake --build build
+        echo "Build exit code: $?"
+
+    - name: Find app bundle
+      run: |
+        echo "=== build directory structure ==="
+        find build -type f -name "*.app" -o -type d -name "*.app" | head -20
+        ls -la build/
 
     - name: Deploy macOS
       run: |
         # 找到 app 实际位置
         APP_PATH=$(find build -name "qPCRtools.app" -type d | head -1)
-        echo "Found app at: $APP_PATH"
+
+        # 检查是否找到 app
+        if [ -z "$APP_PATH" ]; then
+          echo "❌ ERROR: qPCRtools.app not found!"
+          echo "=== All files in build directory ==="
+          find build -type f | head -30
+          exit 1
+        fi
+
+        echo "✅ Found app at: $APP_PATH"
 
         # 使用 macdeployqt 收集依赖
         $Qt6_DIR/bin/macdeployqt "$APP_PATH" -no-strip
