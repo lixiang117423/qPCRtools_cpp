@@ -40,20 +40,18 @@ jobs:
 
     - name: Setup vcpkg
       run: |
-        git clone --filter=tree:0 https://github.com/Microsoft/vcpkg.git
-        ./vcpkg/bootstrap-vcpkg.bat
-        ./vcpkg/vcpkg integrate install
+        C:\vcpkg\bootstrap-vcpkg.bat -disableMetrics
 
     - name: Install dependencies
       run: |
-        ./vcpkg/vcpkg install --triplet x64-windows
+        C:\vcpkg\vcpkg install eigen3:x64-windows gsl:x64-windows
 
     - name: Configure CMake
       run: |
         cmake -B build `
           -DCMAKE_PREFIX_PATH="$env:Qt6_DIR" `
           -DCMAKE_BUILD_TYPE=Release `
-          -DCMAKE_TOOLCHAIN_FILE="vcpkg/scripts/buildsystems/vcpkg.cmake" `
+          -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake" `
           -DCMAKE_CXX_STANDARD=17
 
     - name: Build

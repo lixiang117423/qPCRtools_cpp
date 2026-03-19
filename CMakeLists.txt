@@ -78,10 +78,18 @@ set(HEADERS
 # )
 
 # 创建可执行文件
-add_executable(${PROJECT_NAME}
+add_executable(${PROJECT_NAME} MACOSX_BUNDLE
     ${SOURCES}
     ${HEADERS}
     # ${UI_FILES}
+)
+
+# 设置 macOS app bundle 属性
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    MACOSX_BUNDLE_GUI_IDENTIFIER "com.qpcrtools.app"
+    MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+    MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
+    MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/macos/Info.plist
 )
 
 # 链接库
