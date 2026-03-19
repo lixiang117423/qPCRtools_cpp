@@ -10,8 +10,7 @@ on:
   workflow_dispatch:
 
 env:
-  QT_VERSION: '6.5.0'  # 使用更稳定的 6.5.0 版本
-  AQTINSTALL_VERSION: '3.2.0'  # 使用 aqtinstall 工具
+  QT_VERSION: '6.5.3'  # 使用更稳定的 6.5.3 版本
 
 jobs:
   build-windows:
@@ -29,10 +28,9 @@ jobs:
         version: ${{ env.QT_VERSION }}
         host: 'windows'
         target: 'desktop'
-        arch: 'win64_msvc2022_64'
-        cache: false
-        setup-python: false
-        extra: '--modules qtwebengine qtwebchannel'
+        arch: 'win64_msvc2019_64'
+        cache: true
+        modules: 'qtwebengine qtwebchannel qtsvg'
 
     - name: Setup MSVC
       uses: ilammy/msvc-dev-cmd@v1
@@ -64,7 +62,7 @@ jobs:
       shell: pwsh
       run: |
         # 使用 windeployqt 收集依赖
-        & "$env:Qt6_DIR/bin/windeployqt.exe" build/Release/qPCRtools.exe --release --no-translations
+        & "$env:Qt6_DIR/bin/windeployqt.exe" build/Release/qPCRtools.exe --release --no-translations --webengine
 
         # 复制 web 资源
         New-Item -ItemType Directory -Force -Path build/Release/web
@@ -113,8 +111,8 @@ jobs:
         host: 'mac'
         target: 'desktop'
         arch: 'clang_64'
-        cache: false
-        extra: '--modules qtwebengine qtwebchannel'
+        cache: true
+        modules: 'qtwebengine qtwebchannel qtsvg'
 
     - name: Install dependencies
       run: |
