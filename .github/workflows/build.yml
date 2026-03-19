@@ -16,6 +16,7 @@ jobs:
   build-windows:
     name: Build Windows (EXE)
     runs-on: windows-latest
+    timeout-minutes: 60  # 设置超时时间
 
     steps:
     - name: Checkout code
@@ -28,8 +29,8 @@ jobs:
         host: 'windows'
         target: 'desktop'
         arch: 'win64_msvc2022_64'
-        # 暂时禁用缓存以避免问题
         cache: false
+        setup-python: false  # 禁用 Python 设置
 
     - name: Setup MSVC
       uses: ilammy/msvc-dev-cmd@v1
@@ -44,9 +45,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        ./vcpkg/vcpkg install eigen3:x64-windows
-        echo "C:\vcpkg\installed\x64-windows\include" | Out-File -FilePath $env:GITHUB_ENV_PATH -Encoding utf8 -Append
-        echo "C:\vcpkg\installed\x64-windows\lib" | Out-File -FilePath $env:GITHUB_ENV_PATH -Encoding utf8 -Append
+        ./vcpkg/vcpkg install eigen3:x64-windows --recurse
 
     - name: Configure CMake
       run: |
@@ -99,6 +98,7 @@ jobs:
   build-macos:
     name: Build macOS (DMG)
     runs-on: macos-latest
+    timeout-minutes: 60
 
     steps:
     - name: Checkout code
