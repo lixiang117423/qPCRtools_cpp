@@ -180,69 +180,53 @@ ExpressionResult ExpressionCalculator::calculateByDeltaCt(
     qDebug() << "Final result table columns:" << resultTable.columns();
 
     // Perform statistical tests
-    // For ΔCt, we compare between groups (use first group as reference for t-test)
+    // For ΔCt, we compare between groups (use first group as reference)
     QString refGroup = groupSet.isEmpty() ? "" : *groupSet.begin();
 
     if (statMethod == "t.test") {
         for (const QString& gene : geneSet) {
-            // Find test group (not reference)
-            QString testGroup;
-            for (const QString& grp : groupSet) {
-                if (grp != refGroup) {
-                    testGroup = grp;
-                    break;
-                }
+            // Test all non-reference groups
+            for (const QString& testGroup : groupSet) {
+                if (testGroup == refGroup) continue;
+
+                // Get expression values from allData
+                QVector<double> refValues = allData.value(refGroup).value(gene);
+                QVector<double> testValues = allData.value(testGroup).value(gene);
+
+                // Perform t-test
+                StatisticalResult statResult = performTTest(refValues, testValues, gene, refGroup, testGroup);
+                result.statistics.append(statResult);
             }
-
-            if (testGroup.isEmpty()) continue;
-
-            // Get expression values from allData
-            QVector<double> refValues = allData.value(refGroup).value(gene);
-            QVector<double> testValues = allData.value(testGroup).value(gene);
-
-            // Perform t-test
-            StatisticalResult statResult = performTTest(refValues, testValues, gene, refGroup, testGroup);
-            result.statistics.append(statResult);
         }
     } else if (statMethod == "wilcox.test") {
         for (const QString& gene : geneSet) {
-            QString testGroup;
-            for (const QString& grp : groupSet) {
-                if (grp != refGroup) {
-                    testGroup = grp;
-                    break;
-                }
+            // Test all non-reference groups
+            for (const QString& testGroup : groupSet) {
+                if (testGroup == refGroup) continue;
+
+                // Get expression values from allData
+                QVector<double> refValues = allData.value(refGroup).value(gene);
+                QVector<double> testValues = allData.value(testGroup).value(gene);
+
+                StatisticalResult statResult = performWilcoxonTest(refValues, testValues, gene, refGroup, testGroup);
+                result.statistics.append(statResult);
             }
-
-            if (testGroup.isEmpty()) continue;
-
-            // Get expression values from allData
-            QVector<double> refValues = allData.value(refGroup).value(gene);
-            QVector<double> testValues = allData.value(testGroup).value(gene);
-
-            StatisticalResult statResult = performWilcoxonTest(refValues, testValues, gene, refGroup, testGroup);
-            result.statistics.append(statResult);
         }
     } else if (statMethod == "anova") {
         // ANOVA not yet supported for ΔCt method
         qWarning() << "ANOVA not yet supported for ΔCt method, using t.test instead";
         // Fall through to t-test
         for (const QString& gene : geneSet) {
-            QString testGroup;
-            for (const QString& grp : groupSet) {
-                if (grp != refGroup) {
-                    testGroup = grp;
-                    break;
-                }
+            // Test all non-reference groups
+            for (const QString& testGroup : groupSet) {
+                if (testGroup == refGroup) continue;
+
+                QVector<double> refValues = allData.value(refGroup).value(gene);
+                QVector<double> testValues = allData.value(testGroup).value(gene);
+
+                StatisticalResult statResult = performTTest(refValues, testValues, gene, refGroup, testGroup);
+                result.statistics.append(statResult);
             }
-
-            if (testGroup.isEmpty()) continue;
-
-            QVector<double> refValues = allData.value(refGroup).value(gene);
-            QVector<double> testValues = allData.value(testGroup).value(gene);
-
-            StatisticalResult statResult = performTTest(refValues, testValues, gene, refGroup, testGroup);
-            result.statistics.append(statResult);
         }
     }
 
