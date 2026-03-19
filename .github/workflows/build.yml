@@ -6,6 +6,9 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 env:
   QT_VERSION: '6.5.3'
   QT_MODULES: 'qtwebengine qtwebchannel qtpositioning'
