@@ -123,9 +123,11 @@ set(TS_FILES
     translations/qpcr_tools_en_US.ts
 )
 
-# 处理翻译文件
-qt_add_lupdate(${PROJECT_NAME} ${TS_FILES})
-qt_add_translations(${PROJECT_NAME} ${TS_FILES})
+# 处理翻译文件（qt_add_translations 会自动调用 qt_add_lupdate）
+qt_add_translations(${PROJECT_NAME}
+    TS_FILES ${TS_FILES}
+    QM_FILES_OUTPUT_VARIABLE QM_FILES
+)
 
 # 安装配置
 include(GNUInstallDirs)
