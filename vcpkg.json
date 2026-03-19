@@ -4,14 +4,7 @@
   "version-string": "1.0.0",
   "description": "qPCR Data Analysis Tool",
   "dependencies": [
-    {
-      "name": "eigen3",
-      "version>=": "3.4"
-    },
-    {
-      "name": "gsl",
-      "version>=": "2.7",
-      "platform": "!(windows & arm)"
-    }
+    "eigen3",
+    "gsl"
   ]
 }
