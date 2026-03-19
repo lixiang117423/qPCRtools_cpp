@@ -598,3 +598,75 @@ body {
 .fa-3x {
     font-size: 3em;
 }
+
+/* Analysis Page - Enhanced Input Fields */
+#analysisForm .form-control {
+    font-size: 1.1rem;
+    padding: 0.6rem 0.75rem;
+    min-height: 48px;
+}
+
+#analysisForm .form-select {
+    font-size: 1.1rem;
+    padding: 0.6rem 0.75rem;
+    min-height: 48px;
+}
+
+#analysisForm .form-label {
+    font-size: 1.05rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+/* Make datalist options larger */
+option {
+    font-size: 1rem;
+    padding: 8px;
+}
+
+/* Analysis Page - Enhanced Input Fields (Force Override) */
+#analysisForm .form-control {
+    font-size: 1.2rem !important;
+    padding: 0.75rem 1rem !important;
+    height: 54px !important;
+    min-height: 54px !important;
+    line-height: 1.5 !important;
+}
+
+#analysisForm .form-select {
+    font-size: 1.2rem !important;
+    padding: 0.75rem 1rem !important;
+    height: 54px !important;
+    min-height: 54px !important;
+    line-height: 1.5 !important;
+}
+
+#analysisForm .form-label {
+    font-size: 1.15rem !important;
+    font-weight: 600 !important;
+    margin-bottom: 0.6rem !important;
+}
+
+#analysisForm input[type="checkbox"] {
+    width: 20px !important;
+    height: 20px !important;
+}
+
+#analysisForm .form-check-label {
+    font-size: 1.1rem !important;
+    padding-left: 0.5rem !important;
+}
+
+/* Analysis Page - Select Dropdown Options */
+#analysisForm select.form-select {
+    font-size: 1.2rem !important;
+    padding: 0.75rem 1rem !important;
+    height: auto !important;
+    min-height: 54px !important;
+}
+
+#analysisForm select.form-select option {
+    font-size: 1.1rem !important;
+    padding: 12px !important;
+    min-height: 40px !important;
+}

@@ -180,8 +180,10 @@ ExpressionResult ExpressionCalculator::calculateByDeltaCt(
     qDebug() << "Final result table columns:" << resultTable.columns();
 
     // Perform statistical tests
-    // For ΔCt, we compare between groups (use first group as reference)
-    QString refGroup = groupSet.isEmpty() ? "" : *groupSet.begin();
+    // For ΔCt, we compare between groups (use controlGroup as reference)
+    QString refGroup = params.controlGroup.isEmpty() ? (groupSet.isEmpty() ? "" : *groupSet.begin()) : params.controlGroup;
+
+    qDebug() << "Using reference group:" << refGroup << "for statistical tests";
 
     if (statMethod == "t.test") {
         for (const QString& gene : geneSet) {
@@ -579,46 +581,96 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
 
     // Perform statistical tests and add p-values to the table
     if (statMethod == "t.test") {
-        // t-test for each gene comparing to control
+        // t-test for each gene comparing control to all other groups
         for (const QString& gene : geneSet) {
-            QVector<double> controlValues, treatedValues;
+            QVector<double> controlValues;
 
-            // Get values from allData
+            // Get control group values
             if (allData.contains(params.controlGroup) && allData[params.controlGroup].contains(gene)) {
                 controlValues = allData[params.controlGroup][gene];
             }
 
-            // Find treated group (not control)
-            QString treatedGroup;
+            // Test all non-control groups
             for (const QString& grp : groupSet) {
-                if (grp != params.controlGroup) {
-                    treatedGroup = grp;
-                    break;
+                if (grp == params.controlGroup) continue;
+
+                QVector<double> treatedValues;
+                if (allData.contains(grp) && allData[grp].contains(gene)) {
+                    treatedValues = allData[grp][gene];
+                }
+
+                if (!controlValues.isEmpty() && !treatedValues.isEmpty()) {
+                    StatisticalResult stat = performTTest(
+                        controlValues,
+                        treatedValues,
+                        gene,
+                        params.controlGroup,
+                        grp
+                    );
+                    result.statistics.append(stat);
                 }
             }
+        }
+    } else if (statMethod == "wilcox.test") {
+        // Wilcoxon test for each gene comparing control to all other groups
+        for (const QString& gene : geneSet) {
+            QVector<double> controlValues;
 
-            if (!treatedGroup.isEmpty() && allData.contains(treatedGroup) && allData[treatedGroup].contains(gene)) {
-                treatedValues = allData[treatedGroup][gene];
+            // Get control group values
+            if (allData.contains(params.controlGroup) && allData[params.controlGroup].contains(gene)) {
+                controlValues = allData[params.controlGroup][gene];
             }
 
-            if (!controlValues.isEmpty() && !treatedValues.isEmpty()) {
-                StatisticalResult stat = performTTest(
-                    controlValues,
-                    treatedValues,
-                    gene,
-                    params.controlGroup,
-                    treatedGroup
-                );
-                result.statistics.append(stat);
+            // Test all non-control groups
+            for (const QString& grp : groupSet) {
+                if (grp == params.controlGroup) continue;
 
-                // Find the row for treated group and gene, then add p-value
-                for (int i = 0; i < resultTable.rowCount(); ++i) {
-                    if (resultTable.get(i, "Group").toString() == treatedGroup &&
-                        resultTable.get(i, "Gene").toString() == gene) {
-                        // Add p-value and significance to this row
-                        // We need to modify the table, but DataFrame doesn't support adding columns after creation easily
-                        // So we'll store the p-value in the statistics list for now
-                    }
+                QVector<double> treatedValues;
+                if (allData.contains(grp) && allData[grp].contains(gene)) {
+                    treatedValues = allData[grp][gene];
+                }
+
+                if (!controlValues.isEmpty() && !treatedValues.isEmpty()) {
+                    StatisticalResult stat = performWilcoxonTest(
+                        controlValues,
+                        treatedValues,
+                        gene,
+                        params.controlGroup,
+                        grp
+                    );
+                    result.statistics.append(stat);
+                }
+            }
+        }
+    } else if (statMethod == "anova") {
+        // ANOVA not yet supported for ΔΔCt method, falling back to t-test
+        qWarning() << "ANOVA not yet supported for ΔΔCt method, using t-test instead";
+
+        // Use t-test as fallback
+        for (const QString& gene : geneSet) {
+            QVector<double> controlValues;
+
+            if (allData.contains(params.controlGroup) && allData[params.controlGroup].contains(gene)) {
+                controlValues = allData[params.controlGroup][gene];
+            }
+
+            for (const QString& grp : groupSet) {
+                if (grp == params.controlGroup) continue;
+
+                QVector<double> treatedValues;
+                if (allData.contains(grp) && allData[grp].contains(gene)) {
+                    treatedValues = allData[grp][gene];
+                }
+
+                if (!controlValues.isEmpty() && !treatedValues.isEmpty()) {
+                    StatisticalResult stat = performTTest(
+                        controlValues,
+                        treatedValues,
+                        gene,
+                        params.controlGroup,
+                        grp
+                    );
+                    result.statistics.append(stat);
                 }
             }
         }
@@ -933,6 +985,107 @@ QVector<StatisticalResult> ExpressionCalculator::performANOVA(
     }
 
     return results;
+}
+
+/**
+ * @brief 生成ANOVA字母标记
+ *
+ * 根据Tukey HSD结果为各组分配字母标记
+ * 相同字母表示无显著差异，不同字母表示有显著差异
+ *
+ * @param groupMeans 各组均值 (group -> mean)
+ * @param tukeyResults Tukey HSD检验结果
+ * @param alpha 显著性水平
+ * @return 各组对应的字母标记 (group -> letters)
+ */
+QHash<QString, QString> ExpressionCalculator::generateLetterGroups(
+    const QHash<QString, double>& groupMeans,
+    const QVector<TestResult>& tukeyResults,
+    double alpha)
+{
+    QHash<QString, QString> letterGroups;
+
+    if (groupMeans.isEmpty()) return letterGroups;
+
+    // 将组按均值排序（从高到低）
+    QList<QPair<QString, double>> sortedGroups;
+    for (auto it = groupMeans.begin(); it != groupMeans.end(); ++it) {
+        sortedGroups.append(qMakePair(it.key(), it.value()));
+    }
+    std::sort(sortedGroups.begin(), sortedGroups.end(),
+        [](const QPair<QString, double>& a, const QPair<QString, double>& b) {
+            return a.second > b.second; // 降序排列
+        });
+
+    // 初始化：所有组都没有字母
+    QStringList groups;
+    for (const auto& pair : sortedGroups) {
+        groups.append(pair.first);
+        letterGroups[pair.first] = "";
+    }
+
+    // 构建显著性矩阵：sigMatrix[i][j] = true 表示组i和组j有显著差异
+    QHash<QString, QHash<QString, bool>> sigMatrix;
+    for (const QString& g1 : groups) {
+        for (const QString& g2 : groups) {
+            sigMatrix[g1][g2] = false;
+        }
+    }
+
+    // 从Tukey HSD结果填充显著性矩阵
+    for (const TestResult& result : tukeyResults) {
+        // result.testName格式: "Tukey HSD: group1 vs group2"
+        QString testName = result.testName;
+        if (testName.contains(" vs ")) {
+            int vsPos = testName.indexOf(" vs ");
+            QString group1 = testName.mid(13, vsPos - 13); // "Tukey HSD: " 之后到 " vs " 之前
+            QString group2 = testName.mid(vsPos + 4); // " vs " 之后
+
+            bool isSignificant = result.pValue < alpha;
+            if (sigMatrix.contains(group1) && sigMatrix.contains(group2)) {
+                sigMatrix[group1][group2] = isSignificant;
+                sigMatrix[group2][group1] = isSignificant;
+            }
+        }
+    }
+
+    // 分配字母
+    int letterIndex = 0;
+    QString currentLetter = "a";
+
+    for (int i = 0; i < groups.size(); ++i) {
+        QString currentGroup = groups[i];
+
+        // 如果这个组已经有字母了，跳过
+        if (!letterGroups[currentGroup].isEmpty()) continue;
+
+        // 分配新字母给当前组
+        if (!letterGroups[currentGroup].isEmpty()) {
+            letterGroups[currentGroup] += currentLetter;
+        } else {
+            letterGroups[currentGroup] = currentLetter;
+        }
+
+        // 找出所有与当前组无显著差异的组，分配相同字母
+        for (int j = i + 1; j < groups.size(); ++j) {
+            QString otherGroup = groups[j];
+
+            // 如果与当前组无显著差异，添加相同字母
+            if (!sigMatrix[currentGroup][otherGroup]) {
+                if (letterGroups[otherGroup].isEmpty()) {
+                    letterGroups[otherGroup] = currentLetter;
+                } else {
+                    letterGroups[otherGroup] += currentLetter;
+                }
+            }
+        }
+
+        // 移动到下一个字母
+        letterIndex++;
+        currentLetter = QString('a' + letterIndex);
+    }
+
+    return letterGroups;
 }
 
 } // namespace qpcr

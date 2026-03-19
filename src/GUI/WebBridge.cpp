@@ -51,7 +51,21 @@ QString WebBridge::loadCqFile(const QString &filePath)
         emit progressChanged(100, tr("Cq file loaded successfully"));
         emit dataLoaded(true, tr("Loaded %1 rows").arg(m_cqTable.rowCount()));
 
-        return dataframeToVariantMap(m_cqTable)["data"].toString();
+        // Return complete JSON with columns order preserved
+        QVariantMap result = dataframeToVariantMap(m_cqTable);
+
+        qDebug() << "=== loadCqFile debug ===";
+        qDebug() << "result[data]:" << result["data"].toString();
+        qDebug() << "result[columns]:" << result["columns"].toString();
+
+        QJsonObject completeResult;
+        completeResult["data"] = QJsonDocument::fromJson(result["data"].toString().toUtf8()).array();
+        completeResult["columns"] = QJsonDocument::fromJson(result["columns"].toString().toUtf8()).array();
+
+        QString finalJson = QJsonDocument(completeResult).toJson(QJsonDocument::Compact);
+        qDebug() << "Final JSON (first 500 chars):" << finalJson.left(500);
+
+        return finalJson;
 
     } catch (const std::exception &e) {
         emit errorOccurred(tr("Failed to load Cq file: %1").arg(e.what()));
@@ -147,7 +161,14 @@ QString WebBridge::loadCqFromContent(const QString &csvContent)
         emit progressChanged(100, tr("Cq data loaded successfully"));
         emit dataLoaded(true, tr("Loaded %1 rows").arg(m_cqTable.rowCount()));
 
-        return dataframeToVariantMap(m_cqTable)["data"].toString();
+        // Return complete JSON with columns order preserved
+        QVariantMap result = dataframeToVariantMap(m_cqTable);
+
+        QJsonObject completeResult;
+        completeResult["data"] = QJsonDocument::fromJson(result["data"].toString().toUtf8()).array();
+        completeResult["columns"] = QJsonDocument::fromJson(result["columns"].toString().toUtf8()).array();
+
+        return QJsonDocument(completeResult).toJson(QJsonDocument::Compact);
 
     } catch (const std::exception &e) {
         emit errorOccurred(tr("Failed to parse Cq data: %1").arg(e.what()));
@@ -182,7 +203,14 @@ QString WebBridge::loadDesignFile(const QString &filePath)
         emit progressChanged(100, tr("Design file loaded successfully"));
         emit dataLoaded(true, tr("Loaded %1 rows").arg(m_designTable.rowCount()));
 
-        return dataframeToVariantMap(m_designTable)["data"].toString();
+        // Return complete JSON with columns order preserved
+        QVariantMap result = dataframeToVariantMap(m_designTable);
+
+        QJsonObject completeResult;
+        completeResult["data"] = QJsonDocument::fromJson(result["data"].toString().toUtf8()).array();
+        completeResult["columns"] = QJsonDocument::fromJson(result["columns"].toString().toUtf8()).array();
+
+        return QJsonDocument(completeResult).toJson(QJsonDocument::Compact);
 
     } catch (const std::exception &e) {
         emit errorOccurred(tr("Failed to load design file: %1").arg(e.what()));
@@ -277,7 +305,14 @@ QString WebBridge::loadDesignFromContent(const QString &csvContent)
         emit progressChanged(100, tr("Design data loaded successfully"));
         emit dataLoaded(true, tr("Loaded %1 rows").arg(m_designTable.rowCount()));
 
-        return dataframeToVariantMap(m_designTable)["data"].toString();
+        // Return complete JSON with columns order preserved
+        QVariantMap result = dataframeToVariantMap(m_designTable);
+
+        QJsonObject completeResult;
+        completeResult["data"] = QJsonDocument::fromJson(result["data"].toString().toUtf8()).array();
+        completeResult["columns"] = QJsonDocument::fromJson(result["columns"].toString().toUtf8()).array();
+
+        return QJsonDocument(completeResult).toJson(QJsonDocument::Compact);
 
     } catch (const std::exception &e) {
         emit errorOccurred(tr("Failed to parse design data: %1").arg(e.what()));
@@ -334,9 +369,11 @@ QString WebBridge::calculateByDeltaCt(const QString &params, const QString &stat
         dcParams.cqTable = m_cqTable;
         dcParams.designTable = m_designTable;
         dcParams.referenceGene = obj["referenceGene"].toString().trimmed();
+        dcParams.controlGroup = obj["controlGroup"].toString().trimmed();
 
         qDebug() << "=== ΔCt calculation ===";
         qDebug() << "Reference gene:" << dcParams.referenceGene;
+        qDebug() << "Control group:" << dcParams.controlGroup;
         qDebug() << "Statistical method:" << statMethod;
 
         emit progressChanged(50, tr("Computing ΔCt values..."));

@@ -17,7 +17,8 @@ struct StatisticalResult {
     QString group1;            // 比较组1
     QString group2;            // 比较组2
     double pValue;             // P值
-    QString significance;      // 显著性标记: "***", "**", "*", "NS"
+    QString significance;      // 显著性标记: "***", "**", "*", "NS" 或字母标记 "a", "b", "ab", etc.
+    QString letterGroup;       // ANOVA字母标记分组 (仅ANOVA使用)
 
     // 统计量
     double tStatistic;         // t值 (t检验)
@@ -41,6 +42,7 @@ struct DeltaCtParams {
     DataFrame cqTable;         // Cq 值表
     DataFrame designTable;     // 设计表
     QString referenceGene;     // 内参基因
+    QString controlGroup;      // 对照组
 };
 
 /**
@@ -188,6 +190,15 @@ private:
         const QString& geneCol,
         const QString& groupCol,
         const QString& valueCol
+    );
+
+    /**
+     * @brief 生成ANOVA字母标记
+     */
+    static QHash<QString, QString> generateLetterGroups(
+        const QHash<QString, double>& groupMeans,
+        const QVector<TestResult>& tukeyResults,
+        double alpha = 0.05
     );
 };
 

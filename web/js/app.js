@@ -158,40 +158,36 @@ function setupHomepageButtons() {
  */
 function loadExampleData() {
     // Generate example Cq data
-    currentCqData = {
-        headers: ['Position', 'Gene', 'Cq'],
-        rows: [
-            { Position: 'A1', Gene: 'GAPDH', Cq: 18.5 },
-            { Position: 'A2', Gene: 'GAPDH', Cq: 18.6 },
-            { Position: 'A3', Gene: 'GAPDH', Cq: 18.4 },
-            { Position: 'B1', Gene: 'Target1', Cq: 22.3 },
-            { Position: 'B2', Gene: 'Target1', Cq: 22.5 },
-            { Position: 'B3', Gene: 'Target1', Cq: 22.4 },
-            { Position: 'C1', Gene: 'Target2', Cq: 25.1 },
-            { Position: 'C2', Gene: 'Target2', Cq: 25.3 },
-            { Position: 'C3', Gene: 'Target2', Cq: 25.2 }
-        ]
-    };
+    currentCqData = [
+        { Position: 'A1', Gene: 'GAPDH', Cq: 18.5 },
+        { Position: 'A2', Gene: 'GAPDH', Cq: 18.6 },
+        { Position: 'A3', Gene: 'GAPDH', Cq: 18.4 },
+        { Position: 'B1', Gene: 'Target1', Cq: 22.3 },
+        { Position: 'B2', Gene: 'Target1', Cq: 22.5 },
+        { Position: 'B3', Gene: 'Target1', Cq: 22.4 },
+        { Position: 'C1', Gene: 'Target2', Cq: 25.1 },
+        { Position: 'C2', Gene: 'Target2', Cq: 25.3 },
+        { Position: 'C3', Gene: 'Target2', Cq: 25.2 }
+    ];
+    currentCqData.columns = ['Position', 'Gene', 'Cq'];
 
     // Generate example design data
-    currentDesignData = {
-        headers: ['Position', 'Group', 'BioRep'],
-        rows: [
-            { Position: 'A1', Group: 'Control', BioRep: '1' },
-            { Position: 'A2', Group: 'Control', BioRep: '2' },
-            { Position: 'A3', Group: 'Control', BioRep: '3' },
-            { Position: 'B1', Group: 'Treatment', BioRep: '1' },
-            { Position: 'B2', Group: 'Treatment', BioRep: '2' },
-            { Position: 'B3', Group: 'Treatment', BioRep: '3' },
-            { Position: 'C1', Group: 'Treatment', BioRep: '1' },
-            { Position: 'C2', Group: 'Treatment', BioRep: '2' },
-            { Position: 'C3', Group: 'Treatment', BioRep: '3' }
-        ]
-    };
+    currentDesignData = [
+        { Position: 'A1', Group: 'Control', BioRep: '1' },
+        { Position: 'A2', Group: 'Control', BioRep: '2' },
+        { Position: 'A3', Group: 'Control', BioRep: '3' },
+        { Position: 'B1', Group: 'Treatment', BioRep: '1' },
+        { Position: 'B2', Group: 'Treatment', BioRep: '2' },
+        { Position: 'B3', Group: 'Treatment', BioRep: '3' },
+        { Position: 'C1', Group: 'Treatment', BioRep: '1' },
+        { Position: 'C2', Group: 'Treatment', BioRep: '2' },
+        { Position: 'C3', Group: 'Treatment', BioRep: '3' }
+    ];
+    currentDesignData.columns = ['Position', 'Group', 'BioRep'];
 
     // Show preview
-    displayCqPreview(currentCqData.rows);
-    displayDesignPreview(currentDesignData.rows);
+    displayCqPreview(currentCqData);
+    displayDesignPreview(currentDesignData);
 
     // Enable proceed button
     document.getElementById('proceedToAnalysis').disabled = false;
@@ -212,20 +208,26 @@ function loadExampleCqData() {
     // Generate example Cq data - properly paired for ΔΔCt calculation
     // Each position has one gene measurement
     currentCqData = [
-        // Control group - 3 biological replicates, each with both GAPDH and Target1
-        { Position: 'A1', Gene: 'GAPDH', Cq: 18.5 },
-        { Position: 'A2', Gene: 'Target1', Cq: 22.3 },
-        { Position: 'A3', Gene: 'GAPDH', Cq: 18.6 },
-        { Position: 'A4', Gene: 'Target1', Cq: 22.5 },
-        { Position: 'A5', Gene: 'GAPDH', Cq: 18.4 },
-        { Position: 'A6', Gene: 'Target1', Cq: 22.4 },
-        // Treatment group
-        { Position: 'B1', Gene: 'GAPDH', Cq: 18.7 },
-        { Position: 'B2', Gene: 'Target1', Cq: 20.1 },
-        { Position: 'B3', Gene: 'GAPDH', Cq: 18.5 },
-        { Position: 'B4', Gene: 'Target1', Cq: 20.2 },
-        { Position: 'B5', Gene: 'GAPDH', Cq: 18.6 },
-        { Position: 'B6', Gene: 'Target1', Cq: 20.0 }
+        // Target gene: fos-glo-myc
+        { Position: 'A1', Gene: 'fos-glo-myc', Cq: 22.3 },
+        { Position: 'B1', Gene: 'fos-glo-myc', Cq: 22.0 },
+        { Position: 'C1', Gene: 'fos-glo-myc', Cq: 21.5 },
+        { Position: 'D1', Gene: 'fos-glo-myc', Cq: 19.8 },
+        { Position: 'E1', Gene: 'fos-glo-myc', Cq: 20.2 },
+        { Position: 'F1', Gene: 'fos-glo-myc', Cq: 20.0 },
+        { Position: 'G1', Gene: 'fos-glo-myc', Cq: 19.5 },
+        { Position: 'H1', Gene: 'fos-glo-myc', Cq: 18.9 },
+        { Position: 'A2', Gene: 'fos-glo-myc', Cq: 19.2 },
+        // Reference gene: Beta Actin
+        { Position: 'A5', Gene: 'Beta Actin', Cq: 22.9 },
+        { Position: 'B5', Gene: 'Beta Actin', Cq: 22.3 },
+        { Position: 'C5', Gene: 'Beta Actin', Cq: 22.4 },
+        { Position: 'D5', Gene: 'Beta Actin', Cq: 21.2 },
+        { Position: 'E5', Gene: 'Beta Actin', Cq: 21.7 },
+        { Position: 'F5', Gene: 'Beta Actin', Cq: 21.7 },
+        { Position: 'G5', Gene: 'Beta Actin', Cq: 21.2 },
+        { Position: 'H5', Gene: 'Beta Actin', Cq: 21.2 },
+        { Position: 'A6', Gene: 'Beta Actin', Cq: 21.3 }
     ];
 
     console.log('Loaded example Cq data:', currentCqData.length, 'rows');
@@ -246,22 +248,29 @@ function loadExampleCqData() {
  */
 function loadExampleDesignData() {
     // Generate example design data - matched to Cq data
-    // Each BioRep has both GAPDH and Target1 measured
+    // Each BioRep has both fos-glo-myc and Beta Actin measured
     currentDesignData = [
-        // Control group - 3 biological replicates
-        { Position: 'A1', Group: 'Control', BioRep: '1' },
-        { Position: 'A2', Group: 'Control', BioRep: '1' },
-        { Position: 'A3', Group: 'Control', BioRep: '2' },
-        { Position: 'A4', Group: 'Control', BioRep: '2' },
-        { Position: 'A5', Group: 'Control', BioRep: '3' },
-        { Position: 'A6', Group: 'Control', BioRep: '3' },
-        // Treatment group
-        { Position: 'B1', Group: 'Treatment', BioRep: '1' },
-        { Position: 'B2', Group: 'Treatment', BioRep: '1' },
-        { Position: 'B3', Group: 'Treatment', BioRep: '2' },
-        { Position: 'B4', Group: 'Treatment', BioRep: '2' },
-        { Position: 'B5', Group: 'Treatment', BioRep: '3' },
-        { Position: 'B6', Group: 'Treatment', BioRep: '3' }
+        // Treatment group 0 - 3 biological replicates
+        { Position: 'A1', Group: '0', BioRep: '1' },
+        { Position: 'A5', Group: '0', BioRep: '1' },
+        { Position: 'B1', Group: '0', BioRep: '2' },
+        { Position: 'B5', Group: '0', BioRep: '2' },
+        { Position: 'C1', Group: '0', BioRep: '3' },
+        { Position: 'C5', Group: '0', BioRep: '3' },
+        // Treatment group 0.5 - 3 biological replicates
+        { Position: 'D1', Group: '0.5', BioRep: '1' },
+        { Position: 'D5', Group: '0.5', BioRep: '1' },
+        { Position: 'E1', Group: '0.5', BioRep: '2' },
+        { Position: 'E5', Group: '0.5', BioRep: '2' },
+        { Position: 'F1', Group: '0.5', BioRep: '3' },
+        { Position: 'F5', Group: '0.5', BioRep: '3' },
+        // Treatment group 1 - 3 biological replicates
+        { Position: 'G1', Group: '1', BioRep: '1' },
+        { Position: 'G5', Group: '1', BioRep: '1' },
+        { Position: 'H1', Group: '1', BioRep: '2' },
+        { Position: 'H5', Group: '1', BioRep: '2' },
+        { Position: 'A2', Group: '1', BioRep: '3' },
+        { Position: 'A6', Group: '1', BioRep: '3' }
     ];
 
     console.log('Loaded example Design data:', currentDesignData.length, 'rows');
@@ -346,10 +355,23 @@ function setupImportPage() {
                     console.log('Result type:', typeof result);
                     console.log('Result length:', result ? result.length : 0);
 
-                    currentCqData = JSON.parse(result);
-                    console.log('Parsed currentCqData:', currentCqData);
-                    console.log('currentCqData type:', Array.isArray(currentCqData) ? 'array' : typeof currentCqData);
-                    console.log('currentCqData length:', currentCqData ? currentCqData.length : 0);
+                    const parsed = JSON.parse(result);
+                    console.log('Parsed result:', parsed);
+                    console.log('Parsed result keys:', Object.keys(parsed));
+                    console.log('parsed.data:', parsed.data);
+                    console.log('parsed.data type:', Array.isArray(parsed.data) ? 'array' : typeof parsed.data);
+                    console.log('parsed.columns:', parsed.columns);
+
+                    if (!Array.isArray(parsed.data)) {
+                        console.error('parsed.data is not an array! Full parsed object:', JSON.stringify(parsed, null, 2));
+                        showNotification('Invalid data format: data is not an array', 'danger');
+                        return;
+                    }
+
+                    currentCqData = parsed.data;
+                    currentCqData.columns = parsed.columns;
+                    console.log('Final currentCqData type:', Array.isArray(currentCqData) ? 'array' : typeof currentCqData);
+                    console.log('Final currentCqData.columns:', currentCqData.columns);
 
                     displayCqPreview(currentCqData);
                     checkDataLoaded();
@@ -406,10 +428,20 @@ function setupImportPage() {
                     console.log('Result type:', typeof result);
                     console.log('Result length:', result ? result.length : 0);
 
-                    currentDesignData = JSON.parse(result);
-                    console.log('Parsed currentDesignData:', currentDesignData);
-                    console.log('currentDesignData type:', Array.isArray(currentDesignData) ? 'array' : typeof currentDesignData);
-                    console.log('currentDesignData length:', currentDesignData ? currentDesignData.length : 0);
+                    const parsed = JSON.parse(result);
+                    console.log('Parsed result keys:', Object.keys(parsed));
+                    console.log('parsed.data type:', Array.isArray(parsed.data) ? 'array' : typeof parsed.data);
+                    console.log('parsed.columns:', parsed.columns);
+
+                    if (!Array.isArray(parsed.data)) {
+                        console.error('parsed.data is not an array!');
+                        showNotification('Invalid data format: data is not an array', 'danger');
+                        return;
+                    }
+
+                    currentDesignData = parsed.data;
+                    currentDesignData.columns = parsed.columns;
+                    console.log('Final currentDesignData.columns:', currentDesignData.columns);
 
                     displayDesignPreview(currentDesignData);
                     checkDataLoaded();
@@ -452,10 +484,34 @@ function loadCqFile(file) {
         // Use Qt file dialog
         bridge.showFileDialog(i18n.t('import.cqData'), '*.csv;;*.xlsx *.xls').then(filePath => {
             if (filePath) {
-                const result = bridge.loadCqFile(filePath);
-                currentCqData = JSON.parse(result);
-                displayCqPreview(currentCqData);
-                checkDataLoaded();
+                try {
+                    const result = bridge.loadCqFile(filePath);
+                    console.log('=== Cq File Loading ===');
+                    console.log('Raw result type:', typeof result);
+                    console.log('Raw result length:', result.length);
+                    console.log('Raw result (first 1000 chars):', result.substring(0, 1000));
+                    const parsed = JSON.parse(result);
+                    console.log('Parsed result keys:', Object.keys(parsed));
+                    console.log('parsed.data:', parsed.data);
+                    console.log('parsed.data type:', Array.isArray(parsed.data) ? 'array' : typeof parsed.data);
+                    console.log('parsed.columns:', parsed.columns);
+                    console.log('parsed.columns type:', Array.isArray(parsed.columns) ? 'array' : typeof parsed.columns);
+
+                    if (!Array.isArray(parsed.data)) {
+                        console.error('parsed.data is not an array! Full parsed object:', JSON.stringify(parsed, null, 2));
+                        showNotification('Invalid data format: data is not an array', 'danger');
+                        return;
+                    }
+
+                    currentCqData = parsed.data;
+                    currentCqData.columns = parsed.columns;
+                    displayCqPreview(currentCqData);
+                    checkDataLoaded();
+                } catch (error) {
+                    console.error('Error loading Cq file:', error);
+                    console.error('Error stack:', error.stack);
+                    showNotification(i18n.t('msg.error') + ': ' + error.message, 'danger');
+                }
             }
         });
     } else {
@@ -484,7 +540,9 @@ function loadDesignFile(file) {
         bridge.showFileDialog(i18n.t('import.designData'), '*.csv;;*.xlsx *.xls').then(filePath => {
             if (filePath) {
                 const result = bridge.loadDesignFile(filePath);
-                currentDesignData = JSON.parse(result);
+                const parsed = JSON.parse(result);
+                currentDesignData = parsed.data;
+                currentDesignData.columns = parsed.columns;
                 displayDesignPreview(currentDesignData);
                 checkDataLoaded();
             }
@@ -661,9 +719,9 @@ function checkDataLoaded() {
  */
 function updateParameterDropdowns() {
     try {
-        // Update gene list from Cq data
-        const geneList = document.getElementById('geneList');
-        if (geneList && currentCqData && Array.isArray(currentCqData)) {
+        // Update reference gene dropdown from Cq data
+        const referenceGeneSelect = document.getElementById('referenceGene');
+        if (referenceGeneSelect && currentCqData && Array.isArray(currentCqData)) {
             // Extract unique genes
             const genes = new Set();
             currentCqData.forEach(row => {
@@ -672,22 +730,31 @@ function updateParameterDropdowns() {
                 }
             });
 
-            // Clear existing options
-            geneList.innerHTML = '';
+            // Save current selection
+            const currentValue = referenceGeneSelect.value;
+
+            // Clear existing options (keep the first default option)
+            referenceGeneSelect.innerHTML = '<option value="">-- Select Reference Gene --</option>';
 
             // Add new options
             genes.forEach(gene => {
                 const option = document.createElement('option');
                 option.value = gene;
-                geneList.appendChild(option);
+                option.textContent = gene;
+                referenceGeneSelect.appendChild(option);
             });
 
-            console.log('Updated gene list with', genes.size, 'unique genes');
+            // Restore selection if it still exists
+            if (genes.has(currentValue)) {
+                referenceGeneSelect.value = currentValue;
+            }
+
+            console.log('Updated reference gene dropdown with', genes.size, 'unique genes');
         }
 
-        // Update group list from Design data
-        const groupList = document.getElementById('groupList');
-        if (groupList && currentDesignData && Array.isArray(currentDesignData)) {
+        // Update control group dropdown from Design data
+        const controlGroupSelect = document.getElementById('controlGroup');
+        if (controlGroupSelect && currentDesignData && Array.isArray(currentDesignData)) {
             // Extract unique groups
             const groups = new Set();
             currentDesignData.forEach(row => {
@@ -696,17 +763,26 @@ function updateParameterDropdowns() {
                 }
             });
 
-            // Clear existing options
-            groupList.innerHTML = '';
+            // Save current selection
+            const currentValue = controlGroupSelect.value;
+
+            // Clear existing options (keep the first default option)
+            controlGroupSelect.innerHTML = '<option value="">-- Select Control Group --</option>';
 
             // Add new options
             groups.forEach(group => {
                 const option = document.createElement('option');
                 option.value = group;
-                groupList.appendChild(option);
+                option.textContent = group;
+                controlGroupSelect.appendChild(option);
             });
 
-            console.log('Updated group list with', groups.size, 'unique groups');
+            // Restore selection if it still exists
+            if (groups.has(currentValue)) {
+                controlGroupSelect.value = currentValue;
+            }
+
+            console.log('Updated control group dropdown with', groups.size, 'unique groups');
         }
     } catch (error) {
         console.error('Error updating parameter dropdowns:', error);
