@@ -107,11 +107,13 @@ echo "Fixing QtWebEngineProcess helper app..."
 HELPER_APP="${APP_BUNDLE}/Contents/Frameworks/QtWebEngineCore.framework/Versions/A/Helpers/QtWebEngineProcess.app"
 if [ -d "${HELPER_APP}" ]; then
     mkdir -p "${HELPER_APP}/Contents/Frameworks"
-    # Copy required frameworks to helper app
-    for framework in QtWebChannel QtQuick QtQml QtQmlModels; do
-        if [ -d "${APP_BUNDLE}/Contents/Frameworks/${framework}.framework" ]; then
-            echo "  Copying ${framework}.framework to helper app"
-            cp -R "${APP_BUNDLE}/Contents/Frameworks/${framework}.framework" "${HELPER_APP}/Contents/Frameworks/"
+    # Copy ALL Qt frameworks to helper app
+    echo "  Copying all Qt frameworks to helper app..."
+    for framework in "${APP_BUNDLE}"/Contents/Frameworks/Qt*.framework; do
+        if [ -d "${framework}" ]; then
+            fw_name=$(basename "${framework}")
+            echo "    Copying ${fw_name}"
+            cp -R "${framework}" "${HELPER_APP}/Contents/Frameworks/"
         fi
     done
     # Sign helper app
