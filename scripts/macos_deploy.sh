@@ -97,6 +97,26 @@ if ls ../build/*.qm 1> /dev/null 2>&1; then
     cp ../build/*.qm "${APP_BUNDLE}/Contents/Resources/translations/"
 fi
 
+# Fix code signing
+echo "Fixing code signature..."
+# Remove any existing signature
+codesign --remove-signature "${APP_BUNDLE}" 2>/dev/null || true
+
+# Sign all frameworks and libraries
+find "${APP_BUNDLE}/Contents/Frameworks" -type f -name "*.dylib" -exec codesign --force --deep --sign - {} \; 2>/dev/null || true
+find "${APP_BUNDLE}/Contents/Frameworks" -type d -name "*.framework" -exec codesign --force --deep --sign - {} \; 2>/dev/null || true
+
+# Sign the app bundle
+codesign --force --deep --sign - "${APP_BUNDLE}"
+
+# Verify signature
+echo "Verifying signature..."
+if ! codesign -v "${APP_BUNDLE}" 2>&1; then
+    echo "❌ Code signature verification failed"
+    echo "This may cause the app to crash on launch"
+    echo "Consider getting an Apple Developer certificate for proper signing"
+fi
+
 # Test the app bundle
 echo "Testing app bundle..."
 if [ -x "${APP_BUNDLE}/Contents/MacOS/${PROJECT_NAME}" ]; then
