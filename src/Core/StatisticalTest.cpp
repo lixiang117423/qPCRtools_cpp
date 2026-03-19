@@ -12,6 +12,9 @@
 
 namespace qpcr {
 
+// Forward declaration of helper function
+static double incompleteBeta(double a, double b, double x);
+
 //=============================================================================
 // t-Test
 //=============================================================================
@@ -393,8 +396,27 @@ QVector<TestResult> StatisticalTest::tukeyHSD(
             result.statistic = Q;
             result.testName = QString("Tukey HSD: %1 vs %2").arg(groupNames[i]).arg(groupNames[j]);
 
-            // Approximate p-value (simplified)
-            double p = 0.05; // Placeholder - use studentized range distribution
+            // Calculate p-value using t-distribution with Bonferroni correction
+            // This approximates Tukey HSD (conservative but valid)
+            int numComparisons = k * (k - 1) / 2;
+            double pooledSD = std::sqrt(MSE);
+            double t = std::abs(diff) / std::sqrt(MSE * (1.0/ni + 1.0/nj));
+            int df = dfWithin;
+
+            // Calculate p-value from t-statistic (two-tailed)
+            double t_p = 0.0;
+            if (df > 0) {
+                // For t-distribution: p-value = I(df/(df+t²), df/2, 0.5)
+                // This is the two-tailed p-value for |t|
+                double x = df / (df + t * t);
+                t_p = incompleteBeta(df / 2.0, 0.5, x);
+                qDebug() << "    Comparison" << groupNames[i] << "vs" << groupNames[j]
+                         << ": diff=" << diff << "MSE=" << MSE << "t=" << t
+                         << "df=" << df << "x=" << x << "t_p=" << t_p;
+            }
+
+            // Apply Bonferroni correction
+            double p = std::min(1.0, t_p * numComparisons);
             result.pValue = p;
             result.significance = formatSignificance(p);
             result.isSignificant = p < alpha;
@@ -532,6 +554,49 @@ double StatisticalTest::variance(const QVector<double>& data)
     }
 
     return sum / (n - 1);
+}
+
+//=============================================================================
+// Statistical Distribution Functions
+//=============================================================================
+
+/**
+ * @brief Regularized incomplete beta function I(x; a, b)
+ * Used for calculating t-test and F-test p-values
+ *
+ * Uses numerical integration with trapezoidal rule for stability
+ *
+ * @param a First shape parameter
+ * @param b Second shape parameter
+ * @param x Upper limit of integration [0, 1]
+ * @return Value of regularized incomplete beta function
+ */
+static double incompleteBeta(double a, double b, double x)
+{
+    if (x < 0.0 || x > 1.0) return qQNaN();
+    if (x == 0.0) return 0.0;
+    if (x == 1.0) return 1.0;
+
+    // Complete beta function
+    double beta_ab = std::exp(std::lgamma(a) + std::lgamma(b) - std::lgamma(a + b));
+
+    // Trapezoidal integration (simple and stable)
+    const int n = 200;  // Number of steps
+    double h = x / n;
+    double sum = 0.0;
+
+    for (int i = 0; i <= n; ++i) {
+        double t = i * h;
+        // Avoid log(0) by using small epsilon
+        double t_safe = std::max(t, 1e-10);
+        double one_minus_t = std::max(1.0 - t, 1e-10);
+
+        // Trapezoidal weights: 0.5 for endpoints, 1.0 for interior points
+        double weight = (i == 0 || i == n) ? 0.5 : 1.0;
+        sum += weight * std::exp((a - 1.0) * std::log(t_safe) + (b - 1.0) * std::log(one_minus_t));
+    }
+
+    return h * sum / beta_ab;
 }
 
 } // namespace qpcr

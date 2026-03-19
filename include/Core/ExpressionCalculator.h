@@ -3,6 +3,7 @@
 
 #include "Data/DataFrame.h"
 #include "Core/StandardCurve.h"
+#include "Core/StatisticalTest.h"
 #include <QString>
 #include <QVector>
 

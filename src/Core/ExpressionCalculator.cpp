@@ -643,35 +643,69 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
             }
         }
     } else if (statMethod == "anova") {
-        // ANOVA not yet supported for ΔΔCt method, falling back to t-test
-        qWarning() << "ANOVA not yet supported for ΔΔCt method, using t-test instead";
+        qDebug() << "=== Performing ANOVA analysis ===";
 
-        // Use t-test as fallback
+        // For each gene, perform ANOVA and Tukey HSD
         for (const QString& gene : geneSet) {
-            QVector<double> controlValues;
+            qDebug() << "Processing gene:" << gene;
 
-            if (allData.contains(params.controlGroup) && allData[params.controlGroup].contains(gene)) {
-                controlValues = allData[params.controlGroup][gene];
-            }
+            // Collect all group data for this gene
+            QVector<QVector<double>> groupDataList;
+            QStringList groupNamesList;
+            QHash<QString, double> geneGroupMeans;
 
             for (const QString& grp : groupSet) {
-                if (grp == params.controlGroup) continue;
-
-                QVector<double> treatedValues;
                 if (allData.contains(grp) && allData[grp].contains(gene)) {
-                    treatedValues = allData[grp][gene];
-                }
+                    QVector<double> values = allData[grp][gene];
+                    if (!values.isEmpty()) {
+                        groupDataList.append(values);
+                        groupNamesList.append(grp);
 
-                if (!controlValues.isEmpty() && !treatedValues.isEmpty()) {
-                    StatisticalResult stat = performTTest(
-                        controlValues,
-                        treatedValues,
-                        gene,
-                        params.controlGroup,
-                        grp
-                    );
-                    result.statistics.append(stat);
+                        // Calculate mean for this group
+                        double sum = std::accumulate(values.begin(), values.end(), 0.0);
+                        double mean = sum / values.size();
+                        geneGroupMeans[grp] = mean;
+
+                        qDebug() << "  Group" << grp << ": n =" << values.size() << "mean =" << mean;
+                    }
                 }
+            }
+
+            if (groupDataList.size() < 2) {
+                qWarning() << "Not enough groups for ANOVA on gene" << gene;
+                continue;
+            }
+
+            // Perform ANOVA
+            TestResult anovaResult = StatisticalTest::anova(groupDataList, 0.05);
+            qDebug() << "  ANOVA F =" << anovaResult.statistic << "p =" << anovaResult.pValue;
+
+            // Perform Tukey HSD post-hoc test
+            QVector<TestResult> tukeyResults = StatisticalTest::tukeyHSD(groupDataList, groupNamesList, 0.05);
+            qDebug() << "  Tukey HSD comparisons:" << tukeyResults.size();
+            for (const auto& result : tukeyResults) {
+                qDebug() << "    " << result.testName << "p =" << result.pValue << "significant =" << result.isSignificant;
+            }
+
+            // Generate letter groups
+            QHash<QString, QString> letterGroups = generateLetterGroups(geneGroupMeans, tukeyResults, 0.05);
+            qDebug() << "  Letter groups:" << letterGroups;
+
+            // Store results for each group
+            for (const QString& grp : groupSet) {
+                if (!allData.contains(grp) || !allData[grp].contains(gene)) continue;
+
+                StatisticalResult stat;
+                stat.gene = gene;
+                stat.group = grp;
+                stat.group1 = "All";
+                stat.group2 = grp;
+                stat.pValue = anovaResult.pValue;
+                stat.fStatistic = anovaResult.statistic;
+                stat.significance = letterGroups.value(grp, "");
+                stat.letterGroup = letterGroups.value(grp, "");
+
+                result.statistics.append(stat);
             }
         }
     }
@@ -1038,10 +1072,17 @@ QHash<QString, QString> ExpressionCalculator::generateLetterGroups(
         QString testName = result.testName;
         if (testName.contains(" vs ")) {
             int vsPos = testName.indexOf(" vs ");
-            QString group1 = testName.mid(13, vsPos - 13); // "Tukey HSD: " 之后到 " vs " 之前
+            // "Tukey HSD: " 长度为10，跳过空格后是位置11
+            QString group1 = testName.mid(11, vsPos - 11); // 跳过"Tukey HSD: "后的空格
             QString group2 = testName.mid(vsPos + 4); // " vs " 之后
 
+            // 去除可能的前后空格
+            group1 = group1.trimmed();
+            group2 = group2.trimmed();
+
             bool isSignificant = result.pValue < alpha;
+            qDebug() << "    SigMatrix: group1=" << group1 << "group2=" << group2
+                     << "isSignificant=" << isSignificant;
             if (sigMatrix.contains(group1) && sigMatrix.contains(group2)) {
                 sigMatrix[group1][group2] = isSignificant;
                 sigMatrix[group2][group1] = isSignificant;
@@ -1049,40 +1090,56 @@ QHash<QString, QString> ExpressionCalculator::generateLetterGroups(
         }
     }
 
+    qDebug() << "  Groups sorted by mean:" << groups;
+    qDebug() << "  Assigning letters...";
+
     // 分配字母
     int letterIndex = 0;
-    QString currentLetter = "a";
+    QChar currentLetter = 'a';
 
     for (int i = 0; i < groups.size(); ++i) {
         QString currentGroup = groups[i];
 
-        // 如果这个组已经有字母了，跳过
-        if (!letterGroups[currentGroup].isEmpty()) continue;
+        qDebug() << "  Processing group" << currentGroup << "at index" << i;
 
-        // 分配新字母给当前组
-        if (!letterGroups[currentGroup].isEmpty()) {
-            letterGroups[currentGroup] += currentLetter;
+        // 如果这个组已经有字母了，说明之前的某个组已经分配给它了字母
+        // 我们需要检查是否需要添加新的字母
+        bool hasExistingLetter = !letterGroups[currentGroup].isEmpty();
+
+        if (!hasExistingLetter) {
+            // 分配新字母给当前组
+            letterGroups[currentGroup] = QString(currentLetter);
+            qDebug() << "    Assigned letter" << currentLetter << "to" << currentGroup;
         } else {
-            letterGroups[currentGroup] = currentLetter;
+            qDebug() << "    Group" << currentGroup << "already has letter" << letterGroups[currentGroup];
         }
 
         // 找出所有与当前组无显著差异的组，分配相同字母
         for (int j = i + 1; j < groups.size(); ++j) {
             QString otherGroup = groups[j];
 
+            bool isSig = sigMatrix[currentGroup][otherGroup];
+            qDebug() << "    Checking" << currentGroup << "vs" << otherGroup
+                     << ": significant=" << isSig;
+
             // 如果与当前组无显著差异，添加相同字母
             if (!sigMatrix[currentGroup][otherGroup]) {
                 if (letterGroups[otherGroup].isEmpty()) {
-                    letterGroups[otherGroup] = currentLetter;
-                } else {
+                    letterGroups[otherGroup] = QString(currentLetter);
+                    qDebug() << "      Also assigned" << currentLetter << "to" << otherGroup;
+                } else if (!letterGroups[otherGroup].contains(currentLetter)) {
                     letterGroups[otherGroup] += currentLetter;
+                    qDebug() << "      Added" << currentLetter << "to" << otherGroup
+                             << "->" << letterGroups[otherGroup];
                 }
             }
         }
 
-        // 移动到下一个字母
-        letterIndex++;
-        currentLetter = QString('a' + letterIndex);
+        // 只有当前组原本没有字母时，才移动到下一个字母
+        if (!hasExistingLetter) {
+            letterIndex++;
+            currentLetter = QChar('a' + letterIndex);
+        }
     }
 
     return letterGroups;
