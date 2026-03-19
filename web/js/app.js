@@ -544,8 +544,8 @@ function displayCqPreview(data) {
     thead.innerHTML = '';
     tbody.innerHTML = '';
 
-    // Headers
-    const headers = Object.keys(data[0]);
+    // Headers - 优先使用保存的列顺序
+    const headers = data.columns || Object.keys(data[0]);
     console.log('Headers:', headers);
     headers.forEach(header => {
         const th = document.createElement('th');
@@ -605,7 +605,8 @@ function displayDesignPreview(data) {
     thead.innerHTML = '';
     tbody.innerHTML = '';
 
-    const headers = Object.keys(data[0]);
+    // Headers - 优先使用保存的列顺序
+    const headers = data.columns || Object.keys(data[0]);
     console.log('Headers:', headers);
     headers.forEach(header => {
         const th = document.createElement('th');
@@ -1208,13 +1209,16 @@ function parseCSV(text) {
         data.push(row);
     }
 
+    // 保存列顺序
+    data.columns = headers;
     return data;
 }
 
 function convertToCSV(data) {
     if (!data || data.length === 0) return '';
 
-    const headers = Object.keys(data[0]);
+    // 优先使用保存的列顺序
+    const headers = data.columns || Object.keys(data[0]);
     const csvRows = [];
 
     csvRows.push(headers.join(','));
