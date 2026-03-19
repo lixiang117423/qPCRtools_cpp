@@ -38,10 +38,6 @@ jobs:
       with:
         arch: x64
 
-    - name: Setup vcpkg
-      run: |
-        C:\vcpkg\bootstrap-vcpkg.bat -disableMetrics
-
     - name: Install dependencies
       run: |
         C:\vcpkg\vcpkg install eigen3:x64-windows gsl:x64-windows --classic
@@ -60,8 +56,8 @@ jobs:
     - name: Deploy Windows
       shell: pwsh
       run: |
-        # 使用 windeployqt 收集依赖
-        & "$env:Qt6_DIR/bin/windeployqt.exe" build/Release/qPCRtools.exe --release --no-translations --webengine
+        # 使用 windeployqt 收集依赖（Qt6 会自动检测 WebEngine）
+        & "$env:Qt6_DIR/bin/windeployqt.exe" build/Release/qPCRtools.exe --release --no-translations
 
         # 复制 web 资源
         New-Item -ItemType Directory -Force -Path build/Release/web
