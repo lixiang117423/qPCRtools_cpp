@@ -307,8 +307,18 @@ void WebMainWindow::loadWebInterface()
 
 QString WebMainWindow::getWebInterfacePath()
 {
-    // 始终从应用程序目录的web文件夹中加载
-    QString path = QCoreApplication::applicationDirPath() + "/web/index.html";
+    // 在 macOS app bundle 中，web 资源在 Resources 目录
+    // 在开发环境中，web 资源在应用程序目录的 web 文件夹
+
+    QString path;
+
+#ifdef Q_OS_MACOS
+    // macOS: 查找 Resources/web/index.html
+    path = QCoreApplication::applicationDirPath() + "/../Resources/web/index.html";
+#else
+    // Windows/Linux: 查找 web/index.html
+    path = QCoreApplication::applicationDirPath() + "/web/index.html";
+#endif
 
     // 检查文件是否存在
     QFileInfo fileInfo(path);
@@ -316,7 +326,7 @@ QString WebMainWindow::getWebInterfacePath()
         qWarning() << "Web interface not found at:" << path;
         qWarning() << "Current application directory:" << QCoreApplication::applicationDirPath();
 
-        // 尝试相对于当前工作目录的路径
+        // 尝试相对于当前工作目录的路径（开发环境）
         path = "web/index.html";
         fileInfo.setFile(path);
         if (!fileInfo.exists()) {
