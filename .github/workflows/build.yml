@@ -30,7 +30,7 @@ jobs:
         target: 'desktop'
         arch: 'win64_msvc2019_64'
         cache: true
-        modules: 'qtwebengine qtwebchannel qtsvg'
+        modules: 'qtwebengine qtwebchannel'
 
     - name: Setup MSVC
       uses: ilammy/msvc-dev-cmd@v1
@@ -112,7 +112,7 @@ jobs:
         target: 'desktop'
         arch: 'clang_64'
         cache: true
-        modules: 'qtwebengine qtwebchannel qtsvg'
+        modules: 'qtwebengine qtwebchannel'
 
     - name: Install dependencies
       run: |
