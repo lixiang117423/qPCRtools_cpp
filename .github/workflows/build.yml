@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 env:
-  QT_VERSION: '6.6.0'  # 升级到 6.6.0
+  QT_VERSION: '6.5.0'  # 使用更稳定的 6.5.0 版本
   AQTINSTALL_VERSION: '3.2.0'  # 使用 aqtinstall 工具
 
 jobs:
@@ -32,7 +32,7 @@ jobs:
         arch: 'win64_msvc2022_64'
         cache: false
         setup-python: false
-        modules: 'qtwebengine qtwebchannel'  # 明确指定需要的模块
+        modules: 'qtwebengine qtsvg qtwebenginewidgets'
 
     - name: Setup MSVC
       uses: ilammy/msvc-dev-cmd@v1
@@ -114,7 +114,7 @@ jobs:
         target: 'desktop'
         arch: 'clang_64'
         cache: false
-        modules: 'qtwebengine qtwebchannel'  # 明确指定 WebEngine 模块
+        modules: 'qtwebengine qtsvg qtwebenginewidgets'
 
     - name: Install dependencies
       run: |
