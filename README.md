@@ -63,6 +63,15 @@ brew install cmake qt@6 eigen gsl
 - Install Visual Studio 2019 or later
 - Install CMake from the [official website](https://cmake.org/download/)
 
+**📖 Detailed Windows build guide:** See [WINDOWS_BUILD.md](WINDOWS_BUILD.md) for step-by-step instructions including:
+- Installing Visual Studio with C++ tools
+- Setting up Qt6 with WebEngine
+- Installing dependencies via vcpkg
+- Building and deployment
+- Creating release packages
+
+**Quick start:** Double-click `build_windows.bat` (after configuring paths in the script)
+
 #### Linux (Ubuntu/Debian)
 ```bash
 sudo apt-get update
