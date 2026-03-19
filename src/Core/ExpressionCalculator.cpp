@@ -1124,6 +1124,7 @@ QHash<QString, QString> ExpressionCalculator::generateLetterGroups(
 
             // 如果与当前组无显著差异，添加相同字母
             if (!sigMatrix[currentGroup][otherGroup]) {
+                // 给otherGroup添加字母
                 if (letterGroups[otherGroup].isEmpty()) {
                     letterGroups[otherGroup] = QString(currentLetter);
                     qDebug() << "      Also assigned" << currentLetter << "to" << otherGroup;
@@ -1131,6 +1132,13 @@ QHash<QString, QString> ExpressionCalculator::generateLetterGroups(
                     letterGroups[otherGroup] += currentLetter;
                     qDebug() << "      Added" << currentLetter << "to" << otherGroup
                              << "->" << letterGroups[otherGroup];
+                }
+
+                // 如果当前组原本就有字母（从之前的组继承来的），也需要给自己添加
+                if (hasExistingLetter && !letterGroups[currentGroup].contains(currentLetter)) {
+                    letterGroups[currentGroup] += currentLetter;
+                    qDebug() << "      Added" << currentLetter << "to" << currentGroup
+                             << "->" << letterGroups[currentGroup];
                 }
             }
         }
