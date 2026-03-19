@@ -149,6 +149,12 @@ install(FILES ${QM_FILES}
     DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/${PROJECT_NAME}/translations
 )
 
+# 安装示例数据文件
+install(DIRECTORY examples/
+    FILES_MATCHING PATTERN "*.csv"
+    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/${PROJECT_NAME}/examples
+)
+
 # 打包配置
 #include(cpack/CPackConfig.cmake)
 #

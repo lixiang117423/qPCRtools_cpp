@@ -63,6 +63,10 @@ jobs:
         New-Item -ItemType Directory -Force -Path build/Release/web
         Copy-Item -Path web/* -Destination build/Release/web -Recurse -Force
 
+        # 复制示例数据文件
+        New-Item -ItemType Directory -Force -Path build/Release/examples
+        Copy-Item -Path examples/*.csv -Destination build/Release/examples -Force
+
         # 创建发布目录
         New-Item -ItemType Directory -Force -Path release
         Copy-Item -Path build/Release/* -Destination release -Recurse -Force
@@ -150,6 +154,10 @@ jobs:
         # 先复制 web 资源（在 macdeployqt 之前）
         mkdir -p "$APP_PATH/Contents/Resources/web"
         cp -R web/* "$APP_PATH/Contents/Resources/web/"
+
+        # 复制示例数据文件
+        mkdir -p "$APP_PATH/Contents/Resources/examples"
+        cp examples/*.csv "$APP_PATH/Contents/Resources/examples/"
 
         # 使用 macdeployqt 收集依赖
         $Qt6_DIR/bin/macdeployqt "$APP_PATH" -no-strip

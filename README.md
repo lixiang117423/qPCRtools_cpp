@@ -51,6 +51,21 @@ No installation required! Just download and run.
 
 ## Usage
 
+### Quick Start with Example Data
+
+Try qPCRtools with built-in example data:
+
+1. Download and extract the pre-built application
+2. Launch qPCRtools
+3. Click "Load Example Data" to load sample qPCR data
+4. Select analysis method and click "Run Analysis"
+
+**Or manually load example files** from the [examples/](examples/) directory:
+- `examples/cq.csv` - Cq values from qPCR experiment
+- `examples/design.csv` - Experimental design mapping
+
+### Using Your Own Data
+
 1. **Import Data**
    - Load Cq data file (CSV format)
    - Load experimental design file (optional)
@@ -108,6 +123,10 @@ qPCRtools_cpp/
 │       ├── jquery.min.js
 │       ├── bootstrap.bundle.min.js
 │       └── echarts.min.js   # Chart library
+├── examples/                # Example data files
+│   ├── cq.csv              # Sample Cq data
+│   ├── design.csv          # Sample experimental design
+│   └── README.md           # Example data documentation
 └── translations/            # i18n translation files
 ```
 
