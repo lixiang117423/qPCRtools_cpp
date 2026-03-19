@@ -7,7 +7,7 @@ on:
       - 'v*'
   pull_request:
     branches: [ main ]
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
 
 env:
   QT_VERSION: '6.5.3'
@@ -28,23 +28,36 @@ jobs:
         host: 'windows'
         target: 'desktop'
         arch: 'win64_msvc2022_64'
-        cache: true
+        # 暂时禁用缓存以避免问题
+        cache: false
+
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
 
     - name: Setup vcpkg
-      uses: lukka/run-vcpkg@v11
-      with:
-        vcpkgGitCommitId: '7c933a899c1e9433792a3e9b2e1e3a244b24c54d'
-        vcpkgJsonGlob: 'vcpkg.json'
+      run: |
+        git clone https://github.com/Microsoft/vcpkg.git
+        ./vcpkg/bootstrap-vcpkg.bat
+        ./vcpkg/vcpkg integrate install
+
+    - name: Install dependencies
+      run: |
+        ./vcpkg/vcpkg install eigen3:x64-windows
+        echo "C:\vcpkg\installed\x64-windows\include" | Out-File -FilePath $env:GITHUB_ENV_PATH -Encoding utf8 -Append
+        echo "C:\vcpkg\installed\x64-windows\lib" | Out-File -FilePath $env:GITHUB_ENV_PATH -Encoding utf8 -Append
 
     - name: Configure CMake
       run: |
         cmake -B build `
           -DCMAKE_PREFIX_PATH="$env:Qt6_DIR" `
           -DCMAKE_BUILD_TYPE=Release `
-          -DCMAKE_TOOLCHAIN_FILE="vcpkg/scripts/buildsystems/vcpkg.cmake"
+          -DCMAKE_TOOLCHAIN_FILE="vcpkg/scripts/buildsystems/vcpkg.cmake" `
+          -DCMAKE_CXX_STANDARD=17
 
     - name: Build
-      run: cmake --build build --config Release --parallel
+      run: cmake --build build --config Release
 
     - name: Deploy Windows
       shell: pwsh
@@ -69,6 +82,7 @@ jobs:
         name: qPCRtools-windows
         path: qPCRtools-windows.zip
         retention-days: 30
+        if-no-files-found: error
 
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
@@ -78,12 +92,13 @@ jobs:
         draft: false
         prerelease: false
         generate_release_notes: true
+        fail_on_unmatched_files: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-macos:
     name: Build macOS (DMG)
-    runs-on: macos-latest
+    runs-on: macos-13  # 使用更稳定的版本
 
     steps:
     - name: Checkout code
@@ -96,20 +111,22 @@ jobs:
         host: 'mac'
         target: 'desktop'
         arch: 'clang_64'
-        cache: true
+        cache: false
 
     - name: Install dependencies
       run: |
-        brew install eigen gsl
+        brew install eigen gsl ninja
 
     - name: Configure CMake
       run: |
         cmake -B build \
           -DCMAKE_PREFIX_PATH="$Qt6_DIR" \
-          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_CXX_STANDARD=17 \
+          -GNinja
 
     - name: Build
-      run: cmake --build build --parallel
+      run: cmake --build build
 
     - name: Deploy macOS
       run: |
@@ -145,6 +162,7 @@ jobs:
         name: qPCRtools-macos
         path: qPCRtools-macos.dmg
         retention-days: 30
+        if-no-files-found: error
 
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
@@ -154,5 +172,6 @@ jobs:
         draft: false
         prerelease: false
         generate_release_notes: true
+        fail_on_unmatched_files: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
