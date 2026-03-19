@@ -40,7 +40,7 @@ jobs:
 
     - name: Setup vcpkg
       run: |
-        git clone https://github.com/Microsoft/vcpkg.git
+        git clone --filter=tree:0 https://github.com/Microsoft/vcpkg.git
         ./vcpkg/bootstrap-vcpkg.bat
         ./vcpkg/vcpkg integrate install
 
@@ -132,18 +132,22 @@ jobs:
 
     - name: Deploy macOS
       run: |
+        # 找到 app 实际位置
+        APP_PATH=$(find build -name "qPCRtools.app" -type d | head -1)
+        echo "Found app at: $APP_PATH"
+
         # 使用 macdeployqt 收集依赖
-        $Qt6_DIR/bin/macdeployqt build/qPCRtools.app
+        $Qt6_DIR/bin/macdeployqt "$APP_PATH" -no-strip
 
         # 复制 web 资源
-        mkdir -p build/qPCRtools.app/Contents/Resources/web
-        cp -R web/* build/qPCRtools.app/Contents/Resources/web/
+        mkdir -p "$APP_PATH/Contents/Resources/web"
+        cp -R web/* "$APP_PATH/Contents/Resources/web/"
 
         # 创建临时目录
         mkdir -p dmg_temp
 
         # 复制 app 到临时目录
-        cp -R build/qPCRtools.app dmg_temp/
+        cp -R "$APP_PATH" dmg_temp/
 
         # 创建 Applications 快捷方式
         ln -s /Applications dmg_temp/Applications
