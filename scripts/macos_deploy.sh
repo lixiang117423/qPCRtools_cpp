@@ -150,7 +150,7 @@ else
 fi
 
 # Create DMG
-echo "Creating DMG..."
+echo "Creating user-friendly DMG..."
 DMG_NAME="${PROJECT_NAME}-${VERSION}-macOS.dmg"
 
 # Create a temporary directory
@@ -161,7 +161,11 @@ mkdir -p ${TMP_DIR}
 # Copy app bundle
 cp -R "${APP_BUNDLE}" ${TMP_DIR}/
 
-# Create DMG with a nice background
+# Create symbolic link to Applications for drag-and-drop installation
+echo "Adding Applications shortcut..."
+ln -s /Applications "${TMP_DIR}/Applications"
+
+# Create DMG
 hdiutil create -volname "${PROJECT_NAME}" \
     -srcfolder ${TMP_DIR} \
     -ov -format UDZO \
@@ -179,6 +183,12 @@ echo ""
 echo "File sizes:"
 ls -lh "${APP_BUNDLE}" 2>/dev/null || true
 ls -lh "${DMG_NAME}"
+echo ""
+echo "User Installation Instructions:"
+echo "  1. Double-click the DMG file to open it"
+echo "  2. Drag qPCRtools.app to the Applications folder"
+echo "  3. Eject the DMG when done"
+echo "  4. Launch qPCRtools from Applications or Spotlight"
 echo ""
 echo "To test the app:"
 echo "  open ${APP_BUNDLE}"
