@@ -44,7 +44,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        C:\vcpkg\vcpkg install eigen3:x64-windows gsl:x64-windows
+        C:\vcpkg\vcpkg install eigen3:x64-windows gsl:x64-windows --classic
 
     - name: Configure CMake
       run: |
@@ -151,31 +151,18 @@ jobs:
 
         echo "✅ Found app at: $APP_PATH"
 
-        # 使用 macdeployqt 收集依赖
-        $Qt6_DIR/bin/macdeployqt "$APP_PATH" -no-strip
-
-        # 复制 web 资源
+        # 先复制 web 资源（在 macdeployqt 之前）
         mkdir -p "$APP_PATH/Contents/Resources/web"
         cp -R web/* "$APP_PATH/Contents/Resources/web/"
 
-        # 创建临时目录
-        mkdir -p dmg_temp
+        # 使用 macdeployqt 收集依赖并直接生成 dmg
+        $Qt6_DIR/bin/macdeployqt "$APP_PATH" \
+          -dmg \
+          -no-strip
 
-        # 复制 app 到临时目录
-        cp -R "$APP_PATH" dmg_temp/
-
-        # 创建 Applications 快捷方式
-        ln -s /Applications dmg_temp/Applications
-
-        # 创建 DMG
-        hdiutil create -volname "qPCRtools" \
-          -srcfolder dmg_temp \
-          -ov -format UDZO \
-          -imagekey zlib-level=9 \
-          qPCRtools-macos.dmg
-
-        # 清理
-        rm -rf dmg_temp
+        # macdeployqt -dmg 会在 app 同目录生成同名 dmg
+        APP_DIR=$(dirname "$APP_PATH")
+        mv "$APP_DIR/qPCRtools.dmg" qPCRtools-macos.dmg
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
