@@ -84,6 +84,11 @@ echo "Copying web resources..."
 mkdir -p "${APP_BUNDLE}/Contents/Resources/web"
 cp -R ../web/* "${APP_BUNDLE}/Contents/Resources/web/"
 
+# Fix permissions and remove extended attributes from web files
+echo "Fixing web files permissions..."
+chmod -R u+rwX,go+rX "${APP_BUNDLE}/Contents/Resources/web/"
+xattr -rc "${APP_BUNDLE}/Contents/Resources/web/"
+
 # Deploy Qt libraries
 echo "Deploying Qt libraries..."
 ${MACDEPLOYQT} "${APP_BUNDLE}" \
@@ -95,6 +100,22 @@ echo "Copying translation files..."
 if ls ../build/*.qm 1> /dev/null 2>&1; then
     mkdir -p "${APP_BUNDLE}/Contents/Resources/translations"
     cp ../build/*.qm "${APP_BUNDLE}/Contents/Resources/translations/"
+fi
+
+# Fix QtWebEngineProcess helper app frameworks
+echo "Fixing QtWebEngineProcess helper app..."
+HELPER_APP="${APP_BUNDLE}/Contents/Frameworks/QtWebEngineCore.framework/Versions/A/Helpers/QtWebEngineProcess.app"
+if [ -d "${HELPER_APP}" ]; then
+    mkdir -p "${HELPER_APP}/Contents/Frameworks"
+    # Copy required frameworks to helper app
+    for framework in QtWebChannel QtQuick QtQml QtQmlModels; do
+        if [ -d "${APP_BUNDLE}/Contents/Frameworks/${framework}.framework" ]; then
+            echo "  Copying ${framework}.framework to helper app"
+            cp -R "${APP_BUNDLE}/Contents/Frameworks/${framework}.framework" "${HELPER_APP}/Contents/Frameworks/"
+        fi
+    done
+    # Sign helper app
+    codesign --force --deep --sign - "${HELPER_APP}" 2>/dev/null || true
 fi
 
 # Fix code signing

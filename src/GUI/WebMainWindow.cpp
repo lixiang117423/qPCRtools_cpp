@@ -289,16 +289,23 @@ void WebMainWindow::loadWebInterface()
     QString htmlPath = getWebInterfacePath();
     QFileInfo fileInfo(htmlPath);
 
+    qDebug() << "=== Loading Web Interface ===";
+    qDebug() << "Path:" << htmlPath;
+    qDebug() << "Exists:" << fileInfo.exists();
+    qDebug() << "Absolute path:" << fileInfo.absoluteFilePath();
+    qDebug() << "Readable:" << fileInfo.isReadable();
+
     if (!fileInfo.exists()) {
         m_statusLabel->setText(tr("Error: Web interface not found at %1").arg(htmlPath));
         qWarning() << "Web interface file not found:" << htmlPath;
         return;
     }
 
-    QUrl url = QUrl::fromLocalFile(htmlPath);
+    QUrl url = QUrl::fromLocalFile(fileInfo.absoluteFilePath());
 
-    // 添加时间戳参数来强制刷新，避免缓存问题
-    url.setQuery(QString("_t=%1").arg(QDateTime::currentMSecsSinceEpoch()));
+    qDebug() << "Loading URL:" << url.toString();
+    qDebug() << "URL scheme:" << url.scheme();
+    qDebug() << "URL path:" << url.path();
 
     m_webView->load(url);
 
