@@ -10,19 +10,20 @@ on:
   workflow_dispatch:
 
 env:
-  QT_VERSION: '6.5.3'
+  QT_VERSION: '6.6.0'  # 升级到 6.6.0
+  AQTINSTALL_VERSION: '3.2.0'  # 使用 aqtinstall 工具
 
 jobs:
   build-windows:
     name: Build Windows (EXE)
     runs-on: windows-latest
-    timeout-minutes: 60  # 设置超时时间
+    timeout-minutes: 60
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Qt
+    - name: Install Qt
       uses: jurplel/install-qt-action@v3
       with:
         version: ${{ env.QT_VERSION }}
@@ -30,7 +31,8 @@ jobs:
         target: 'desktop'
         arch: 'win64_msvc2022_64'
         cache: false
-        setup-python: false  # 禁用 Python 设置
+        setup-python: false
+        modules: 'qtwebengine qtwebchannel'  # 明确指定需要的模块
 
     - name: Setup MSVC
       uses: ilammy/msvc-dev-cmd@v1
@@ -104,7 +106,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Qt
+    - name: Install Qt (with WebEngine)
       uses: jurplel/install-qt-action@v3
       with:
         version: ${{ env.QT_VERSION }}
@@ -112,6 +114,7 @@ jobs:
         target: 'desktop'
         arch: 'clang_64'
         cache: false
+        modules: 'qtwebengine qtwebchannel'  # 明确指定 WebEngine 模块
 
     - name: Install dependencies
       run: |
