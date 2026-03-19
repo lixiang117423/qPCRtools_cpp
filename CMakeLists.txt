@@ -151,8 +151,8 @@ install(FILES ${QM_FILES}
 
 # 安装示例数据文件
 install(DIRECTORY examples/
-    FILES_MATCHING PATTERN "*.csv"
     DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/${PROJECT_NAME}/examples
+    FILES_MATCHING PATTERN "*.csv"
 )
 
 # 打包配置
