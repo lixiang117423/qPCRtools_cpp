@@ -31,7 +31,8 @@ struct StatisticalResult {
  * @brief 表达量计算结果
  */
 struct ExpressionResult {
-    DataFrame table;           // 完整结果表
+    DataFrame table;           // 完整结果表（汇总数据）
+    DataFrame rawData;          // 原始数据表（每个BioRep的详细数据）
     QVector<StatisticalResult> statistics;  // 统计检验结果
     QString method;            // 使用的方法
 };

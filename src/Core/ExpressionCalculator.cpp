@@ -326,12 +326,19 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
     qDebug() << "Target genes:" << geneSet.values();
     qDebug() << "Target gene count:" << geneSet.size();
 
-    // Get all groups
+    // Get all groups and sort them
     auto allGroups = merged.getStringColumn("Group");
     QSet<QString> groupSet;
     for (const auto& group : allGroups) {
         groupSet.insert(group);
     }
+
+    // Sort genes and groups for consistent output
+    QList<QString> sortedGenes = geneSet.values();
+    std::sort(sortedGenes.begin(), sortedGenes.end());
+
+    QList<QString> sortedGroups = groupSet.values();
+    std::sort(sortedGroups.begin(), sortedGroups.end());
 
     // Build result table structure
     QVector<QVariant> groups, genes, bioreps, expressions, signifs;
@@ -340,7 +347,7 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
     // Calculate mean ΔCt for control group
     QHash<QString, double> controlDeltaCtByGene;
 
-    for (const QString& gene : geneSet) {
+    for (const QString& gene : sortedGenes) {
         qDebug() << "Processing gene:" << gene << "for control group";
 
         // Filter for control group
@@ -374,9 +381,9 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
         }
     }
 
-    // Process each group
-    for (const QString& group : groupSet) {
-        for (const QString& gene : geneSet) {
+    // Process each group (sorted order)
+    for (const QString& group : sortedGroups) {
+        for (const QString& gene : sortedGenes) {
             qDebug() << "Processing group:" << group << "gene:" << gene;
 
             // Filter for this group
@@ -389,19 +396,23 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
 
             qDebug() << "  Group data rows:" << groupData.rowCount();
 
-            // Group by BioRep
+            // Group by BioRep and sort them
             auto bioReps = groupData.getStringColumn("BioRep");
             QSet<QString> bioRepSet;
             for (const auto& rep : bioReps) {
                 bioRepSet.insert(rep);
             }
 
+            // Sort BioReps for consistent output
+            QList<QString> sortedBioReps = bioRepSet.values();
+            std::sort(sortedBioReps.begin(), sortedBioReps.end());
+
             qDebug() << "    BioReps in this group:" << bioReps << "Count:" << bioRepSet.size();
 
             // Calculate expression for each biological replicate
             QHash<QString, double> repExpression;
 
-            for (const QString& bioRep : bioRepSet) {
+            for (const QString& bioRep : sortedBioReps) {
                 qDebug() << "    Processing BioRep:" << bioRep;
 
                 DataFrame repData = groupData.filter(
@@ -480,8 +491,8 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
     // First, collect all expressions for each group-gene combination
     QHash<QString, QVector<double>> groupGeneExpressions; // Key: "Group_Gene"
 
-    for (const QString& group : groupSet) {
-        for (const QString& gene : geneSet) {
+    for (const QString& group : sortedGroups) {
+        for (const QString& gene : sortedGenes) {
             QString key = group + "_" + gene;
             groupGeneExpressions[key] = QVector<double>();
         }
@@ -491,8 +502,8 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
     // Note: We need to recalculate since repExpression is inside the loop
     QHash<QString, QHash<QString, QVector<double>>> allData; // group -> gene -> values
 
-    for (const QString& group : groupSet) {
-        for (const QString& gene : geneSet) {
+    for (const QString& group : sortedGroups) {
+        for (const QString& gene : sortedGenes) {
             // Filter for this group and gene
             DataFrame groupData = merged.filter(
                 [group, gene, params](const Row& row) {
@@ -542,9 +553,9 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
         }
     }
 
-    // Calculate statistics for each group-gene combination
-    for (const QString& group : groupSet) {
-        for (const QString& gene : geneSet) {
+    // Calculate statistics for each group-gene combination (sorted order)
+    for (const QString& group : sortedGroups) {
+        for (const QString& gene : sortedGenes) {
             QVector<double> values = allData[group][gene];
 
             if (values.isEmpty()) {
@@ -582,7 +593,7 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
     // Perform statistical tests and add p-values to the table
     if (statMethod == "t.test") {
         // t-test for each gene comparing control to all other groups
-        for (const QString& gene : geneSet) {
+        for (const QString& gene : sortedGenes) {
             QVector<double> controlValues;
 
             // Get control group values
@@ -590,8 +601,8 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
                 controlValues = allData[params.controlGroup][gene];
             }
 
-            // Test all non-control groups
-            for (const QString& grp : groupSet) {
+            // Test all non-control groups (sorted order)
+            for (const QString& grp : sortedGroups) {
                 if (grp == params.controlGroup) continue;
 
                 QVector<double> treatedValues;
@@ -613,7 +624,7 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
         }
     } else if (statMethod == "wilcox.test") {
         // Wilcoxon test for each gene comparing control to all other groups
-        for (const QString& gene : geneSet) {
+        for (const QString& gene : sortedGenes) {
             QVector<double> controlValues;
 
             // Get control group values
@@ -621,8 +632,8 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
                 controlValues = allData[params.controlGroup][gene];
             }
 
-            // Test all non-control groups
-            for (const QString& grp : groupSet) {
+            // Test all non-control groups (sorted order)
+            for (const QString& grp : sortedGroups) {
                 if (grp == params.controlGroup) continue;
 
                 QVector<double> treatedValues;
@@ -645,8 +656,8 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
     } else if (statMethod == "anova") {
         qDebug() << "=== Performing ANOVA analysis ===";
 
-        // For each gene, perform ANOVA and Tukey HSD
-        for (const QString& gene : geneSet) {
+        // For each gene, perform ANOVA and Tukey HSD (sorted order)
+        for (const QString& gene : sortedGenes) {
             qDebug() << "Processing gene:" << gene;
 
             // Collect all group data for this gene
@@ -654,7 +665,7 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
             QStringList groupNamesList;
             QHash<QString, double> geneGroupMeans;
 
-            for (const QString& grp : groupSet) {
+            for (const QString& grp : sortedGroups) {
                 if (allData.contains(grp) && allData[grp].contains(gene)) {
                     QVector<double> values = allData[grp][gene];
                     if (!values.isEmpty()) {
@@ -691,8 +702,8 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
             QHash<QString, QString> letterGroups = generateLetterGroups(geneGroupMeans, tukeyResults, 0.05);
             qDebug() << "  Letter groups:" << letterGroups;
 
-            // Store results for each group
-            for (const QString& grp : groupSet) {
+            // Store results for each group (sorted order)
+            for (const QString& grp : sortedGroups) {
                 if (!allData.contains(grp) || !allData[grp].contains(gene)) continue;
 
                 StatisticalResult stat;
@@ -755,6 +766,105 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
     qDebug() << "Final result table columns:" << resultTable.columns();
 
     result.table = resultTable;
+
+    // Build raw data table (BioRep level data) in sorted order
+    qDebug() << "Building raw data table...";
+
+    // First, organize all data into a nested structure for easy access
+    // Structure: group -> gene -> bioRep -> expression
+    QHash<QString, QHash<QString, QHash<QString, double>>> organizedData;
+    QHash<QString, double> groupGeneMeans;
+    QHash<QString, double> groupGeneSDs;
+    QHash<QString, int> groupGeneCounts;
+
+    for (int i = 0; i < groups.size(); ++i) {
+        QString group = groups[i].toString();
+        QString gene = genes[i].toString();
+        QString bioRep = bioreps[i].toString();
+        double expr = expressions[i].toDouble();
+        QString key = group + "_" + gene;
+
+        // Store expression in organized structure
+        organizedData[group][gene][bioRep] = expr;
+
+        // Accumulate for mean calculation
+        if (!groupGeneMeans.contains(key)) {
+            groupGeneMeans[key] = 0.0;
+            groupGeneSDs[key] = 0.0;
+            groupGeneCounts[key] = 0;
+        }
+
+        groupGeneMeans[key] += expr;
+        groupGeneCounts[key]++;
+    }
+
+    // Calculate mean
+    for (auto it = groupGeneMeans.begin(); it != groupGeneMeans.end(); ++it) {
+        QString key = it.key();
+        groupGeneMeans[key] = groupGeneCounts[key] > 0 ? groupGeneMeans[key] / groupGeneCounts[key] : 0.0;
+    }
+
+    // Calculate SD
+    for (int i = 0; i < groups.size(); ++i) {
+        QString group = groups[i].toString();
+        QString gene = genes[i].toString();
+        double expr = expressions[i].toDouble();
+        QString key = group + "_" + gene;
+        double mean = groupGeneMeans[key];
+
+        double diff = expr - mean;
+        groupGeneSDs[key] += diff * diff;
+    }
+
+    for (auto it = groupGeneSDs.begin(); it != groupGeneSDs.end(); ++it) {
+        QString key = it.key();
+        int n = groupGeneCounts[key];
+        groupGeneSDs[key] = n > 1 ? std::sqrt(groupGeneSDs[key] / (n - 1)) : 0.0;
+    }
+
+    // Create raw data table in sorted order: Gene -> Group -> BioRep
+    DataFrame rawData;
+    QVector<QVariant> rawGenes, rawGroups, rawBioReps, rawExpressions, rawMeans, rawSDs;
+
+    for (const QString& gene : sortedGenes) {
+        for (const QString& group : sortedGroups) {
+            // Get all BioReps for this group-gene combination and sort them
+            if (!organizedData.contains(group) || !organizedData[group].contains(gene)) {
+                continue;
+            }
+
+            QList<QString> bioRepsInGroup = organizedData[group][gene].keys();
+            std::sort(bioRepsInGroup.begin(), bioRepsInGroup.end());
+
+            QString key = group + "_" + gene;
+            double mean = groupGeneMeans[key];
+            double sd = groupGeneSDs[key];
+
+            for (const QString& bioRep : bioRepsInGroup) {
+                double expr = organizedData[group][gene][bioRep];
+
+                rawGenes.append(gene);
+                rawGroups.append(group);
+                rawBioReps.append(bioRep);
+                rawExpressions.append(expr);
+                rawMeans.append(mean);
+                rawSDs.append(sd);
+
+                qDebug() << "Raw data (sorted):" << group << gene << bioRep << "expr=" << expr << "mean=" << mean << "sd=" << sd;
+            }
+        }
+    }
+
+    rawData.addColumn("Gene", rawGenes);
+    rawData.addColumn("Group", rawGroups);
+    rawData.addColumn("BioRep", rawBioReps);
+    rawData.addColumn("Expression", rawExpressions);
+    rawData.addColumn("Mean", rawMeans);
+    rawData.addColumn("SD", rawSDs);
+
+    qDebug() << "Raw data table rows:" << rawData.rowCount();
+
+    result.rawData = rawData;
     return result;
 }
 

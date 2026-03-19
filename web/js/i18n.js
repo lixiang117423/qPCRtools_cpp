@@ -82,6 +82,7 @@ const translations = {
         'results.data': '数据',
         'results.charts': '图表',
         'results.summaryData': '汇总数据',
+        'results.rawData': '原始数据（生物学重复）',
         'results.plots': '图表展示',
 
         // Table
@@ -191,6 +192,7 @@ const translations = {
         'results.data': 'Data',
         'results.charts': 'Charts',
         'results.summaryData': 'Summary Data',
+        'results.rawData': 'Raw Data (Biological Replicates)',
         'results.plots': 'Plots',
 
         // Table

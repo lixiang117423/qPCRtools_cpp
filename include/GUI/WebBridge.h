@@ -148,9 +148,10 @@ public:
      * @brief 显示保存文件对话框
      * @param title 对话框标题
      * @param filter 文件过滤器
+     * @param defaultName 默认文件名（可选）
      * @return 保存的文件路径，如果取消则返回空字符串
      */
-    Q_INVOKABLE QString showSaveDialog(const QString &title, const QString &filter);
+    Q_INVOKABLE QString showSaveDialog(const QString &title, const QString &filter, const QString &defaultName = "");
 
     /**
      * @brief 显示消息提示

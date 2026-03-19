@@ -661,10 +661,10 @@ QString WebBridge::showFileDialog(const QString &title, const QString &filter)
     return filePath;
 }
 
-QString WebBridge::showSaveDialog(const QString &title, const QString &filter)
+QString WebBridge::showSaveDialog(const QString &title, const QString &filter, const QString &defaultName)
 {
     QWidget *parent = qobject_cast<QWidget*>(this->parent());
-    QString filePath = QFileDialog::getSaveFileName(parent, title, "", filter);
+    QString filePath = QFileDialog::getSaveFileName(parent, title, defaultName, filter);
     return filePath;
 }
 
@@ -749,6 +749,23 @@ QString WebBridge::jsonFromResult(const ExpressionResult &result)
         tableData.append(row);
     }
     obj["table"] = tableData;
+
+    // Convert raw data table to JSON (BioRep level data)
+    QJsonArray rawDataArray;
+    QStringList rawCols = result.rawData.columns();
+    for (int i = 0; i < result.rawData.rowCount(); ++i) {
+        QJsonObject row;
+        for (const QString &col : rawCols) {
+            QVariant value = result.rawData.get(i, col);
+            if (value.typeId() == QMetaType::Double) {
+                row[col] = value.toDouble();
+            } else {
+                row[col] = value.toString();
+            }
+        }
+        rawDataArray.append(row);
+    }
+    obj["rawData"] = rawDataArray;
 
     // Convert statistics to JSON
     QJsonArray stats;

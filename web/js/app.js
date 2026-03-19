@@ -951,6 +951,7 @@ async function runAnalysis() {
  */
 function displayResults(results) {
     displayResultsTable(results);
+    displayRawData(results);
     // displayCharts(results);  // Charts feature temporarily disabled
     // Statistics are now integrated into the main table
 }
@@ -1024,6 +1025,77 @@ function displayResultsTable(results) {
     });
 
     console.log('Table rendered with', tbody.children.length, 'rows');
+}
+
+/**
+ * Display raw data table (BioRep level data)
+ */
+function displayRawData(results) {
+    console.log('displayRawData called with:', results);
+
+    const table = document.getElementById('rawDataTable');
+    const thead = table.querySelector('thead');
+    const tbody = table.querySelector('tbody');
+
+    if (!results) {
+        console.error('No results provided');
+        tbody.innerHTML = '<tr><td colspan="6">No results</td></tr>';
+        return;
+    }
+
+    if (!results.rawData) {
+        console.error('No rawData in results:', results);
+        tbody.innerHTML = '<tr><td colspan="6">No raw data</td></tr>';
+        return;
+    }
+
+    if (!Array.isArray(results.rawData)) {
+        console.error('RawData is not an array:', typeof results.rawData, results.rawData);
+        tbody.innerHTML = '<tr><td colspan="6">Invalid raw data format</td></tr>';
+        return;
+    }
+
+    if (results.rawData.length === 0) {
+        console.warn('Raw data is empty');
+        tbody.innerHTML = '<tr><td colspan="6">No raw data</td></tr>';
+        return;
+    }
+
+    console.log('Raw data has', results.rawData.length, 'rows');
+    console.log('First raw row:', results.rawData[0]);
+
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+
+    // Define the desired column order
+    const headers = ['Gene', 'Group', 'BioRep', 'Expression', 'Mean', 'SD'];
+    console.log('Raw data headers:', headers);
+
+    const headerRow = document.createElement('tr');
+    headers.forEach(header => {
+        const th = document.createElement('th');
+        th.textContent = header;
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+
+    results.rawData.forEach(row => {
+        const tr = document.createElement('tr');
+        headers.forEach(header => {
+            const td = document.createElement('td');
+            const value = row[header];
+            // Format numeric values
+            if (typeof value === 'number') {
+                td.textContent = value.toFixed(4);
+            } else {
+                td.textContent = value || '';
+            }
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
+
+    console.log('Raw data table rendered with', tbody.children.length, 'rows');
 }
 
 /**
@@ -1113,12 +1185,22 @@ function displayCharts(results) {
  * Setup results page
  */
 function setupResultsPage() {
+    // Summary data export buttons
     document.getElementById('exportCsv').addEventListener('click', function() {
-        exportResults('csv');
+        exportResults('csv', 'summary');
     });
 
     document.getElementById('exportExcel').addEventListener('click', function() {
-        exportResults('excel');
+        exportResults('excel', 'summary');
+    });
+
+    // Raw data export buttons
+    document.getElementById('exportRawCsv').addEventListener('click', function() {
+        exportResults('csv', 'raw');
+    });
+
+    document.getElementById('exportRawExcel').addEventListener('click', function() {
+        exportResults('excel', 'raw');
     });
 
     // Chart export feature temporarily disabled
@@ -1129,29 +1211,49 @@ function setupResultsPage() {
 
 /**
  * Export results
+ * @param {string} format - 'csv' or 'excel'
+ * @param {string} dataType - 'summary' or 'raw'
  */
-function exportResults(format) {
+function exportResults(format, dataType) {
     if (!analysisResults) {
         showNotification(i18n.t('msg.noData'), 'warning');
         return;
     }
 
+    // Check if the requested data type exists
+    if (dataType === 'raw' && (!analysisResults.rawData || !Array.isArray(analysisResults.rawData) || analysisResults.rawData.length === 0)) {
+        showNotification('No raw data available', 'warning');
+        return;
+    }
+
+    if (dataType === 'summary' && (!analysisResults.table || !Array.isArray(analysisResults.table) || analysisResults.table.length === 0)) {
+        showNotification('No summary data available', 'warning');
+        return;
+    }
+
+    // Prepare data for export
+    const exportData = {
+        table: dataType === 'raw' ? analysisResults.rawData : analysisResults.table
+    };
+
     if (bridge) {
         const filter = format === 'csv' ? '*.csv' : '*.xlsx';
-        bridge.showSaveDialog(i18n.t('btn.export'), filter).then(filePath => {
+        const defaultName = dataType === 'raw' ? 'raw_data' : 'summary_data';
+        bridge.showSaveDialog(i18n.t('btn.export'), filter, defaultName).then(filePath => {
             if (filePath) {
                 if (format === 'csv') {
-                    bridge.exportToCSV(JSON.stringify(analysisResults), filePath);
+                    bridge.exportToCSV(JSON.stringify(exportData), filePath);
                 } else {
-                    bridge.exportToExcel(JSON.stringify(analysisResults), filePath);
+                    bridge.exportToExcel(JSON.stringify(exportData), filePath);
                 }
                 showNotification(i18n.t('msg.analysisCompleted'), 'success');
             }
         });
     } else {
         // Demo mode: download as CSV
-        const csv = convertToCSV(analysisResults.table);
-        downloadFile(csv, 'results.csv', 'text/csv');
+        const csv = convertToCSV(exportData.table);
+        const filename = dataType === 'raw' ? 'raw_data.csv' : 'results.csv';
+        downloadFile(csv, filename, 'text/csv');
         showNotification(i18n.t('msg.analysisCompleted'), 'success');
     }
 }
