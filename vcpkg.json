@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "qpcrtools",
+  "version-string": "1.0.0",
+  "description": "qPCR Data Analysis Tool",
+  "dependencies": [
+    {
+      "name": "eigen3",
+      "version>=": "3.4"
+    },
+    {
+      "name": "gsl",
+      "version>=": "2.7",
+      "platform": "!(windows & arm)"
+    }
+  ],
+  "builtin-baseline": "7c933a899c1e9433792a3e9b2e1e3a244b24c54d"
+}

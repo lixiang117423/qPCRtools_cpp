@@ -1,0 +1,158 @@
+name: Build qPCRtools
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # 允许手动触发
+
+env:
+  QT_VERSION: '6.5.3'
+
+jobs:
+  build-windows:
+    name: Build Windows (EXE)
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: ${{ env.QT_VERSION }}
+        host: 'windows'
+        target: 'desktop'
+        arch: 'win64_msvc2022_64'
+        cache: true
+
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: '7c933a899c1e9433792a3e9b2e1e3a244b24c54d'
+        vcpkgJsonGlob: 'vcpkg.json'
+
+    - name: Configure CMake
+      run: |
+        cmake -B build `
+          -DCMAKE_PREFIX_PATH="$env:Qt6_DIR" `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DCMAKE_TOOLCHAIN_FILE="vcpkg/scripts/buildsystems/vcpkg.cmake"
+
+    - name: Build
+      run: cmake --build build --config Release --parallel
+
+    - name: Deploy Windows
+      shell: pwsh
+      run: |
+        # 使用 windeployqt 收集依赖
+        & "$env:Qt6_DIR/bin/windeployqt.exe" build/Release/qPCRtools.exe --release --no-translations
+
+        # 复制 web 资源
+        New-Item -ItemType Directory -Force -Path build/Release/web
+        Copy-Item -Path web/* -Destination build/Release/web -Recurse -Force
+
+        # 创建发布目录
+        New-Item -ItemType Directory -Force -Path release
+        Copy-Item -Path build/Release/* -Destination release -Recurse -Force
+
+        # 压缩为 ZIP
+        Compress-Archive -Path release/* -DestinationPath qPCRtools-windows.zip
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: qPCRtools-windows
+        path: qPCRtools-windows.zip
+        retention-days: 30
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: qPCRtools-windows.zip
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-macos:
+    name: Build macOS (DMG)
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: ${{ env.QT_VERSION }}
+        host: 'mac'
+        target: 'desktop'
+        arch: 'clang_64'
+        cache: true
+
+    - name: Install dependencies
+      run: |
+        brew install eigen gsl
+
+    - name: Configure CMake
+      run: |
+        cmake -B build \
+          -DCMAKE_PREFIX_PATH="$Qt6_DIR" \
+          -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      run: cmake --build build --parallel
+
+    - name: Deploy macOS
+      run: |
+        # 使用 macdeployqt 收集依赖
+        $Qt6_DIR/bin/macdeployqt build/qPCRtools.app
+
+        # 复制 web 资源
+        mkdir -p build/qPCRtools.app/Contents/Resources/web
+        cp -R web/* build/qPCRtools.app/Contents/Resources/web/
+
+        # 创建临时目录
+        mkdir -p dmg_temp
+
+        # 复制 app 到临时目录
+        cp -R build/qPCRtools.app dmg_temp/
+
+        # 创建 Applications 快捷方式
+        ln -s /Applications dmg_temp/Applications
+
+        # 创建 DMG
+        hdiutil create -volname "qPCRtools" \
+          -srcfolder dmg_temp \
+          -ov -format UDZO \
+          -imagekey zlib-level=9 \
+          qPCRtools-macos.dmg
+
+        # 清理
+        rm -rf dmg_temp
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: qPCRtools-macos
+        path: qPCRtools-macos.dmg
+        retention-days: 30
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: qPCRtools-macos.dmg
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
