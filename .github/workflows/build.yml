@@ -151,14 +151,25 @@ jobs:
         mkdir -p "$APP_PATH/Contents/Resources/web"
         cp -R web/* "$APP_PATH/Contents/Resources/web/"
 
-        # 使用 macdeployqt 收集依赖并直接生成 dmg
-        $Qt6_DIR/bin/macdeployqt "$APP_PATH" \
-          -dmg \
-          -no-strip
+        # 使用 macdeployqt 收集依赖
+        $Qt6_DIR/bin/macdeployqt "$APP_PATH" -no-strip
 
-        # macdeployqt -dmg 会在 app 同目录生成同名 dmg
-        APP_DIR=$(dirname "$APP_PATH")
-        mv "$APP_DIR/qPCRtools.dmg" qPCRtools-macos.dmg
+        # 对应用进行临时签名（ad-hoc signing）
+        codesign --force --deep --sign - "$APP_PATH"
+
+        # 手动创建 DMG
+        mkdir -p dmg_temp
+        cp -R "$APP_PATH" dmg_temp/
+        ln -s /Applications dmg_temp/Applications
+
+        hdiutil create -volname "qPCRtools" \
+          -srcfolder dmg_temp \
+          -ov -format UDZO \
+          -imagekey zlib-level=9 \
+          qPCRtools-macos.dmg
+
+        # 清理
+        rm -rf dmg_temp
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
