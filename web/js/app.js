@@ -334,6 +334,14 @@ function setupImportPage() {
         }
 
         const file = fileInput.files[0];
+        const fileName = file && file.name ? file.name.toLowerCase() : '';
+        if (fileName && !fileName.endsWith('.csv')) {
+            const lang = i18n.getLanguage ? i18n.getLanguage() : 'zh';
+            const msgZh = '仅支持 CSV 导入。Excel 请使用菜单 `File` -> `Open Cq File...` / `Open Design File...`。';
+            const msgEn = 'Only CSV import is supported here. To import Excel, use `File` -> `Open Cq File...` / `Open Design File...`.';
+            showNotification(lang === 'zh' ? msgZh : msgEn, 'warning');
+            return;
+        }
         console.log('=== Loading Cq file ===');
         console.log('File name:', file.name);
         console.log('File size:', file.size);
@@ -407,6 +415,14 @@ function setupImportPage() {
         }
 
         const file = fileInput.files[0];
+        const fileName = file && file.name ? file.name.toLowerCase() : '';
+        if (fileName && !fileName.endsWith('.csv')) {
+            const lang = i18n.getLanguage ? i18n.getLanguage() : 'zh';
+            const msgZh = '仅支持 CSV 导入。Excel 请使用菜单 `File` -> `Open Cq File...` / `Open Design File...`。';
+            const msgEn = 'Only CSV import is supported here. To import Excel, use `File` -> `Open Cq File...` / `Open Design File...`.';
+            showNotification(lang === 'zh' ? msgZh : msgEn, 'warning');
+            return;
+        }
         console.log('=== Loading Design file ===');
         console.log('File name:', file.name);
         console.log('File size:', file.size);
