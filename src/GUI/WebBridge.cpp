@@ -9,10 +9,20 @@
 #include <QApplication>
 #include <QDebug>
 #include <QFile>
+#include <QTemporaryFile>
+#include <QDir>
 #include <QTextStream>
+#include <QByteArray>
 #include <QStringConverter>
 
 namespace qpcr {
+
+static QString makeErrorResult(const QString &message)
+{
+    QJsonObject obj;
+    obj["error"] = message;
+    return QJsonDocument(obj).toJson(QJsonDocument::Compact);
+}
 
 WebBridge::WebBridge(QObject *parent)
     : QObject(parent)
@@ -176,6 +186,68 @@ QString WebBridge::loadCqFromContent(const QString &csvContent)
     }
 }
 
+QString WebBridge::loadCqExcelFromBase64(const QString &base64Data, int sheetIndex, bool hasHeader)
+{
+    emit progressChanged(10, tr("Parsing Cq Excel data..."));
+
+    try {
+        ExcelImporter importer;
+        if (!importer.isExcelSupported()) {
+            QString err = tr("Excel support is not available. Please install OpenXLSX.");
+            emit errorOccurred(err);
+            return makeErrorResult(err);
+        }
+
+        QByteArray bytes = QByteArray::fromBase64(base64Data.toUtf8());
+        if (bytes.isEmpty()) {
+            QString err = tr("Invalid or empty Excel base64 payload.");
+            emit errorOccurred(err);
+            return makeErrorResult(err);
+        }
+
+        const QString ext = bytes.startsWith("PK") ? "xlsx" : "xls";
+        QTemporaryFile tmp(QDir::tempPath() + QString("/qPCRtools_cq_XXXXXX.%1").arg(ext));
+        if (!tmp.open()) {
+            QString err = tr("Failed to create a temporary file for Excel import.");
+            emit errorOccurred(err);
+            return makeErrorResult(err);
+        }
+
+        const qint64 written = tmp.write(bytes);
+        if (written != bytes.size()) {
+            QString err = tr("Failed to write Excel data to a temporary file.");
+            emit errorOccurred(err);
+            return makeErrorResult(err);
+        }
+        tmp.flush();
+
+        m_cqTable = importer.importSheet(tmp.fileName(), sheetIndex, hasHeader);
+        if (m_cqTable.rowCount() == 0) {
+            QString err = importer.lastError();
+            if (err.isEmpty()) {
+                err = tr("No valid rows found in the Excel file.");
+            }
+            emit errorOccurred(err);
+            return makeErrorResult(err);
+        }
+
+        emit progressChanged(100, tr("Cq Excel data loaded successfully"));
+        emit dataLoaded(true, tr("Loaded %1 rows").arg(m_cqTable.rowCount()));
+
+        QVariantMap result = dataframeToVariantMap(m_cqTable);
+
+        QJsonObject completeResult;
+        completeResult["data"] = QJsonDocument::fromJson(result["data"].toString().toUtf8()).array();
+        completeResult["columns"] = QJsonDocument::fromJson(result["columns"].toString().toUtf8()).array();
+
+        return QJsonDocument(completeResult).toJson(QJsonDocument::Compact);
+    } catch (const std::exception &e) {
+        QString err = tr("Failed to parse Cq Excel data: %1").arg(e.what());
+        emit errorOccurred(err);
+        return makeErrorResult(err);
+    }
+}
+
 QString WebBridge::loadDesignFile(const QString &filePath)
 {
     emit progressChanged(10, tr("Loading design file..."));
@@ -320,36 +392,337 @@ QString WebBridge::loadDesignFromContent(const QString &csvContent)
     }
 }
 
+QString WebBridge::loadDesignExcelFromBase64(const QString &base64Data, int sheetIndex, bool hasHeader)
+{
+    emit progressChanged(10, tr("Parsing design Excel data..."));
+
+    try {
+        ExcelImporter importer;
+        if (!importer.isExcelSupported()) {
+            QString err = tr("Excel support is not available. Please install OpenXLSX.");
+            emit errorOccurred(err);
+            return makeErrorResult(err);
+        }
+
+        QByteArray bytes = QByteArray::fromBase64(base64Data.toUtf8());
+        if (bytes.isEmpty()) {
+            QString err = tr("Invalid or empty Excel base64 payload.");
+            emit errorOccurred(err);
+            return makeErrorResult(err);
+        }
+
+        const QString ext = bytes.startsWith("PK") ? "xlsx" : "xls";
+        QTemporaryFile tmp(QDir::tempPath() + QString("/qPCRtools_design_XXXXXX.%1").arg(ext));
+        if (!tmp.open()) {
+            QString err = tr("Failed to create a temporary file for Excel import.");
+            emit errorOccurred(err);
+            return makeErrorResult(err);
+        }
+
+        const qint64 written = tmp.write(bytes);
+        if (written != bytes.size()) {
+            QString err = tr("Failed to write Excel data to a temporary file.");
+            emit errorOccurred(err);
+            return makeErrorResult(err);
+        }
+        tmp.flush();
+
+        m_designTable = importer.importSheet(tmp.fileName(), sheetIndex, hasHeader);
+        if (m_designTable.rowCount() == 0) {
+            QString err = importer.lastError();
+            if (err.isEmpty()) {
+                err = tr("No valid rows found in the Excel file.");
+            }
+            emit errorOccurred(err);
+            return makeErrorResult(err);
+        }
+
+        emit progressChanged(100, tr("Design Excel data loaded successfully"));
+        emit dataLoaded(true, tr("Loaded %1 rows").arg(m_designTable.rowCount()));
+
+        QVariantMap result = dataframeToVariantMap(m_designTable);
+
+        QJsonObject completeResult;
+        completeResult["data"] = QJsonDocument::fromJson(result["data"].toString().toUtf8()).array();
+        completeResult["columns"] = QJsonDocument::fromJson(result["columns"].toString().toUtf8()).array();
+
+        return QJsonDocument(completeResult).toJson(QJsonDocument::Compact);
+    } catch (const std::exception &e) {
+        QString err = tr("Failed to parse design Excel data: %1").arg(e.what());
+        emit errorOccurred(err);
+        return makeErrorResult(err);
+    }
+}
+
+QString WebBridge::loadConcenFile(const QString &filePath)
+{
+    emit progressChanged(10, tr("Loading concentration file..."));
+
+    try {
+        QFileInfo fileInfo(filePath);
+        QString suffix = fileInfo.suffix().toLower();
+
+        if (suffix == "csv") {
+            CSVParser parser;
+            m_concenTable = parser.parse(filePath);
+        } else if (suffix == "xlsx" || suffix == "xls") {
+#ifdef HAS_OPENXLSX
+            ExcelImporter importer;
+            m_concenTable = importer.import(filePath);
+#else
+            emit errorOccurred(tr("Excel support is not available. Please install OpenXLSX."));
+            return "{}";
+#endif
+        } else {
+            emit errorOccurred(tr("Unsupported file format: %1").arg(suffix));
+            return "{}";
+        }
+
+        emit progressChanged(100, tr("Concentration file loaded successfully"));
+        emit dataLoaded(true, tr("Loaded %1 rows").arg(m_concenTable.rowCount()));
+
+        // Return complete JSON with columns order preserved
+        QVariantMap result = dataframeToVariantMap(m_concenTable);
+
+        QJsonObject completeResult;
+        completeResult["data"] = QJsonDocument::fromJson(result["data"].toString().toUtf8()).array();
+        completeResult["columns"] = QJsonDocument::fromJson(result["columns"].toString().toUtf8()).array();
+
+        return QJsonDocument(completeResult).toJson(QJsonDocument::Compact);
+
+    } catch (const std::exception &e) {
+        emit errorOccurred(tr("Failed to load concentration file: %1").arg(e.what()));
+        return "{}";
+    }
+}
+
+bool WebBridge::setConcenData(const QString &jsonData)
+{
+    try {
+        qDebug() << "=== setConcenData called ===";
+        qDebug() << "JSON data length:" << jsonData.length();
+
+        // Clear existing data
+        m_concenTable = DataFrame();
+
+        QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8());
+        if (!doc.isArray()) {
+            emit errorOccurred(tr("Invalid concentration data format"));
+            return false;
+        }
+
+        QJsonArray rows = doc.array();
+        if (rows.isEmpty()) {
+            emit errorOccurred(tr("Empty concentration data"));
+            return false;
+        }
+
+        qDebug() << "Parsed" << rows.size() << "rows from JSON";
+
+        // Get column names from first row
+        QJsonObject firstRow = rows[0].toObject();
+        QStringList columns;
+        for (auto it = firstRow.begin(); it != firstRow.end(); ++it) {
+            columns.append(it.key());
+        }
+
+        qDebug() << "Columns:" << columns;
+
+        // Collect data for each column
+        QHash<QString, QVector<QVariant>> columnData;
+        for (const QString &col : columns) {
+            columnData[col] = QVector<QVariant>();
+        }
+
+        // Parse all rows
+        for (const QJsonValue &rowValue : rows) {
+            QJsonObject rowObj = rowValue.toObject();
+            for (const QString &col : columns) {
+                if (rowObj.contains(col)) {
+                    QJsonValue val = rowObj[col];
+                    if (val.isDouble()) {
+                        columnData[col].append(val.toDouble());
+                    } else {
+                        columnData[col].append(val.toString());
+                    }
+                } else {
+                    columnData[col].append(QVariant());
+                }
+            }
+        }
+
+        // Add columns to DataFrame
+        for (const QString &col : columns) {
+            m_concenTable.addColumn(col, columnData[col]);
+        }
+
+        qDebug() << "Concentration data loaded:" << m_concenTable.rowCount() << "rows," << m_concenTable.columnCount() << "columns";
+
+        return true;
+
+    } catch (const std::exception &e) {
+        emit errorOccurred(tr("Failed to parse concentration data: %1").arg(e.what()));
+        return false;
+    }
+}
+
+QString WebBridge::loadConcenFromContent(const QString &csvContent)
+{
+    emit progressChanged(10, tr("Parsing concentration data..."));
+
+    try {
+        CSVParser parser;
+        m_concenTable = parser.parseString(csvContent);
+
+        emit progressChanged(100, tr("Concentration data loaded successfully"));
+        emit dataLoaded(true, tr("Loaded %1 rows").arg(m_concenTable.rowCount()));
+
+        // Return complete JSON with columns order preserved
+        QVariantMap result = dataframeToVariantMap(m_concenTable);
+
+        QJsonObject completeResult;
+        completeResult["data"] = QJsonDocument::fromJson(result["data"].toString().toUtf8()).array();
+        completeResult["columns"] = QJsonDocument::fromJson(result["columns"].toString().toUtf8()).array();
+
+        return QJsonDocument(completeResult).toJson(QJsonDocument::Compact);
+
+    } catch (const std::exception &e) {
+        emit errorOccurred(tr("Failed to parse concentration data: %1").arg(e.what()));
+        return "{}";
+    }
+}
+
+QString WebBridge::loadConcenExcelFromBase64(const QString &base64Data, int sheetIndex, bool hasHeader)
+{
+    emit progressChanged(10, tr("Parsing concentration Excel data..."));
+
+    try {
+        ExcelImporter importer;
+        if (!importer.isExcelSupported()) {
+            QString err = tr("Excel support is not available. Please install OpenXLSX.");
+            emit errorOccurred(err);
+            return makeErrorResult(err);
+        }
+
+        QByteArray bytes = QByteArray::fromBase64(base64Data.toUtf8());
+        if (bytes.isEmpty()) {
+            QString err = tr("Invalid or empty Excel base64 payload.");
+            emit errorOccurred(err);
+            return makeErrorResult(err);
+        }
+
+        const QString ext = bytes.startsWith("PK") ? "xlsx" : "xls";
+        QTemporaryFile tmp(QDir::tempPath() + QString("/qPCRtools_concen_XXXXXX.%1").arg(ext));
+        if (!tmp.open()) {
+            QString err = tr("Failed to create a temporary file for Excel import.");
+            emit errorOccurred(err);
+            return makeErrorResult(err);
+        }
+
+        const qint64 written = tmp.write(bytes);
+        if (written != bytes.size()) {
+            QString err = tr("Failed to write Excel data to a temporary file.");
+            emit errorOccurred(err);
+            return makeErrorResult(err);
+        }
+        tmp.flush();
+
+        m_concenTable = importer.importSheet(tmp.fileName(), sheetIndex, hasHeader);
+        if (m_concenTable.rowCount() == 0) {
+            QString err = importer.lastError();
+            if (err.isEmpty()) {
+                err = tr("No valid rows found in the Excel file.");
+            }
+            emit errorOccurred(err);
+            return makeErrorResult(err);
+        }
+
+        emit progressChanged(100, tr("Concentration Excel data loaded successfully"));
+        emit dataLoaded(true, tr("Loaded %1 rows").arg(m_concenTable.rowCount()));
+
+        QVariantMap result = dataframeToVariantMap(m_concenTable);
+
+        QJsonObject completeResult;
+        completeResult["data"] = QJsonDocument::fromJson(result["data"].toString().toUtf8()).array();
+        completeResult["columns"] = QJsonDocument::fromJson(result["columns"].toString().toUtf8()).array();
+
+        return QJsonDocument(completeResult).toJson(QJsonDocument::Compact);
+    } catch (const std::exception &e) {
+        QString err = tr("Failed to parse concentration Excel data: %1").arg(e.what());
+        emit errorOccurred(err);
+        return makeErrorResult(err);
+    }
+}
+
 QString WebBridge::calculateStandardCurve(const QString &params)
 {
     emit progressChanged(10, tr("Calculating standard curve..."));
 
-    QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
-    if (!doc.isObject()) {
-        emit errorOccurred(tr("Invalid parameters"));
+    try {
+        QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
+        if (!doc.isObject()) {
+            emit errorOccurred(tr("Invalid parameters"));
+            emit calculationCompleted(false, tr("Invalid parameters"));
+            return "{}";
+        }
+
+        QJsonObject obj = doc.object();
+
+        // Parse parameters
+        double lowestConcen = obj["lowestConcen"].toDouble(4.0);
+        double highestConcen = obj["highestConcen"].toDouble(4096.0);
+        double dilution = obj["dilution"].toDouble(4.0);
+        bool byMean = obj["byMean"].toBool(true);
+
+        qDebug() << "=== Standard Curve Calculation ===";
+        qDebug() << "Lowest concentration:" << lowestConcen;
+        qDebug() << "Highest concentration:" << highestConcen;
+        qDebug() << "Dilution factor:" << dilution;
+        qDebug() << "Use mean:" << byMean;
+
+        // Validate input data
+        if (m_cqTable.rowCount() == 0) {
+            emit errorOccurred(tr("No Cq data loaded"));
+            emit calculationCompleted(false, tr("No Cq data loaded"));
+            return "{}";
+        }
+
+        if (m_concenTable.rowCount() == 0) {
+            emit errorOccurred(tr("No concentration data loaded"));
+            emit calculationCompleted(false, tr("No concentration data loaded"));
+            return "{}";
+        }
+
+        emit progressChanged(50, tr("Performing linear regression..."));
+
+        // Calculate standard curves for all genes
+        QVector<StandardCurveResult> results = StandardCurve::calculate(
+            m_cqTable,
+            m_concenTable,
+            lowestConcen,
+            highestConcen,
+            dilution,
+            byMean
+        );
+
+        if (results.isEmpty()) {
+            emit errorOccurred(tr("No valid results. Please check your data."));
+            emit calculationCompleted(false, tr("No valid results. Please check your data."));
+            return "{}";
+        }
+
+        qDebug() << "Calculated" << results.size() << "standard curves";
+
+        emit progressChanged(100, tr("Standard curve calculation completed"));
+        emit calculationCompleted(true, tr("Calculation successful"));
+
+        return jsonFromStandardCurveResults(results);
+
+    } catch (const std::exception &e) {
+        emit errorOccurred(tr("Calculation failed: %1").arg(e.what()));
+        emit calculationCompleted(false, tr("Calculation failed: %1").arg(e.what()));
         return "{}";
     }
-
-    QJsonObject obj = doc.object();
-    StandardCurveParams scParams;
-    scParams.cqTable = m_cqTable;
-    // TODO: Add proper parameter mapping when StandardCurveParams is fully defined
-
-    emit progressChanged(50, tr("Performing linear regression..."));
-
-    // For now, return a placeholder result
-    QJsonObject resultObj;
-    resultObj["gene"] = obj["gene"].toString();
-    resultObj["slope"] = -3.45;
-    resultObj["intercept"] = 35.2;
-    resultObj["rSquared"] = 0.99;
-    resultObj["efficiency"] = 1.95;
-
-    emit progressChanged(100, tr("Standard curve calculation completed"));
-    emit calculationCompleted(true, tr("Calculation successful"));
-
-    QJsonDocument doc2(resultObj);
-    return doc2.toJson(QJsonDocument::Compact);
 }
 
 QString WebBridge::calculateByDeltaCt(const QString &params, const QString &statMethod)
@@ -785,6 +1158,32 @@ QString WebBridge::jsonFromResult(const ExpressionResult &result)
         stats.append(s);
     }
     obj["statistics"] = stats;
+
+    QJsonDocument doc(obj);
+    return doc.toJson(QJsonDocument::Compact);
+}
+
+QString WebBridge::jsonFromStandardCurveResults(const QVector<StandardCurveResult>& results)
+{
+    QJsonObject obj;
+    obj["method"] = "standardCurve";
+
+    // Convert results to JSON array
+    QJsonArray tableData;
+    for (const StandardCurveResult& result : results) {
+        QJsonObject row;
+        row["Gene"] = result.gene;
+        row["Formula"] = result.formula;
+        row["Slope"] = result.slope;
+        row["Intercept"] = result.intercept;
+        row["R2"] = result.rSquared;
+        row["PValue"] = result.pValue;
+        row["Efficiency"] = result.efficiency;
+        row["MinCq"] = result.minCq;
+        row["MaxCq"] = result.maxCq;
+        tableData.append(row);
+    }
+    obj["table"] = tableData;
 
     QJsonDocument doc(obj);
     return doc.toJson(QJsonDocument::Compact);

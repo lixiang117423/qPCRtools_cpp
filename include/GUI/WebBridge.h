@@ -45,6 +45,15 @@ public:
     Q_INVOKABLE QString loadCqFromContent(const QString &csvContent);
 
     /**
+     * @brief 从 base64 编码的 Excel 内容加载 Cq 数据
+     * @param base64Data base64 字符串（xlsx/xls 二进制）
+     * @param sheetIndex 工作表索引（从 0 开始）
+     * @param hasHeader 是否使用首行作为表头
+     * @return JSON 格式的数据预览（包含 data/columns）
+     */
+    Q_INVOKABLE QString loadCqExcelFromBase64(const QString &base64Data, int sheetIndex, bool hasHeader);
+
+    /**
      * @brief 加载实验设计文件
      * @param filePath 文件路径
      * @return JSON格式的设计信息
@@ -64,6 +73,45 @@ public:
      * @return JSON格式的设计信息
      */
     Q_INVOKABLE QString loadDesignFromContent(const QString &csvContent);
+
+    /**
+     * @brief 从 base64 编码的 Excel 内容加载实验设计数据
+     * @param base64Data base64 字符串（xlsx/xls 二进制）
+     * @param sheetIndex 工作表索引（从 0 开始）
+     * @param hasHeader 是否使用首行作为表头
+     * @return JSON 格式的设计数据预览（包含 data/columns）
+     */
+    Q_INVOKABLE QString loadDesignExcelFromBase64(const QString &base64Data, int sheetIndex, bool hasHeader);
+
+    /**
+     * @brief 加载浓度数据文件
+     * @param filePath 文件路径
+     * @return JSON格式的数据预览
+     */
+    Q_INVOKABLE QString loadConcenFile(const QString &filePath);
+
+    /**
+     * @brief 从JSON加载浓度数据
+     * @param jsonData JSON格式的浓度数据
+     * @return 是否成功
+     */
+    Q_INVOKABLE bool setConcenData(const QString &jsonData);
+
+    /**
+     * @brief 从CSV字符串加载浓度数据
+     * @param csvContent CSV格式的字符串内容
+     * @return JSON格式的数据预览
+     */
+    Q_INVOKABLE QString loadConcenFromContent(const QString &csvContent);
+
+    /**
+     * @brief 从 base64 编码的 Excel 内容加载浓度数据
+     * @param base64Data base64 字符串（xlsx/xls 二进制）
+     * @param sheetIndex 工作表索引（从 0 开始）
+     * @param hasHeader 是否使用首行作为表头
+     * @return JSON 格式的数据预览（包含 data/columns）
+     */
+    Q_INVOKABLE QString loadConcenExcelFromBase64(const QString &base64Data, int sheetIndex, bool hasHeader);
 
     /**
      * @brief 计算标准曲线
@@ -191,6 +239,7 @@ signals:
 private:
     DataFrame m_cqTable;
     DataFrame m_designTable;
+    DataFrame m_concenTable;  // Concentration table for standard curve
     QString m_language;
     StandardCurve m_standardCurve;
     ExpressionCalculator m_expressionCalculator;
@@ -200,6 +249,7 @@ private:
     DataFrame variantMapToDataframe(const QVariantMap &map);
     QString jsonFromResult(const StandardCurveResult &result);
     QString jsonFromResult(const ExpressionResult &result);
+    QString jsonFromStandardCurveResults(const QVector<StandardCurveResult>& results);
 };
 
 } // namespace qpcr

@@ -42,6 +42,11 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" href="#" data-page="standardCurve" data-i18n="nav.standardCurve">
+                            标曲计算
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="#" data-page="import" data-i18n="nav.import">
                             Import Data
                         </a>
@@ -96,10 +101,22 @@
             </div>
 
             <!-- Features -->
-            <div class="row mt-4">
-                <div class="col-md-6">
-                    <div class="card feature-card" data-action="start-analysis">
+            <div class="row mt-5 pt-4 justify-content-center">
+                <div class="col-md-3 col-sm-6">
+                    <div class="card feature-card feature-card-circle" data-action="goto-standard-curve">
                         <div class="card-body text-center">
+                            <div class="feature-icon">📈</div>
+                            <h5 class="card-title" data-i18n="feature.standardCurve">Standard Curve</h5>
+                            <p class="card-text" data-i18n="feature.standardCurveDesc">
+                                Linear regression and amplification efficiency
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="card feature-card feature-card-circle" data-action="start-analysis">
+                        <div class="card-body text-center">
+                            <div class="feature-icon">🧬</div>
                             <h5 class="card-title" data-i18n="feature.deltaCt">ΔCt/ΔΔCt</h5>
                             <p class="card-text" data-i18n="feature.deltaCtDesc">
                                 Relative quantification analysis methods
@@ -107,9 +124,10 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="card feature-card" data-action="start-analysis">
+                <div class="col-md-3 col-sm-6">
+                    <div class="card feature-card feature-card-circle" data-action="start-analysis">
                         <div class="card-body text-center">
+                            <div class="feature-icon">📊</div>
                             <h5 class="card-title" data-i18n="feature.statistics">Statistical Tests</h5>
                             <p class="card-text" data-i18n="feature.statisticsDesc">
                                 t-test, ANOVA, Wilcoxon test
@@ -117,17 +135,22 @@
                         </div>
                     </div>
                 </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="card feature-card feature-card-circle" data-action="goto-templates">
+                        <div class="card-body text-center">
+                            <div class="feature-icon">📥</div>
+                            <h5 class="card-title" data-i18n="nav.templates">Templates</h5>
+                            <p class="card-text" data-i18n="templates.title">
+                                Download templates and example data
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Import Page -->
-        <div id="importPage" class="page d-none">
-            <div class="row">
-                <div class="col-12">
-                    <h2 data-i18n="import.title">Import Data</h2>
-                </div>
-            </div>
-
+        <!-- Standard Curve Page -->
+        <div id="standardCurvePage" class="page d-none">
             <div class="row mt-3">
                 <!-- Cq Data Section -->
                 <div class="col-md-6">
@@ -140,19 +163,180 @@
                         <div class="card-body">
                             <div class="mb-3">
                                 <label class="form-label" data-i18n="import.fileFormat">File Format</label>
-                                <select class="form-select" id="cqFileFormat">
+                                <select class="form-select" id="scCqFileFormat">
                                     <option value="csv">CSV</option>
+                                    <option value="excel">Excel (.xlsx, .xls)</option>
                                 </select>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label" data-i18n="import.selectFile">Select File</label>
-                                <input type="file" class="form-control" id="cqFileInput" accept=".csv">
+                                <input type="file" class="form-control" id="scCqFileInput" accept=".csv,.xlsx,.xls">
                             </div>
                             <div class="d-flex justify-content-between">
-                                <button class="btn btn-primary" id="loadCqBtn" data-i18n="btn.load">
+                                <button class="btn btn-primary btn-sm" id="loadScCqBtn" data-i18n="btn.load">
                                     Load File
                                 </button>
-                                <button class="btn btn-success" id="loadCqExampleBtn">
+                                <button class="btn btn-success btn-sm" id="loadScCqExampleBtn">
+                                    <span data-i18n="btn.loadExample">Load Example</span>
+                                </button>
+                            </div>
+                            <div id="scCqPreview" class="mt-3">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped" id="scCqPreviewTable">
+                                        <thead><tr><th data-i18n="table.preview">Preview</th></tr></thead>
+                                        <tbody><tr><td class="text-muted" data-i18n="table.noData">No data loaded</td></tr></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Concentration Data Section -->
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0">
+                                <span data-i18n="import.concenData">Concentration Data</span>
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label" data-i18n="import.fileFormat">File Format</label>
+                                <select class="form-select" id="scConcenFileFormat">
+                                    <option value="csv">CSV</option>
+                                    <option value="excel">Excel (.xlsx, .xls)</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" data-i18n="import.selectFile">Select File</label>
+                                <input type="file" class="form-control" id="scConcenFileInput" accept=".csv,.xlsx,.xls">
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <button class="btn btn-info btn-sm" id="loadScConcenBtn" data-i18n="btn.load">
+                                    Load File
+                                </button>
+                                <button class="btn btn-success btn-sm" id="loadScConcenExampleBtn">
+                                    <span data-i18n="btn.loadExample">Load Example</span>
+                                </button>
+                            </div>
+                            <div id="scConcenPreview" class="mt-3">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped" id="scConcenPreviewTable">
+                                        <thead><tr><th data-i18n="table.preview">Preview</th></tr></thead>
+                                        <tbody><tr><td class="text-muted" data-i18n="table.noData">No data loaded</td></tr></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">参数配置</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="mb-3">
+                                        <label class="form-label" data-i18n="param.lowestConcen">最低浓度</label>
+                                        <input type="number" class="form-control" id="scLowestConcen" value="4" step="any">
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="mb-3">
+                                        <label class="form-label" data-i18n="param.highestConcen">最高浓度</label>
+                                        <input type="number" class="form-control" id="scHighestConcen" value="4096" step="any">
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="mb-3">
+                                        <label class="form-label" data-i18n="param.dilution">稀释倍数</label>
+                                        <input type="number" class="form-control" id="scDilution" value="4" step="any">
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="mb-3">
+                                        <label class="form-label">&nbsp;</label>
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input" id="scByMean" checked>
+                                            <label class="form-check-label" for="scByMean" data-i18n="param.byMean">
+                                                使用平均Cq值
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <button class="btn btn-lg btn-success" id="runStandardCurve">
+                                    <span data-i18n="btn.runAnalysis">计算标准曲线</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Standard Curve Results -->
+            <div class="row mt-3" id="scResultsSection" style="display: none;">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0" data-i18n="results.standardCurve">标准曲线参数</h5>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary" id="exportScCsv">
+                                    CSV
+                                </button>
+                                <button class="btn btn-sm btn-outline-primary" id="exportScExcel">
+                                    Excel
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover" id="scResultsTable">
+                                    <thead></thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Import Page -->
+        <div id="importPage" class="page d-none">
+            <div class="row mt-3">
+                <!-- Cq Data Section -->
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">
+                                <span data-i18n="import.cqData">Cq Data</span>
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label" data-i18n="import.fileFormat">File Format</label>
+                                <select class="form-select" id="cqFileFormat">
+                                    <option value="csv">CSV</option>
+                                    <option value="excel">Excel (.xlsx, .xls)</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" data-i18n="import.selectFile">Select File</label>
+                                <input type="file" class="form-control" id="cqFileInput" accept=".csv,.xlsx,.xls">
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <button class="btn btn-primary btn-sm" id="loadCqBtn" data-i18n="btn.load">
+                                    Load File
+                                </button>
+                                <button class="btn btn-success btn-sm" id="loadCqExampleBtn">
                                     <span data-i18n="btn.loadExample">Load Example</span>
                                 </button>
                             </div>
@@ -169,7 +353,7 @@
                 </div>
 
                 <!-- Design Data Section -->
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <div class="card">
                         <div class="card-header bg-success text-white">
                             <h5 class="mb-0">
@@ -181,23 +365,64 @@
                                 <label class="form-label" data-i18n="import.fileFormat">File Format</label>
                                 <select class="form-select" id="designFileFormat">
                                     <option value="csv">CSV</option>
+                                    <option value="excel">Excel (.xlsx, .xls)</option>
                                 </select>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label" data-i18n="import.selectFile">Select File</label>
-                                <input type="file" class="form-control" id="designFileInput" accept=".csv">
+                                <input type="file" class="form-control" id="designFileInput" accept=".csv,.xlsx,.xls">
                             </div>
                             <div class="d-flex justify-content-between">
-                                <button class="btn btn-success" id="loadDesignBtn" data-i18n="btn.load">
+                                <button class="btn btn-success btn-sm" id="loadDesignBtn" data-i18n="btn.load">
                                     Load File
                                 </button>
-                                <button class="btn btn-primary" id="loadDesignExampleBtn">
+                                <button class="btn btn-primary btn-sm" id="loadDesignExampleBtn">
                                     <span data-i18n="btn.loadExample">Load Example</span>
                                 </button>
                             </div>
                             <div id="designPreview" class="mt-3">
                                 <div class="table-responsive">
                                     <table class="table table-sm table-striped" id="designPreviewTable">
+                                        <thead><tr><th data-i18n="table.preview">Preview</th></tr></thead>
+                                        <tbody><tr><td class="text-muted" data-i18n="table.noData">No data loaded</td></tr></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Concentration Data Section (for Standard Curve) -->
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0">
+                                <span data-i18n="import.concenData">Concentration Data</span>
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label" data-i18n="import.fileFormat">File Format</label>
+                                <select class="form-select" id="concenFileFormat">
+                                    <option value="csv">CSV</option>
+                                    <option value="excel">Excel (.xlsx, .xls)</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" data-i18n="import.selectFile">Select File</label>
+                                <input type="file" class="form-control" id="concenFileInput" accept=".csv,.xlsx,.xls">
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <button class="btn btn-info btn-sm" id="loadConcenBtn" data-i18n="btn.load">
+                                    Load File
+                                </button>
+                                <button class="btn btn-primary btn-sm" id="loadConcenExampleBtn">
+                                    <span data-i18n="btn.loadExample">Load Example</span>
+                                </button>
+                            </div>
+                            <div id="concenPreview" class="mt-3">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped" id="concenPreviewTable">
                                         <thead><tr><th data-i18n="table.preview">Preview</th></tr></thead>
                                         <tbody><tr><td class="text-muted" data-i18n="table.noData">No data loaded</td></tr></tbody>
                                     </table>
@@ -219,12 +444,6 @@
 
         <!-- Analysis Page -->
         <div id="analysisPage" class="page d-none">
-            <div class="row">
-                <div class="col-12">
-                    <h2 data-i18n="analysis.title">Configure Analysis</h2>
-                </div>
-            </div>
-
             <div class="row mt-3">
                 <div class="col-md-4">
                     <div class="card">
@@ -241,6 +460,12 @@
                                     <small class="d-block text-muted">(Coming Soon)</small>
                                 </label>
                                 -->
+
+                                <input type="radio" class="btn-check" name="analysisMethod" id="methodStandardCurve" value="standardCurve">
+                                <label class="btn btn-outline-primary text-start" for="methodStandardCurve">
+                                    <span data-i18n="method.standardCurve">Standard Curve</span>
+                                    <small class="d-block text-muted">(Amplification Efficiency)</small>
+                                </label>
 
                                 <input type="radio" class="btn-check" name="analysisMethod" id="methodDeltaCt" value="deltaCt">
                                 <label class="btn btn-outline-primary text-start" for="methodDeltaCt">
@@ -265,20 +490,52 @@
                         </div>
                         <div class="card-body">
                             <form id="analysisForm">
-                                <div class="mb-3">
-                                    <label class="form-label" data-i18n="param.referenceGene">Reference Gene</label>
-                                    <select class="form-select" id="referenceGene">
-                                        <option value="">-- Select Reference Gene --</option>
-                                        <!-- Options will be populated dynamically from data -->
-                                    </select>
+                                <!-- Standard Curve Parameters (shown only for Standard Curve method) -->
+                                <div id="standardCurveParams" style="display: none;">
+                                    <div class="mb-3">
+                                        <label class="form-label" data-i18n="param.lowestConcen">Lowest Concentration</label>
+                                        <input type="number" class="form-control" id="lowestConcen" value="4" step="any">
+                                        <small class="form-text text-muted">Minimum concentration for standard curve calculation</small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label" data-i18n="param.highestConcen">Highest Concentration</label>
+                                        <input type="number" class="form-control" id="highestConcen" value="4096" step="any">
+                                        <small class="form-text text-muted">Maximum concentration for standard curve calculation</small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label" data-i18n="param.dilution">Dilution Factor</label>
+                                        <input type="number" class="form-control" id="dilution" value="4" step="any">
+                                        <small class="form-text text-muted">Dilution factor of cDNA template (default: 4)</small>
+                                    </div>
+                                    <div class="mb-3 form-check">
+                                        <input type="checkbox" class="form-check-input" id="byMean" checked>
+                                        <label class="form-check-label" for="byMean" data-i18n="param.byMean">
+                                            Use Mean Cq Values
+                                        </label>
+                                        <small class="form-text text-muted d-block">Calculate by mean Cq value for each concentration</small>
+                                    </div>
+                                    <hr>
                                 </div>
-                                <div class="mb-3">
-                                    <label class="form-label" data-i18n="param.controlGroup">Control Group</label>
-                                    <select class="form-select" id="controlGroup">
-                                        <option value="">-- Select Control Group --</option>
-                                        <!-- Options will be populated dynamically from data -->
-                                    </select>
+
+                                <!-- DeltaCt/DeltaDeltaCt Parameters -->
+                                <div id="deltaCtParams">
+                                    <div class="mb-3">
+                                        <label class="form-label" data-i18n="param.referenceGene">Reference Gene</label>
+                                        <select class="form-select" id="referenceGene">
+                                            <option value="">-- Select Reference Gene --</option>
+                                            <!-- Options will be populated dynamically from data -->
+                                        </select>
+                                    </div>
+                                    <div class="mb-3" id="controlGroupField">
+                                        <label class="form-label" data-i18n="param.controlGroup">Control Group</label>
+                                        <select class="form-select" id="controlGroup">
+                                            <option value="">-- Select Control Group --</option>
+                                            <!-- Options will be populated dynamically from data -->
+                                        </select>
+                                    </div>
                                 </div>
+
+                                <!-- Common Parameters for all methods -->
                                 <div class="mb-3">
                                     <label class="form-label" data-i18n="param.statisticalTest">Statistical Test</label>
                                     <select class="form-select" id="statisticalTest">
@@ -287,7 +544,7 @@
                                         <option value="anova">ANOVA</option>
                                     </select>
                                 </div>
-                                <div class="mb-3 form-check">
+                                <div class="mb-3 form-check" id="removeOutliersField">
                                     <input type="checkbox" class="form-check-input" id="removeOutliers">
                                     <label class="form-check-label" for="removeOutliers" data-i18n="param.removeOutliers">
                                         Remove Outliers (IQR method)
@@ -321,12 +578,6 @@
 
         <!-- Results Page -->
         <div id="resultsPage" class="page d-none">
-            <div class="row">
-                <div class="col-12">
-                    <h2 data-i18n="results.title">Analysis Results</h2>
-                </div>
-            </div>
-
             <div class="row mt-3">
                 <div class="col-12">
                     <!-- Summary Data Card -->

@@ -670,3 +670,65 @@ option {
     padding: 12px !important;
     min-height: 40px !important;
 }
+
+/* Circular Feature Cards */
+.feature-card-circle {
+    border-radius: 50% !important;
+    width: 280px !important;
+    height: 280px !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.feature-card-circle .card-body {
+    padding: 0 !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    width: 100%;
+    height: 100%;
+}
+
+.feature-card-circle .feature-icon {
+    font-size: 4rem;
+    margin-bottom: 0.5rem;
+    line-height: 1;
+}
+
+.feature-card-circle h5 {
+    font-size: 1.2rem !important;
+    margin: 0.5rem 0 0.25rem 0 !important;
+    line-height: 1.2 !important;
+}
+
+.feature-card-circle p {
+    display: none; /* Hide description in circular cards */
+}
+
+.feature-card-circle:hover {
+    transform: scale(1.1) !important;
+}
+
+/* Responsive adjustments for circular cards */
+@media (max-width: 768px) {
+    .feature-card-circle {
+        width: 200px !important;
+        height: 200px !important;
+    }
+
+    .feature-card-circle .feature-icon {
+        font-size: 3rem;
+    }
+
+    .feature-card-circle h5 {
+        font-size: 1rem !important;
+    }
+}

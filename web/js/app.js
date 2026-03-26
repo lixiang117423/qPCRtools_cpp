@@ -7,8 +7,14 @@
 let bridge = null;
 let currentCqData = null;
 let currentDesignData = null;
+let currentConcenData = null;  // Concentration data for Standard Curve
 let analysisResults = null;
 let mainChart = null;
+
+// Standard Curve specific data
+let scCqData = null;
+let scConcenData = null;
+let scResults = null;
 
 // Color palettes for ggplot2 style
 const colorPalettes = {
@@ -64,6 +70,7 @@ function initializeUI() {
     setupImportPage();
     setupAnalysisPage();
     setupResultsPage();
+    setupStandardCurvePage();
 
     // Feature cards click handlers
     setupFeatureCards();
@@ -83,12 +90,23 @@ function initializeUI() {
 function setupFeatureCards() {
     console.log('Setting up feature cards...');
     document.querySelectorAll('.feature-card').forEach(card => {
+        // Skip placeholder cards
+        if (card.classList.contains('placeholder-card')) {
+            return;
+        }
+
         card.style.cursor = 'pointer';
         card.addEventListener('click', function() {
             console.log('Feature card clicked!');
             const action = this.getAttribute('data-action');
             if (action === 'start-analysis') {
                 navigateToPage('import');
+            } else if (action === 'goto-standard-curve') {
+                navigateToPage('standardCurve');
+            } else if (action === 'goto-templates') {
+                // Open templates modal
+                const modal = new bootstrap.Modal(document.getElementById('templatesModal'));
+                modal.show();
             }
         });
     });
@@ -285,6 +303,41 @@ function loadExampleDesignData() {
 }
 
 /**
+ * Load example Concentration data only
+ */
+function loadExampleConcenData() {
+    // Clear existing data first
+    currentConcenData = null;
+
+    // Generate example concentration data for standard curve
+    // Matches positions in the Cq data
+    currentConcenData = [
+        { Position: 'A1', Gene: 'fos-glo-myc', Conc: 4 },
+        { Position: 'B1', Gene: 'fos-glo-myc', Conc: 16 },
+        { Position: 'C1', Gene: 'fos-glo-myc', Conc: 64 },
+        { Position: 'D1', Gene: 'fos-glo-myc', Conc: 256 },
+        { Position: 'E1', Gene: 'fos-glo-myc', Conc: 1024 },
+        { Position: 'F1', Gene: 'fos-glo-myc', Conc: 4096 },
+        { Position: 'A5', Gene: 'Beta Actin', Conc: 4 },
+        { Position: 'B5', Gene: 'Beta Actin', Conc: 16 },
+        { Position: 'C5', Gene: 'Beta Actin', Conc: 64 },
+        { Position: 'D5', Gene: 'Beta Actin', Conc: 256 },
+        { Position: 'E5', Gene: 'Beta Actin', Conc: 1024 },
+        { Position: 'F5', Gene: 'Beta Actin', Conc: 4096 }
+    ];
+
+    console.log('Loaded example Concentration data:', currentConcenData.length, 'rows');
+
+    // Show preview
+    displayConcenPreview(currentConcenData);
+
+    // Check if both files are loaded
+    checkDataLoaded();
+
+    showNotification(i18n.t('msg.dataLoaded') + ' (Concentration)', 'success');
+}
+
+/**
  * Setup navigation between pages
  */
 function setupNavigation() {
@@ -334,11 +387,13 @@ function setupImportPage() {
         }
 
         const file = fileInput.files[0];
-        const fileName = file && file.name ? file.name.toLowerCase() : '';
-        if (fileName && !fileName.endsWith('.csv')) {
+        const fileNameLower = file && file.name ? file.name.toLowerCase() : '';
+        const isCsv = fileNameLower.endsWith('.csv');
+        const isExcel = fileNameLower.endsWith('.xlsx') || fileNameLower.endsWith('.xls');
+        if (!isCsv && !isExcel) {
             const lang = i18n.getLanguage ? i18n.getLanguage() : 'zh';
-            const msgZh = '仅支持 CSV 导入。Excel 请使用菜单 `File` -> `Open Cq File...` / `Open Design File...`。';
-            const msgEn = 'Only CSV import is supported here. To import Excel, use `File` -> `Open Cq File...` / `Open Design File...`.';
+            const msgZh = '仅支持 CSV 或 Excel（.xlsx/.xls）导入。';
+            const msgEn = 'Only CSV or Excel (.xlsx/.xls) import is supported here.';
             showNotification(lang === 'zh' ? msgZh : msgEn, 'warning');
             return;
         }
@@ -351,33 +406,52 @@ function setupImportPage() {
             // Read file content and send to C++
             const reader = new FileReader();
             reader.onload = async function(e) {
-                const content = e.target.result;
-                console.log('File content length:', content.length);
-                console.log('First 200 chars:', content.substring(0, 200));
-
-                // Call C++ method to parse CSV content
                 try {
-                    console.log('Calling bridge.loadCqFromContent...');
-                    const result = await bridge.loadCqFromContent(content);
-                    console.log('Raw result from C++:', result);
-                    console.log('Result type:', typeof result);
-                    console.log('Result length:', result ? result.length : 0);
+                    if (isCsv) {
+                        const content = e.target.result;
+                        console.log('File content length:', content.length);
+                        console.log('First 200 chars:', content.substring(0, 200));
 
-                    const parsed = JSON.parse(result);
-                    console.log('Parsed result:', parsed);
-                    console.log('Parsed result keys:', Object.keys(parsed));
-                    console.log('parsed.data:', parsed.data);
-                    console.log('parsed.data type:', Array.isArray(parsed.data) ? 'array' : typeof parsed.data);
-                    console.log('parsed.columns:', parsed.columns);
+                        console.log('Calling bridge.loadCqFromContent...');
+                        const result = await bridge.loadCqFromContent(content);
 
-                    if (!Array.isArray(parsed.data)) {
-                        console.error('parsed.data is not an array! Full parsed object:', JSON.stringify(parsed, null, 2));
-                        showNotification('Invalid data format: data is not an array', 'danger');
-                        return;
+                        const parsed = JSON.parse(result);
+                        if (parsed && parsed.error) {
+                            showNotification(parsed.error, 'danger');
+                            return;
+                        }
+
+                        if (!Array.isArray(parsed.data)) {
+                            console.error('parsed.data is not an array! Full parsed object:', JSON.stringify(parsed, null, 2));
+                            showNotification('Invalid data format: data is not an array', 'danger');
+                            return;
+                        }
+
+                        currentCqData = parsed.data;
+                        currentCqData.columns = parsed.columns;
+                    } else {
+                        const buffer = e.target.result;
+                        const base64 = arrayBufferToBase64(buffer);
+
+                        console.log('Calling bridge.loadCqExcelFromBase64...');
+                        const result = await bridge.loadCqExcelFromBase64(base64, 0, true);
+
+                        const parsed = JSON.parse(result);
+                        if (parsed && parsed.error) {
+                            showNotification(parsed.error, 'danger');
+                            return;
+                        }
+
+                        if (!Array.isArray(parsed.data)) {
+                            console.error('parsed.data is not an array! Full parsed object:', JSON.stringify(parsed, null, 2));
+                            showNotification('Invalid data format: data is not an array', 'danger');
+                            return;
+                        }
+
+                        currentCqData = parsed.data;
+                        currentCqData.columns = parsed.columns;
                     }
 
-                    currentCqData = parsed.data;
-                    currentCqData.columns = parsed.columns;
                     console.log('Final currentCqData type:', Array.isArray(currentCqData) ? 'array' : typeof currentCqData);
                     console.log('Final currentCqData.columns:', currentCqData.columns);
 
@@ -394,9 +468,18 @@ function setupImportPage() {
                 console.error('FileReader error:', e);
                 showNotification('Failed to read file', 'danger');
             };
-            reader.readAsText(file);
+
+            if (isCsv) {
+                reader.readAsText(file);
+            } else {
+                reader.readAsArrayBuffer(file);
+            }
         } else {
             // Demo mode: load in browser
+            if (isExcel) {
+                showNotification('Excel import is only supported inside the desktop app.', 'warning');
+                return;
+            }
             loadCqFile(file);
         }
     });
@@ -415,11 +498,13 @@ function setupImportPage() {
         }
 
         const file = fileInput.files[0];
-        const fileName = file && file.name ? file.name.toLowerCase() : '';
-        if (fileName && !fileName.endsWith('.csv')) {
+        const fileNameLower = file && file.name ? file.name.toLowerCase() : '';
+        const isCsv = fileNameLower.endsWith('.csv');
+        const isExcel = fileNameLower.endsWith('.xlsx') || fileNameLower.endsWith('.xls');
+        if (!isCsv && !isExcel) {
             const lang = i18n.getLanguage ? i18n.getLanguage() : 'zh';
-            const msgZh = '仅支持 CSV 导入。Excel 请使用菜单 `File` -> `Open Cq File...` / `Open Design File...`。';
-            const msgEn = 'Only CSV import is supported here. To import Excel, use `File` -> `Open Cq File...` / `Open Design File...`.';
+            const msgZh = '仅支持 CSV 或 Excel（.xlsx/.xls）导入。';
+            const msgEn = 'Only CSV or Excel (.xlsx/.xls) import is supported here.';
             showNotification(lang === 'zh' ? msgZh : msgEn, 'warning');
             return;
         }
@@ -432,31 +517,52 @@ function setupImportPage() {
             // Read file content and send to C++
             const reader = new FileReader();
             reader.onload = async function(e) {
-                const content = e.target.result;
-                console.log('File content length:', content.length);
-                console.log('First 200 chars:', content.substring(0, 200));
-
-                // Call C++ method to parse CSV content
                 try {
-                    console.log('Calling bridge.loadDesignFromContent...');
-                    const result = await bridge.loadDesignFromContent(content);
-                    console.log('Raw result from C++:', result);
-                    console.log('Result type:', typeof result);
-                    console.log('Result length:', result ? result.length : 0);
+                    if (isCsv) {
+                        const content = e.target.result;
+                        console.log('File content length:', content.length);
+                        console.log('First 200 chars:', content.substring(0, 200));
 
-                    const parsed = JSON.parse(result);
-                    console.log('Parsed result keys:', Object.keys(parsed));
-                    console.log('parsed.data type:', Array.isArray(parsed.data) ? 'array' : typeof parsed.data);
-                    console.log('parsed.columns:', parsed.columns);
+                        console.log('Calling bridge.loadDesignFromContent...');
+                        const result = await bridge.loadDesignFromContent(content);
 
-                    if (!Array.isArray(parsed.data)) {
-                        console.error('parsed.data is not an array!');
-                        showNotification('Invalid data format: data is not an array', 'danger');
-                        return;
+                        const parsed = JSON.parse(result);
+                        if (parsed && parsed.error) {
+                            showNotification(parsed.error, 'danger');
+                            return;
+                        }
+
+                        if (!Array.isArray(parsed.data)) {
+                            console.error('parsed.data is not an array! Full parsed object:', JSON.stringify(parsed, null, 2));
+                            showNotification('Invalid data format: data is not an array', 'danger');
+                            return;
+                        }
+
+                        currentDesignData = parsed.data;
+                        currentDesignData.columns = parsed.columns;
+                    } else {
+                        const buffer = e.target.result;
+                        const base64 = arrayBufferToBase64(buffer);
+
+                        console.log('Calling bridge.loadDesignExcelFromBase64...');
+                        const result = await bridge.loadDesignExcelFromBase64(base64, 0, true);
+
+                        const parsed = JSON.parse(result);
+                        if (parsed && parsed.error) {
+                            showNotification(parsed.error, 'danger');
+                            return;
+                        }
+
+                        if (!Array.isArray(parsed.data)) {
+                            console.error('parsed.data is not an array! Full parsed object:', JSON.stringify(parsed, null, 2));
+                            showNotification('Invalid data format: data is not an array', 'danger');
+                            return;
+                        }
+
+                        currentDesignData = parsed.data;
+                        currentDesignData.columns = parsed.columns;
                     }
 
-                    currentDesignData = parsed.data;
-                    currentDesignData.columns = parsed.columns;
                     console.log('Final currentDesignData.columns:', currentDesignData.columns);
 
                     displayDesignPreview(currentDesignData);
@@ -472,9 +578,18 @@ function setupImportPage() {
                 console.error('FileReader error:', e);
                 showNotification('Failed to read file', 'danger');
             };
-            reader.readAsText(file);
+
+            if (isCsv) {
+                reader.readAsText(file);
+            } else {
+                reader.readAsArrayBuffer(file);
+            }
         } else {
             // Demo mode: load in browser
+            if (isExcel) {
+                showNotification('Excel import is only supported inside the desktop app.', 'warning');
+                return;
+            }
             loadDesignFile(file);
         }
     });
@@ -484,9 +599,120 @@ function setupImportPage() {
         loadExampleDesignData();
     });
 
+    // Concentration file loading
+    document.getElementById('loadConcenBtn').addEventListener('click', async function() {
+        const fileInput = document.getElementById('concenFileInput');
+        if (fileInput.files.length === 0) {
+            showNotification(i18n.t('msg.noFileSelected'), 'warning');
+            return;
+        }
+
+        const file = fileInput.files[0];
+        const fileNameLower = file && file.name ? file.name.toLowerCase() : '';
+        const isCsv = fileNameLower.endsWith('.csv');
+        const isExcel = fileNameLower.endsWith('.xlsx') || fileNameLower.endsWith('.xls');
+        if (!isCsv && !isExcel) {
+            const lang = i18n.getLanguage ? i18n.getLanguage() : 'zh';
+            const msgZh = '仅支持 CSV 或 Excel（.xlsx/.xls）导入。';
+            const msgEn = 'Only CSV or Excel (.xlsx/.xls) import is supported here.';
+            showNotification(lang === 'zh' ? msgZh : msgEn, 'warning');
+            return;
+        }
+        console.log('=== Loading Concentration file ===');
+        console.log('File name:', file.name);
+        console.log('File size:', file.size);
+        console.log('File type:', file.type);
+
+        if (bridge) {
+            // Read file content and send to C++
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    if (isCsv) {
+                        const content = e.target.result;
+                        console.log('File content length:', content.length);
+                        console.log('First 200 chars:', content.substring(0, 200));
+
+                        console.log('Calling bridge.loadConcenFromContent...');
+                        const result = await bridge.loadConcenFromContent(content);
+
+                        const parsed = JSON.parse(result);
+                        if (parsed && parsed.error) {
+                            showNotification(parsed.error, 'danger');
+                            return;
+                        }
+
+                        if (!Array.isArray(parsed.data)) {
+                            console.error('parsed.data is not an array! Full parsed object:', JSON.stringify(parsed, null, 2));
+                            showNotification('Invalid data format: data is not an array', 'danger');
+                            return;
+                        }
+
+                        currentConcenData = parsed.data;
+                        currentConcenData.columns = parsed.columns;
+                    } else {
+                        const buffer = e.target.result;
+                        const base64 = arrayBufferToBase64(buffer);
+
+                        console.log('Calling bridge.loadConcenExcelFromBase64...');
+                        const result = await bridge.loadConcenExcelFromBase64(base64, 0, true);
+
+                        const parsed = JSON.parse(result);
+                        if (parsed && parsed.error) {
+                            showNotification(parsed.error, 'danger');
+                            return;
+                        }
+
+                        if (!Array.isArray(parsed.data)) {
+                            console.error('parsed.data is not an array! Full parsed object:', JSON.stringify(parsed, null, 2));
+                            showNotification('Invalid data format: data is not an array', 'danger');
+                            return;
+                        }
+
+                        currentConcenData = parsed.data;
+                        currentConcenData.columns = parsed.columns;
+                    }
+
+                    console.log('Final currentConcenData type:', Array.isArray(currentConcenData) ? 'array' : typeof currentConcenData);
+                    console.log('Final currentConcenData.columns:', currentConcenData.columns);
+
+                    displayConcenPreview(currentConcenData);
+                    checkDataLoaded();
+                    showNotification(i18n.t('msg.dataLoaded'), 'success');
+                } catch (error) {
+                    console.error('Error loading Concentration file:', error);
+                    console.error('Error stack:', error.stack);
+                    showNotification('Failed to parse file: ' + error.message, 'danger');
+                }
+            };
+            reader.onerror = function(e) {
+                console.error('FileReader error:', e);
+                showNotification('Failed to read file', 'danger');
+            };
+
+            if (isCsv) {
+                reader.readAsText(file);
+            } else {
+                reader.readAsArrayBuffer(file);
+            }
+        } else {
+            // Demo mode: load in browser
+            if (isExcel) {
+                showNotification('Excel import is only supported inside the desktop app.', 'warning');
+                return;
+            }
+            loadConcenFile(file);
+        }
+    });
+
+    // Concentration example data loading
+    document.getElementById('loadConcenExampleBtn').addEventListener('click', function() {
+        loadExampleConcenData();
+    });
+
     // Proceed to analysis button
     document.getElementById('proceedToAnalysis').addEventListener('click', function() {
-        if (currentCqData && currentDesignData) {
+        if (currentCqData && (currentDesignData || currentConcenData)) {
             navigateToPage('analysis');
         }
     });
@@ -582,6 +808,39 @@ function loadDesignFile(file) {
 }
 
 /**
+ * Load concentration data file
+ */
+function loadConcenFile(file) {
+    if (bridge) {
+        bridge.showFileDialog(i18n.t('import.concenData'), '*.csv;;*.xlsx *.xls').then(filePath => {
+            if (filePath) {
+                const result = bridge.loadConcenFile(filePath);
+                const parsed = JSON.parse(result);
+                currentConcenData = parsed.data;
+                currentConcenData.columns = parsed.columns;
+                displayConcenPreview(currentConcenData);
+                checkDataLoaded();
+            }
+        });
+    } else {
+        // Demo mode
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = parseCSV(e.target.result);
+                currentConcenData = data;
+                displayConcenPreview(data);
+                checkDataLoaded();
+                showNotification(i18n.t('msg.dataLoaded'), 'success');
+            } catch (error) {
+                showNotification(i18n.t('msg.error') + ': ' + error.message, 'danger');
+            }
+        };
+        reader.readAsText(file);
+    }
+}
+
+/**
  * Display Cq data preview
  */
 function displayCqPreview(data) {
@@ -658,6 +917,66 @@ function displayDesignPreview(data) {
 
     if (!data) {
         console.error('No data provided to displayDesignPreview');
+        tbody.innerHTML = '<tr><td class="text-muted">No data</td></tr>';
+        return;
+    }
+
+    if (!Array.isArray(data)) {
+        console.error('Data is not an array:', typeof data, data);
+        tbody.innerHTML = '<tr><td class="text-muted">Invalid data format</td></tr>';
+        return;
+    }
+
+    if (data.length === 0) {
+        console.warn('Data array is empty');
+        tbody.innerHTML = '<tr><td class="text-muted">' + i18n.t('table.noData') + '</td></tr>';
+        return;
+    }
+
+    console.log('First row:', data[0]);
+
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+
+    // Headers - 优先使用保存的列顺序
+    const headers = data.columns || Object.keys(data[0]);
+    console.log('Headers:', headers);
+    headers.forEach(header => {
+        const th = document.createElement('th');
+        th.textContent = header;
+        thead.appendChild(th);
+    });
+
+    const displayRows = data.slice(0, 10);
+    console.log('Displaying', displayRows.length, 'rows');
+    displayRows.forEach(row => {
+        const tr = document.createElement('tr');
+        headers.forEach(header => {
+            const td = document.createElement('td');
+            td.textContent = row[header];
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
+
+    console.log('Table rendered successfully');
+}
+
+/**
+ * Display concentration data preview
+ */
+function displayConcenPreview(data) {
+    console.log('=== displayConcenPreview ===');
+    console.log('Input data:', data);
+    console.log('Data type:', Array.isArray(data) ? 'array' : typeof data);
+    console.log('Data length:', data ? data.length : 0);
+
+    const table = document.getElementById('concenPreviewTable');
+    const thead = table.querySelector('thead tr');
+    const tbody = table.querySelector('tbody');
+
+    if (!data) {
+        console.error('No data provided to displayConcenPreview');
         tbody.innerHTML = '<tr><td class="text-muted">No data</td></tr>';
         return;
     }
@@ -830,21 +1149,28 @@ function setupAnalysisPage() {
  */
 function updateAnalysisMethodUI() {
     const method = document.querySelector('input[name="analysisMethod"]:checked').value;
-    const controlGroupField = document.getElementById('controlGroup').closest('.mb-3');
-    const statisticalTestField = document.getElementById('statisticalTest').closest('.mb-3');
+    const standardCurveParams = document.getElementById('standardCurveParams');
+    const deltaCtParams = document.getElementById('deltaCtParams');
+    const controlGroupField = document.getElementById('controlGroupField');
+    const removeOutliersField = document.getElementById('removeOutliersField');
 
-    if (method === 'deltaCt') {
-        // Hide control group for ΔCt method, but show statistical test
+    if (method === 'standardCurve') {
+        // Show standard curve parameters, hide deltaCt parameters
+        standardCurveParams.style.display = 'block';
+        deltaCtParams.style.display = 'none';
+        removeOutliersField.style.display = 'none';
+    } else if (method === 'deltaCt') {
+        // Hide control group and standard curve params for ΔCt method
+        standardCurveParams.style.display = 'none';
+        deltaCtParams.style.display = 'block';
         controlGroupField.style.display = 'none';
-        statisticalTestField.style.display = 'block';
+        removeOutliersField.style.display = 'block';
     } else if (method === 'deltaDeltaCt') {
         // Show both for ΔΔCt method
+        standardCurveParams.style.display = 'none';
+        deltaCtParams.style.display = 'block';
         controlGroupField.style.display = 'block';
-        statisticalTestField.style.display = 'block';
-    } else {
-        // For future methods (e.g., Standard Curve)
-        controlGroupField.style.display = 'none';
-        statisticalTestField.style.display = 'block';
+        removeOutliersField.style.display = 'block';
     }
 }
 
@@ -859,6 +1185,12 @@ async function runAnalysis() {
     const removeOutliers = document.getElementById('removeOutliers').checked;
     const colorPalette = document.getElementById('colorPalette').value;
 
+    // Standard Curve specific parameters
+    const lowestConcen = parseFloat(document.getElementById('lowestConcen').value);
+    const highestConcen = parseFloat(document.getElementById('highestConcen').value);
+    const dilution = parseFloat(document.getElementById('dilution').value);
+    const byMean = document.getElementById('byMean').checked;
+
     console.log('=== Analysis Parameters ===');
     console.log('Method:', method);
     console.log('Reference Gene:', referenceGene);
@@ -866,16 +1198,35 @@ async function runAnalysis() {
     console.log('Statistical Test:', statisticalTest);
     console.log('Remove Outliers:', removeOutliers);
     console.log('Color Palette:', colorPalette);
+    console.log('Lowest Conc:', lowestConcen);
+    console.log('Highest Conc:', highestConcen);
+    console.log('Dilution:', dilution);
+    console.log('By Mean:', byMean);
 
     // Validation
-    if (!referenceGene) {
-        showNotification(i18n.t('msg.missingParams') + ': ' + i18n.t('param.referenceGene'), 'warning');
-        return;
-    }
+    if (method === 'standardCurve') {
+        if (!currentConcenData || currentConcenData.length === 0) {
+            showNotification('No concentration data loaded', 'danger');
+            return;
+        }
+        if (isNaN(lowestConcen) || isNaN(highestConcen) || isNaN(dilution)) {
+            showNotification('Invalid standard curve parameters', 'danger');
+            return;
+        }
+        if (lowestConcen >= highestConcen) {
+            showNotification('Lowest concentration must be less than highest concentration', 'danger');
+            return;
+        }
+    } else {
+        if (!referenceGene) {
+            showNotification(i18n.t('msg.missingParams') + ': ' + i18n.t('param.referenceGene'), 'warning');
+            return;
+        }
 
-    if (method === 'deltaDeltaCt' && !controlGroup) {
-        showNotification(i18n.t('msg.missingParams') + ': ' + i18n.t('param.controlGroup'), 'warning');
-        return;
+        if (method === 'deltaDeltaCt' && !controlGroup) {
+            showNotification(i18n.t('msg.missingParams') + ': ' + i18n.t('param.controlGroup'), 'warning');
+            return;
+        }
     }
 
     // Check if data is loaded
@@ -884,7 +1235,7 @@ async function runAnalysis() {
         return;
     }
 
-    if (!currentDesignData || currentDesignData.length === 0) {
+    if (method !== 'standardCurve' && !currentDesignData || currentDesignData.length === 0) {
         showNotification('No design data loaded', 'danger');
         return;
     }
@@ -893,7 +1244,11 @@ async function runAnalysis() {
         referenceGene: referenceGene,
         controlGroup: controlGroup,
         removeOutliers: removeOutliers,
-        colorPalette: colorPalette
+        colorPalette: colorPalette,
+        lowestConcen: lowestConcen,
+        highestConcen: highestConcen,
+        dilution: dilution,
+        byMean: byMean
     };
 
     if (bridge) {
@@ -902,27 +1257,38 @@ async function runAnalysis() {
             console.log('=== Sending data to C++ ===');
             console.log('Cq data type:', Array.isArray(currentCqData) ? 'array' : typeof currentCqData);
             console.log('Cq data length:', currentCqData ? currentCqData.length : 0);
-            console.log('Cq data sample:', currentCqData ? currentCqData.slice(0, 6) : 'null');
-            console.log('Design data type:', Array.isArray(currentDesignData) ? 'array' : typeof currentDesignData);
-            console.log('Design data length:', currentDesignData ? currentDesignData.length : 0);
-            console.log('Design data sample:', currentDesignData ? currentDesignData.slice(0, 6) : 'null');
 
             const cqJson = JSON.stringify(currentCqData);
-            const designJson = JSON.stringify(currentDesignData);
             console.log('Cq JSON length:', cqJson.length);
-            console.log('Design JSON length:', designJson.length);
-            console.log('Cq JSON (first 500 chars):', cqJson.substring(0, 500));
-            console.log('Design JSON (first 300 chars):', designJson.substring(0, 300));
 
             await bridge.setCqData(cqJson);
-            await bridge.setDesignData(designJson);
+
+            // Send concentration data if using standard curve
+            if (method === 'standardCurve') {
+                console.log('Concentration data type:', Array.isArray(currentConcenData) ? 'array' : typeof currentConcenData);
+                console.log('Concentration data length:', currentConcenData ? currentConcenData.length : 0);
+
+                const concenJson = JSON.stringify(currentConcenData);
+                console.log('Concentration JSON length:', concenJson.length);
+
+                await bridge.setConcenData(concenJson);
+            } else {
+                // Send design data for deltaCt methods
+                console.log('Design data type:', Array.isArray(currentDesignData) ? 'array' : typeof currentDesignData);
+                console.log('Design data length:', currentDesignData ? currentDesignData.length : 0);
+
+                const designJson = JSON.stringify(currentDesignData);
+                console.log('Design JSON length:', designJson.length);
+
+                await bridge.setDesignData(designJson);
+            }
 
             console.log('Data sent to C++ successfully');
 
             // Call C++ backend based on selected method
             let result;
             if (method === 'standardCurve') {
-                result = await bridge.calculateByStandardCurve(JSON.stringify(params), statisticalTest);
+                result = await bridge.calculateStandardCurve(JSON.stringify(params));
             } else if (method === 'deltaCt') {
                 result = await bridge.calculateByDeltaCt(JSON.stringify(params), statisticalTest);
             } else { // deltaDeltaCt
@@ -932,9 +1298,6 @@ async function runAnalysis() {
             console.log('Raw result from C++:', result);
             analysisResults = JSON.parse(result);
             console.log('Parsed analysisResults:', analysisResults);
-            console.log('Table data:', analysisResults.table);
-            console.log('Table length:', analysisResults.table ? analysisResults.table.length : 0);
-            console.log('Statistics:', analysisResults.statistics);
 
             // Navigate to results page first
             navigateToPage('results');
@@ -966,10 +1329,96 @@ async function runAnalysis() {
  * Display analysis results
  */
 function displayResults(results) {
-    displayResultsTable(results);
-    displayRawData(results);
-    // displayCharts(results);  // Charts feature temporarily disabled
-    // Statistics are now integrated into the main table
+    // Check if this is a standard curve result
+    if (results.method === 'standardCurve' || (results.table && results.table[0] && results.table[0].slope !== undefined)) {
+        displayStandardCurveResults(results);
+    } else {
+        displayResultsTable(results);
+        displayRawData(results);
+        // displayCharts(results);  // Charts feature temporarily disabled
+        // Statistics are now integrated into the main table
+    }
+}
+
+/**
+ * Display Standard Curve results
+ */
+function displayStandardCurveResults(results) {
+    console.log('displayStandardCurveResults called with:', results);
+
+    const table = document.getElementById('resultsTable');
+    const thead = table.querySelector('thead');
+    const tbody = table.querySelector('tbody');
+
+    if (!results || !results.table) {
+        console.error('No standard curve results provided');
+        tbody.innerHTML = '<tr><td colspan="9">No results</td></tr>';
+        return;
+    }
+
+    if (!Array.isArray(results.table)) {
+        console.error('Table is not an array:', typeof results.table, results.table);
+        tbody.innerHTML = '<tr><td colspan="9">Invalid table format</td></tr>';
+        return;
+    }
+
+    if (results.table.length === 0) {
+        console.warn('Table is empty');
+        tbody.innerHTML = '<tr><td colspan="9">' + i18n.t('table.noData') + '</td></tr>';
+        return;
+    }
+
+    console.log('Standard curve table has', results.table.length, 'rows');
+    console.log('First row:', results.table[0]);
+
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+
+    // Define the desired column order for standard curve results
+    const headers = ['Gene', 'Formula', 'Slope', 'Intercept', 'R2', 'PValue', 'Efficiency', 'MinCq', 'MaxCq'];
+    console.log('Headers:', headers);
+
+    const headerRow = document.createElement('tr');
+    headers.forEach(header => {
+        const th = document.createElement('th');
+        th.textContent = header;
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+
+    results.table.forEach(row => {
+        const tr = document.createElement('tr');
+        headers.forEach(header => {
+            const td = document.createElement('td');
+            const value = row[header];
+            // Format numeric values
+            if (typeof value === 'number') {
+                if (header === 'Slope' || header === 'Intercept') {
+                    td.textContent = value.toFixed(2);
+                } else if (header === 'R2') {
+                    td.textContent = value.toFixed(4);
+                } else if (header === 'PValue') {
+                    td.textContent = value.toExponential(5);
+                } else if (header === 'Efficiency') {
+                    td.textContent = value.toFixed(3);
+                } else {
+                    td.textContent = value.toFixed(2);
+                }
+            } else {
+                td.textContent = value || '';
+            }
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
+
+    console.log('Standard curve table rendered with', tbody.children.length, 'rows');
+
+    // Hide raw data table for standard curve results
+    const rawDataTable = document.getElementById('rawDataTable');
+    if (rawDataTable) {
+        rawDataTable.closest('.card').style.display = 'none';
+    }
 }
 
 /**
@@ -1391,11 +1840,20 @@ function onProgressChanged(progress, message) {
  */
 function parseCSV(text) {
     const lines = text.trim().split('\n');
-    const headers = lines[0].split(',').map(h => h.trim());
+    if (lines.length === 0) return [];
+
+    // Detect delimiter: comma or tab
+    const firstLine = lines[0];
+    const delimiter = firstLine.includes('\t') ? '\t' : ',';
+
+    const headers = firstLine.split(delimiter).map(h => h.trim());
     const data = [];
 
     for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim());
+        const line = lines[i].trim();
+        if (!line) continue; // Skip empty lines
+
+        const values = line.split(delimiter).map(v => v.trim());
         const row = {};
         headers.forEach((header, index) => {
             row[header] = values[index];
@@ -1406,6 +1864,21 @@ function parseCSV(text) {
     // 保存列顺序
     data.columns = headers;
     return data;
+}
+
+/**
+ * Convert ArrayBuffer (binary) to base64 string.
+ * Used for sending Excel files to the native Qt backend.
+ */
+function arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const chunkSize = 0x8000; // Avoid call stack overflow in String.fromCharCode/apply
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, chunk);
+    }
+    return btoa(binary);
 }
 
 function convertToCSV(data) {
@@ -1567,6 +2040,552 @@ F3,Treatment,3`;
         downloadFile(designCsv, 'example_design_data.csv', 'text/csv');
         showNotification('示例数据下载完成！文件保存在：Downloads/example_cq_data.csv 和 example_design_data.csv', 'success');
     }, 500);
+}
+
+/**
+ * Setup Standard Curve page
+ */
+function setupStandardCurvePage() {
+    console.log('Setting up Standard Curve page...');
+
+    // Cq Data loading
+    document.getElementById('loadScCqBtn').addEventListener('click', async function() {
+        const fileInput = document.getElementById('scCqFileInput');
+        if (fileInput.files.length === 0) {
+            showNotification(i18n.t('msg.noFileSelected'), 'warning');
+            return;
+        }
+
+        const file = fileInput.files[0];
+        const fileNameLower = file.name.toLowerCase();
+        const isCsv = fileNameLower.endsWith('.csv');
+        const isExcel = fileNameLower.endsWith('.xlsx') || fileNameLower.endsWith('.xls');
+        if (!isCsv && !isExcel) {
+            showNotification('Invalid file format', 'warning');
+            return;
+        }
+
+        if (bridge) {
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    if (isCsv) {
+                        const content = e.target.result;
+                        const result = await bridge.loadCqFromContent(content);
+                        const parsed = JSON.parse(result);
+                        if (parsed && parsed.error) {
+                            showNotification(parsed.error, 'danger');
+                            return;
+                        }
+                        scCqData = parsed.data;
+                        scCqData.columns = parsed.columns;
+                    } else {
+                        const buffer = e.target.result;
+                        const base64 = arrayBufferToBase64(buffer);
+                        const result = await bridge.loadCqExcelFromBase64(base64, 0, true);
+                        const parsed = JSON.parse(result);
+                        if (parsed && parsed.error) {
+                            showNotification(parsed.error, 'danger');
+                            return;
+                        }
+                        scCqData = parsed.data;
+                        scCqData.columns = parsed.columns;
+                    }
+                    displayScCqPreview(scCqData);
+                    showNotification(i18n.t('msg.dataLoaded'), 'success');
+                } catch (error) {
+                    console.error('Error loading Cq file:', error);
+                    showNotification('Failed to parse file: ' + error.message, 'danger');
+                }
+            };
+            if (isCsv) {
+                reader.readAsText(file);
+            } else {
+                reader.readAsArrayBuffer(file);
+            }
+        } else {
+            if (isExcel) {
+                showNotification('Excel import is only supported inside the desktop app.', 'warning');
+                return;
+            }
+            loadScCqFile(file);
+        }
+    });
+
+    // Load Cq example data
+    document.getElementById('loadScCqExampleBtn').addEventListener('click', function() {
+        loadScCqExampleData();
+    });
+
+    // Concentration Data loading
+    document.getElementById('loadScConcenBtn').addEventListener('click', async function() {
+        const fileInput = document.getElementById('scConcenFileInput');
+        if (fileInput.files.length === 0) {
+            showNotification(i18n.t('msg.noFileSelected'), 'warning');
+            return;
+        }
+
+        const file = fileInput.files[0];
+        const fileNameLower = file.name.toLowerCase();
+        const isCsv = fileNameLower.endsWith('.csv');
+        const isExcel = fileNameLower.endsWith('.xlsx') || fileNameLower.endsWith('.xls');
+        if (!isCsv && !isExcel) {
+            showNotification('Invalid file format', 'warning');
+            return;
+        }
+
+        if (bridge) {
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    if (isCsv) {
+                        const content = e.target.result;
+                        const result = await bridge.loadConcenFromContent(content);
+                        const parsed = JSON.parse(result);
+                        if (parsed && parsed.error) {
+                            showNotification(parsed.error, 'danger');
+                            return;
+                        }
+                        scConcenData = parsed.data;
+                        scConcenData.columns = parsed.columns;
+                    } else {
+                        const buffer = e.target.result;
+                        const base64 = arrayBufferToBase64(buffer);
+                        const result = await bridge.loadConcenExcelFromBase64(base64, 0, true);
+                        const parsed = JSON.parse(result);
+                        if (parsed && parsed.error) {
+                            showNotification(parsed.error, 'danger');
+                            return;
+                        }
+                        scConcenData = parsed.data;
+                        scConcenData.columns = parsed.columns;
+                    }
+                    displayScConcenPreview(scConcenData);
+                    showNotification(i18n.t('msg.dataLoaded'), 'success');
+                } catch (error) {
+                    console.error('Error loading Concentration file:', error);
+                    showNotification('Failed to parse file: ' + error.message, 'danger');
+                }
+            };
+            if (isCsv) {
+                reader.readAsText(file);
+            } else {
+                reader.readAsArrayBuffer(file);
+            }
+        } else {
+            if (isExcel) {
+                showNotification('Excel import is only supported inside the desktop app.', 'warning');
+                return;
+            }
+            loadScConcenFile(file);
+        }
+    });
+
+    // Load Concentration example data
+    document.getElementById('loadScConcenExampleBtn').addEventListener('click', function() {
+        loadScConcenExampleData();
+    });
+
+    // Run Standard Curve calculation
+    document.getElementById('runStandardCurve').addEventListener('click', async function() {
+        await runStandardCurveCalculation();
+    });
+
+    // Export buttons
+    document.getElementById('exportScCsv').addEventListener('click', function() {
+        exportStandardCurveResults('csv');
+    });
+
+    document.getElementById('exportScExcel').addEventListener('click', function() {
+        exportStandardCurveResults('excel');
+    });
+
+    console.log('Standard Curve page setup complete');
+}
+
+/**
+ * Load Standard Curve Cq file
+ */
+function loadScCqFile(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = parseCSV(e.target.result);
+            scCqData = data;
+            displayScCqPreview(data);
+            showNotification(i18n.t('msg.dataLoaded'), 'success');
+        } catch (error) {
+            showNotification(i18n.t('msg.error') + ': ' + error.message, 'danger');
+        }
+    };
+    reader.readAsText(file);
+}
+
+/**
+ * Load Standard Curve Concentration file
+ */
+function loadScConcenFile(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = parseCSV(e.target.result);
+            scConcenData = data;
+            displayScConcenPreview(data);
+            showNotification(i18n.t('msg.dataLoaded'), 'success');
+        } catch (error) {
+            showNotification(i18n.t('msg.error') + ': ' + error.message, 'danger');
+        }
+    };
+    reader.readAsText(file);
+}
+
+/**
+ * Load Standard Curve Cq example data
+ */
+async function loadScCqExampleData() {
+    try {
+        const response = await fetch('calsc.cq.txt');
+        if (!response.ok) {
+            throw new Error('Failed to load example Cq data file');
+        }
+        const csvText = await response.text();
+        const data = parseCSV(csvText);
+
+        // Cq data file has Position and Cq, need to add Gene column
+        // We'll add Gene info based on Position pattern
+        scCqData = data.map(row => {
+            const position = row.Position;
+            let gene = '';
+            // Determine gene based on position number (1-3 for Gene1, 4-6 for Gene2, etc.)
+            const posNum = position.match(/\d+/)[0];
+            if (posNum >= 1 && posNum <= 3) gene = 'Gene1';
+            else if (posNum >= 4 && posNum <= 6) gene = 'Gene2';
+            else if (posNum >= 7 && posNum <= 9) gene = 'Gene3';
+            else if (posNum >= 10 && posNum <= 12) gene = 'Gene4';
+
+            return {
+                Position: position,
+                Gene: gene,
+                Cq: parseFloat(row.Cq)
+            };
+        });
+
+        displayScCqPreview(scCqData);
+        showNotification('Example Cq data loaded (calsc.cq.txt)', 'success');
+    } catch (error) {
+        console.error('Error loading example Cq data:', error);
+        // Fallback to embedded data
+        scCqData = [
+            { Position: 'A1', Gene: 'Gene1', Cq: 27.26 },
+            { Position: 'A2', Gene: 'Gene1', Cq: 27.10 },
+            { Position: 'A3', Gene: 'Gene1', Cq: 27.47 },
+            { Position: 'B1', Gene: 'Gene1', Cq: 27.41 },
+            { Position: 'B2', Gene: 'Gene1', Cq: 27.33 },
+            { Position: 'B3', Gene: 'Gene1', Cq: 27.42 },
+            { Position: 'A4', Gene: 'Gene2', Cq: 21.20 },
+            { Position: 'A5', Gene: 'Gene2', Cq: 21.11 },
+            { Position: 'A6', Gene: 'Gene2', Cq: 21.06 },
+            { Position: 'B4', Gene: 'Gene2', Cq: 22.36 },
+            { Position: 'B5', Gene: 'Gene2', Cq: 22.31 },
+            { Position: 'B6', Gene: 'Gene2', Cq: 22.35 }
+        ];
+        displayScCqPreview(scCqData);
+        showNotification('Example Cq data loaded (embedded)', 'success');
+    }
+}
+
+/**
+ * Load Standard Curve Concentration example data
+ */
+async function loadScConcenExampleData() {
+    try {
+        const response = await fetch('calsc.info.txt');
+        if (!response.ok) {
+            throw new Error('Failed to load example concentration data file');
+        }
+        const csvText = await response.text();
+        scConcenData = parseCSV(csvText);
+
+        displayScConcenPreview(scConcenData);
+        showNotification('Example Concentration data loaded (calsc.info.txt)', 'success');
+    } catch (error) {
+        console.error('Error loading example concentration data:', error);
+        // Fallback to embedded data
+        scConcenData = [
+            { Position: 'A1', Gene: 'Gene1', Conc: 16384 },
+            { Position: 'A2', Gene: 'Gene1', Conc: 16384 },
+            { Position: 'A3', Gene: 'Gene1', Conc: 16384 },
+            { Position: 'B1', Gene: 'Gene1', Conc: 4096 },
+            { Position: 'B2', Gene: 'Gene1', Conc: 4096 },
+            { Position: 'B3', Gene: 'Gene1', Conc: 4096 },
+            { Position: 'C1', Gene: 'Gene1', Conc: 1024 },
+            { Position: 'C2', Gene: 'Gene1', Conc: 1024 },
+            { Position: 'C3', Gene: 'Gene1', Conc: 1024 },
+            { Position: 'D1', Gene: 'Gene1', Conc: 256 },
+            { Position: 'D2', Gene: 'Gene1', Conc: 256 },
+            { Position: 'D3', Gene: 'Gene1', Conc: 256 }
+        ];
+        displayScConcenPreview(scConcenData);
+        showNotification('Example Concentration data loaded (embedded)', 'success');
+    }
+}
+
+/**
+ * Display Standard Curve Cq data preview
+ */
+function displayScCqPreview(data) {
+    const table = document.getElementById('scCqPreviewTable');
+    const thead = table.querySelector('thead tr');
+    const tbody = table.querySelector('tbody');
+
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td class="text-muted">' + i18n.t('table.noData') + '</td></tr>';
+        return;
+    }
+
+    const headers = data.columns || Object.keys(data[0]);
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+
+    headers.forEach(header => {
+        const th = document.createElement('th');
+        th.textContent = header;
+        thead.appendChild(th);
+    });
+
+    data.slice(0, 10).forEach(row => {
+        const tr = document.createElement('tr');
+        headers.forEach(header => {
+            const td = document.createElement('td');
+            td.textContent = row[header];
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
+}
+
+/**
+ * Display Standard Curve Concentration data preview
+ */
+function displayScConcenPreview(data) {
+    const table = document.getElementById('scConcenPreviewTable');
+    const thead = table.querySelector('thead tr');
+    const tbody = table.querySelector('tbody');
+
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td class="text-muted">' + i18n.t('table.noData') + '</td></tr>';
+        return;
+    }
+
+    const headers = data.columns || Object.keys(data[0]);
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+
+    headers.forEach(header => {
+        const th = document.createElement('th');
+        th.textContent = header;
+        thead.appendChild(th);
+    });
+
+    data.slice(0, 10).forEach(row => {
+        const tr = document.createElement('tr');
+        headers.forEach(header => {
+            const td = document.createElement('td');
+            td.textContent = row[header];
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
+}
+
+/**
+ * Run Standard Curve calculation
+ */
+async function runStandardCurveCalculation() {
+    // Validate data
+    if (!scCqData || scCqData.length === 0) {
+        showNotification('Please load Cq data first', 'warning');
+        return;
+    }
+
+    if (!scConcenData || scConcenData.length === 0) {
+        showNotification('Please load Concentration data first', 'warning');
+        return;
+    }
+
+    // Get parameters
+    const lowestConcen = parseFloat(document.getElementById('scLowestConcen').value);
+    const highestConcen = parseFloat(document.getElementById('scHighestConcen').value);
+    const dilution = parseFloat(document.getElementById('scDilution').value);
+    const byMean = document.getElementById('scByMean').checked;
+
+    // Validate parameters
+    if (isNaN(lowestConcen) || isNaN(highestConcen) || isNaN(dilution)) {
+        showNotification('Invalid parameters', 'warning');
+        return;
+    }
+
+    if (lowestConcen >= highestConcen) {
+        showNotification('Lowest concentration must be less than highest concentration', 'warning');
+        return;
+    }
+
+    const params = {
+        lowestConcen: lowestConcen,
+        highestConcen: highestConcen,
+        dilution: dilution,
+        byMean: byMean
+    };
+
+    if (bridge) {
+        try {
+            // Send data to C++
+            const cqJson = JSON.stringify(scCqData);
+            const concenJson = JSON.stringify(scConcenData);
+
+            await bridge.setCqData(cqJson);
+            await bridge.setConcenData(concenJson);
+
+            // Run calculation
+            const result = await bridge.calculateStandardCurve(JSON.stringify(params));
+            scResults = JSON.parse(result);
+
+            displayStandardCurveResults(scResults);
+            showNotification('Standard curve calculation completed', 'success');
+        } catch (error) {
+            showNotification('Calculation failed: ' + error.message, 'danger');
+        }
+    } else {
+        // Demo mode
+        scResults = generateMockStandardCurveResults();
+        displayStandardCurveResults(scResults);
+        showNotification('Standard curve calculation completed (demo mode)', 'success');
+    }
+}
+
+/**
+ * Display Standard Curve results
+ */
+function displayStandardCurveResults(results) {
+    const section = document.getElementById('scResultsSection');
+    const table = document.getElementById('scResultsTable');
+    const thead = table.querySelector('thead');
+    const tbody = table.querySelector('tbody');
+
+    if (!results || !results.table || results.table.length === 0) {
+        showNotification('No results to display', 'warning');
+        return;
+    }
+
+    section.style.display = 'block';
+
+    const headers = ['Gene', 'Formula', 'Slope', 'Intercept', 'R2', 'PValue', 'Efficiency', 'MinCq', 'MaxCq'];
+
+    thead.innerHTML = '';
+    const headerRow = document.createElement('tr');
+    headers.forEach(header => {
+        const th = document.createElement('th');
+        th.textContent = header;
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+
+    tbody.innerHTML = '';
+    results.table.forEach(row => {
+        const tr = document.createElement('tr');
+        headers.forEach(header => {
+            const td = document.createElement('td');
+            const value = row[header];
+            if (typeof value === 'number') {
+                if (header === 'Slope' || header === 'Intercept') {
+                    td.textContent = value.toFixed(2);
+                } else if (header === 'R2') {
+                    td.textContent = value.toFixed(4);
+                } else if (header === 'PValue') {
+                    td.textContent = value.toExponential(5);
+                } else if (header === 'Efficiency') {
+                    td.textContent = value.toFixed(3);
+                } else {
+                    td.textContent = value.toFixed(2);
+                }
+            } else {
+                td.textContent = value || '';
+            }
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
+}
+
+/**
+ * Export Standard Curve results
+ */
+function exportStandardCurveResults(format) {
+    if (!scResults || !scResults.table) {
+        showNotification('No results to export', 'warning');
+        return;
+    }
+
+    const data = scResults.table;
+    let content, filename, type;
+
+    if (format === 'csv') {
+        const headers = ['Gene', 'Formula', 'Slope', 'Intercept', 'R2', 'PValue', 'Efficiency', 'MinCq', 'MaxCq'];
+        content = headers.join(',') + '\n';
+        data.forEach(row => {
+            const values = headers.map(h => row[h]);
+            content += values.join(',') + '\n';
+        });
+        filename = 'standard_curve_results.csv';
+        type = 'text/csv';
+    } else if (format === 'excel') {
+        // For now, export as CSV with .xlsx extension
+        // In a real implementation, you would use a library like SheetJS
+        const headers = ['Gene', 'Formula', 'Slope', 'Intercept', 'R2', 'PValue', 'Efficiency', 'MinCq', 'MaxCq'];
+        content = headers.join(',') + '\n';
+        data.forEach(row => {
+            const values = headers.map(h => row[h]);
+            content += values.join(',') + '\n';
+        });
+        filename = 'standard_curve_results.xlsx';
+        type = 'text/csv';
+    }
+
+    downloadFile(content, filename, type);
+    showNotification('Results exported successfully', 'success');
+}
+
+/**
+ * Generate mock Standard Curve results for demo mode
+ */
+function generateMockStandardCurveResults() {
+    return {
+        method: 'standardCurve',
+        table: [
+            {
+                Gene: 'Gene1',
+                Formula: 'y = -3.32x + 35.21',
+                Slope: -3.32,
+                Intercept: 35.21,
+                R2: 0.9987,
+                PValue: 1.23e-08,
+                Efficiency: 1.998,
+                MinCq: 9.3,
+                MaxCq: 25.3
+            },
+            {
+                Gene: 'Gene2',
+                Formula: 'y = -3.28x + 34.87',
+                Slope: -3.28,
+                Intercept: 34.87,
+                R2: 0.9975,
+                PValue: 3.45e-08,
+                Efficiency: 2.015,
+                MinCq: 10.2,
+                MaxCq: 26.1
+            }
+        ]
+    };
 }
 
 // Initialize when DOM is ready

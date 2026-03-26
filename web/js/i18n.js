@@ -10,6 +10,7 @@ const translations = {
 
         // Navigation
         'nav.home': '首页',
+        'nav.standardCurve': '标曲计算',
         'nav.import': '导入数据',
         'nav.analysis': '分析配置',
         'nav.results': '结果展示',
@@ -57,6 +58,7 @@ const translations = {
         'import.title': '导入数据',
         'import.cqData': 'Cq数据',
         'import.designData': '实验设计',
+        'import.concenData': '浓度数据',
         'import.fileFormat': '文件格式',
         'import.selectFile': '选择文件',
 
@@ -73,6 +75,10 @@ const translations = {
         // Parameters
         'param.referenceGene': '参考基因',
         'param.controlGroup': '对照组',
+        'param.lowestConcen': '最低浓度',
+        'param.highestConcen': '最高浓度',
+        'param.dilution': '稀释倍数',
+        'param.byMean': '使用平均Cq值',
         'param.statisticalTest': '统计检验方法',
         'param.removeOutliers': '移除异常值（IQR方法）',
         'param.colorPalette': '配色方案',
@@ -83,16 +89,24 @@ const translations = {
         'results.charts': '图表',
         'results.summaryData': '汇总数据',
         'results.rawData': '原始数据（生物学重复）',
+        'results.standardCurve': '标准曲线参数',
         'results.plots': '图表展示',
 
         // Table
         'table.preview': '预览',
         'table.noData': '未加载数据',
         'table.gene': '基因',
+        'table.formula': '回归方程',
+        'table.slope': '斜率',
+        'table.intercept': '截距',
+        'table.rSquared': 'R²',
+        'table.pvalue': 'P值',
+        'table.efficiency': '扩增效率',
+        'table.maxCq': '最大Cq',
+        'table.minCq': '最小Cq',
         'table.comparison': '比较',
         'table.test': '检验',
         'table.statistic': '统计量',
-        'table.pvalue': 'P值',
         'table.significance': '显著性',
 
         // Progress
@@ -120,6 +134,7 @@ const translations = {
 
         // Navigation
         'nav.home': 'Home',
+        'nav.standardCurve': 'Standard Curve',
         'nav.import': 'Import Data',
         'nav.analysis': 'Analysis',
         'nav.results': 'Results',
@@ -167,6 +182,7 @@ const translations = {
         'import.title': 'Import Data',
         'import.cqData': 'Cq Data',
         'import.designData': 'Experimental Design',
+        'import.concenData': 'Concentration Data',
         'import.fileFormat': 'File Format',
         'import.selectFile': 'Select File',
 
@@ -183,6 +199,10 @@ const translations = {
         // Parameters
         'param.referenceGene': 'Reference Gene',
         'param.controlGroup': 'Control Group',
+        'param.lowestConcen': 'Lowest Concentration',
+        'param.highestConcen': 'Highest Concentration',
+        'param.dilution': 'Dilution Factor',
+        'param.byMean': 'Use Mean Cq Values',
         'param.statisticalTest': 'Statistical Test',
         'param.removeOutliers': 'Remove Outliers (IQR method)',
         'param.colorPalette': 'Color Palette',
@@ -193,16 +213,24 @@ const translations = {
         'results.charts': 'Charts',
         'results.summaryData': 'Summary Data',
         'results.rawData': 'Raw Data (Biological Replicates)',
+        'results.standardCurve': 'Standard Curve Parameters',
         'results.plots': 'Plots',
 
         // Table
         'table.preview': 'Preview',
         'table.noData': 'No data loaded',
         'table.gene': 'Gene',
+        'table.formula': 'Formula',
+        'table.slope': 'Slope',
+        'table.intercept': 'Intercept',
+        'table.rSquared': 'R²',
+        'table.pvalue': 'P-value',
+        'table.efficiency': 'Efficiency',
+        'table.maxCq': 'Max Cq',
+        'table.minCq': 'Min Cq',
         'table.comparison': 'Comparison',
         'table.test': 'Test',
         'table.statistic': 'Statistic',
-        'table.pvalue': 'P-value',
         'table.significance': 'Significance',
 
         // Progress
