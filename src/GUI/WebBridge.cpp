@@ -846,24 +846,76 @@ QString WebBridge::calculateByStandardCurve(const QString &params, const QString
 {
     emit progressChanged(10, tr("Calculating gene expression (Standard Curve method)..."));
 
-    QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
-    if (!doc.isObject()) {
-        emit errorOccurred(tr("Invalid parameters"));
+    try {
+        QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
+        if (!doc.isObject()) {
+            emit errorOccurred(tr("Invalid parameters"));
+            emit calculationCompleted(false, tr("Invalid parameters"));
+            return "{}";
+        }
+
+        QJsonObject obj = doc.object();
+        StandardCurveParams scParams;
+        scParams.cqTable = m_cqTable;
+        scParams.designTable = m_designTable;
+        scParams.referenceGene = obj["referenceGene"].toString().trimmed();
+        scParams.controlGroup = obj["controlGroup"].toString().trimmed();
+
+        qDebug() << "=== Standard Curve Expression calculation ===";
+        qDebug() << "Reference gene:" << scParams.referenceGene;
+        qDebug() << "Control group:" << scParams.controlGroup;
+        qDebug() << "Statistical method:" << statMethod;
+
+        // Validate required parameters
+        if (scParams.referenceGene.isEmpty()) {
+            emit errorOccurred(tr("Reference gene is required"));
+            emit calculationCompleted(false, tr("Reference gene is required"));
+            return "{}";
+        }
+
+        if (scParams.controlGroup.isEmpty()) {
+            emit errorOccurred(tr("Control group is required"));
+            emit calculationCompleted(false, tr("Control group is required"));
+            return "{}";
+        }
+
+        // Validate input data
+        if (m_cqTable.rowCount() == 0) {
+            emit errorOccurred(tr("No Cq data loaded"));
+            emit calculationCompleted(false, tr("No Cq data loaded"));
+            return "{}";
+        }
+
+        if (m_designTable.rowCount() == 0) {
+            emit errorOccurred(tr("No design data loaded"));
+            emit calculationCompleted(false, tr("No design data loaded"));
+            return "{}";
+        }
+
+        emit progressChanged(50, tr("Computing quantities from efficiency values..."));
+
+        ExpressionResult result = m_expressionCalculator.calculateByStandardCurve(scParams, statMethod);
+
+        qDebug() << "Result table rows:" << result.table.rowCount();
+        qDebug() << "Result statistics count:" << result.statistics.count();
+
+        // Check if result is valid
+        if (result.table.rowCount() == 0) {
+            emit errorOccurred(tr("No valid results. Please check your data."));
+            emit calculationCompleted(false, tr("No valid results. Please check your data."));
+            return "{}";
+        }
+
+        emit progressChanged(100, tr("Standard curve calculation completed"));
+        emit calculationCompleted(true, tr("Calculation successful"));
+
+        return jsonFromResult(result);
+
+    } catch (const std::exception &e) {
+        emit errorOccurred(tr("Calculation failed: %1").arg(e.what()));
+        emit calculationCompleted(false, tr("Calculation failed: %1").arg(e.what()));
         return "{}";
     }
-
-    QJsonObject obj = doc.object();
-    StandardCurveParams scParams;
-    // TODO: Parse parameters
-
-    emit progressChanged(50, tr("Computing quantities..."));
-
-    ExpressionResult result = m_expressionCalculator.calculateByStandardCurve(scParams, statMethod);
-
-    emit progressChanged(100, tr("Standard curve calculation completed"));
-    emit calculationCompleted(true, tr("Calculation successful"));
-
-    return jsonFromResult(result);
 }
 
 bool WebBridge::exportToCSV(const QString &data, const QString &filePath)

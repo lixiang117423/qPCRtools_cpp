@@ -467,6 +467,12 @@
                                     <small class="d-block text-muted">(Amplification Efficiency)</small>
                                 </label>
 
+                                <input type="radio" class="btn-check" name="analysisMethod" id="methodStandardCurveExp" value="standardCurveExp">
+                                <label class="btn btn-outline-primary text-start" for="methodStandardCurveExp">
+                                    <span data-i18n="method.standardCurveExp">Standard Curve Expression</span>
+                                    <small class="d-block text-muted">(Using Efficiency Values)</small>
+                                </label>
+
                                 <input type="radio" class="btn-check" name="analysisMethod" id="methodDeltaCt" value="deltaCt">
                                 <label class="btn btn-outline-primary text-start" for="methodDeltaCt">
                                     <span data-i18n="method.deltaCt">ΔCt Method</span>
@@ -521,10 +527,13 @@
                                 <div id="deltaCtParams">
                                     <div class="mb-3">
                                         <label class="form-label" data-i18n="param.referenceGene">Reference Gene</label>
-                                        <select class="form-select" id="referenceGene">
-                                            <option value="">-- Select Reference Gene --</option>
+                                        <input type="text" class="form-control" id="referenceGene" list="geneList" placeholder="e.g., GAPDH or GAPDH,Actin">
+                                        <datalist id="geneList">
                                             <!-- Options will be populated dynamically from data -->
-                                        </select>
+                                        </datalist>
+                                        <small class="form-text text-muted" id="referenceGeneHelp">
+                                            For standard curve expression: use 2 reference genes (comma-separated) or leave blank for auto-selection
+                                        </small>
                                     </div>
                                     <div class="mb-3" id="controlGroupField">
                                         <label class="form-label" data-i18n="param.controlGroup">Control Group</label>

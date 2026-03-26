@@ -202,6 +202,46 @@ private:
         const QVector<TestResult>& tukeyResults,
         double alpha = 0.05
     );
+
+    /**
+     * @brief 合并两个DataFrame（通过Position列）
+     */
+    static DataFrame mergeByPosition(const DataFrame& cqTable, const DataFrame& designTable);
+
+    /**
+     * @brief 获取列中所有唯一值
+     */
+    static QSet<QString> getUniqueValues(const DataFrame& df, const QString& columnName);
+
+    /**
+     * @brief 获取过滤后的数值
+     */
+    static QVector<double> getFilteredValues(
+        const DataFrame& df,
+        const QString& col1Name, const QString& col1Value,
+        const QString& col2Name, const QString& col2Value,
+        const QString& col3Name, const QString& col3Value,
+        const QString& targetColName
+    );
+
+    /**
+     * @brief 获取过滤后的字符串值
+     */
+    static QVector<QString> getFilteredValuesAsString(
+        const DataFrame& df,
+        const QString& col1Name, const QString& col1Value,
+        const QString& col2Name, const QString& col2Value
+    );
+
+    /**
+     * @brief 计算标准差
+     */
+    static double calculateStandardDeviation(const QVector<double>& values);
+
+    /**
+     * @brief 使用geNorm算法选择参考基因
+     */
+    static QVector<QString> selectReferenceGenesByGeNorm(const DataFrame& df);
 };
 
 } // namespace qpcr

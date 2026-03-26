@@ -877,12 +877,410 @@ ExpressionResult ExpressionCalculator::calculateByStandardCurve(
     const QString& statMethod)
 {
     ExpressionResult result;
-    result.method = "Standard Curve";
+    result.method = "Standard Curve Expression";
 
-    // Implementation similar to ΔΔCt but using standard curve
-    // to calculate absolute quantities
+    // Merge Cq table with Design table
+    DataFrame merged = params.cqTable;
+    if (params.designTable.columnCount() > 0) {
+        merged = mergeByPosition(params.cqTable, params.designTable);
+    }
 
-    Q_UNUSED(statMethod);
+    // Get unique genes, groups, bioreps
+    QSet<QString> genesSet = getUniqueValues(merged, "Gene");
+    QSet<QString> groupsSet = getUniqueValues(merged, "Group");
+    QSet<QString> biorepsSet = getUniqueValues(merged, "BioRep");
+
+    QVector<QString> genes = genesSet.values();
+    QVector<QString> groups = groupsSet.values();
+    QVector<QString> bioreps = biorepsSet.values();
+
+    // Calculate QCq for each (biorep, group, gene)
+    struct QCqData {
+        QString biorep;
+        QString group;
+        QString gene;
+        double meanCq;
+        double sdCq;
+        double minMeanCq;
+        double eff;
+        double qCq;
+        double sdQCq;
+    };
+
+    QVector<QCqData> qcqDataList;
+
+    for (const QString& biorep : bioreps) {
+        for (const QString& gene : genes) {
+            // Calculate min.mean.cq for this gene across all groups
+            double minMeanCq = std::numeric_limits<double>::max();
+
+            // First pass: calculate mean Cq for each group and find min
+            QMap<QString, double> groupMeanCq;
+            for (const QString& group : groups) {
+                QVector<double> cqValues = getFilteredValues(merged, "BioRep", biorep, "Gene", gene, "Group", group, "Cq");
+                if (!cqValues.isEmpty()) {
+                    double mean = std::accumulate(cqValues.begin(), cqValues.end(), 0.0) / cqValues.size();
+                    groupMeanCq[group] = mean;
+                    if (mean < minMeanCq) {
+                        minMeanCq = mean;
+                    }
+                }
+            }
+
+            // Get efficiency for this gene (should be in Design table)
+            double eff = 2.0; // Default efficiency
+            for (int i = 0; i < merged.rowCount(); ++i) {
+                QString rowGene = merged.get(i, "Gene").toString();
+                if (rowGene == gene) {
+                    QString effStr = merged.get(i, "Eff").toString();
+                    if (!effStr.isEmpty()) {
+                        bool ok;
+                        double e = effStr.toDouble(&ok);
+                        if (ok && e > 0) {
+                            eff = e;
+                            break; // Found efficiency for this gene
+                        }
+                    }
+                }
+            }
+
+            // Second pass: calculate QCq and SD_QCq
+            for (const QString& group : groups) {
+                QVector<double> cqValues = getFilteredValues(merged, "BioRep", biorep, "Gene", gene, "Group", group, "Cq");
+                if (!cqValues.isEmpty()) {
+                    QCqData data;
+                    data.biorep = biorep;
+                    data.group = group;
+                    data.gene = gene;
+                    data.meanCq = groupMeanCq[group];
+                    data.sdCq = calculateStandardDeviation(cqValues);
+                    data.minMeanCq = minMeanCq;
+                    data.eff = eff;
+
+                    // QCq = eff^(min.mean.cq - mean.cq)
+                    data.qCq = std::pow(eff, minMeanCq - groupMeanCq[group]);
+
+                    // SD_QCq = sd.cq * QCq * log(eff)
+                    data.sdQCq = data.sdCq * data.qCq * std::log(eff);
+
+                    qcqDataList.append(data);
+                }
+            }
+        }
+    }
+
+    // Select reference genes
+    QVector<QString> refGenes;
+    if (!params.referenceGene.isEmpty()) {
+        refGenes = params.referenceGene.split(',', Qt::SkipEmptyParts);
+        for (QString& gene : refGenes) {
+            gene = gene.trimmed();
+        }
+    } else {
+        // Use geNorm algorithm to select reference genes
+        refGenes = selectReferenceGenesByGeNorm(merged);
+    }
+
+    // Calculate correction factor for reference genes
+    struct FactorData {
+        QString biorep;
+        QString group;
+        double factor;
+        double sdFactor;
+    };
+
+    QMap<QString, FactorData> factorMap; // key: "biorep_group"
+
+    for (const QString& biorep : bioreps) {
+        for (const QString& group : groups) {
+            QVector<double> refQCqs;
+            double sumVariance = 0.0;
+
+            for (const QString& refGene : refGenes) {
+                // Find QCq and SD_QCq for this reference gene
+                for (const QCqData& data : qcqDataList) {
+                    if (data.biorep == biorep && data.group == group && data.gene == refGene) {
+                        refQCqs.append(data.qCq);
+                        // (SD_QCq / (n * QCq))^2
+                        double variance = std::pow(data.sdQCq / (refGenes.size() * data.qCq), 2);
+                        sumVariance += variance;
+                        break;
+                    }
+                }
+            }
+
+            if (!refQCqs.isEmpty()) {
+                // Geometric mean
+                double product = 1.0;
+                for (double v : refQCqs) {
+                    product *= v;
+                }
+                double geoMean = std::pow(product, 1.0 / refQCqs.size());
+
+                FactorData factorData;
+                factorData.biorep = biorep;
+                factorData.group = group;
+                factorData.factor = geoMean;
+                factorData.sdFactor = std::sqrt(sumVariance) * geoMean;
+
+                QString key = biorep + "_" + group;
+                factorMap[key] = factorData;
+            }
+        }
+    }
+
+    // Calculate corrected expression for genes of interest (GOI)
+    struct ExpressionData {
+        QString group;
+        QString gene;
+        QString biorep;
+        double bioRepExpression;
+        double sd1;
+        double meanExpression;
+        double sdExpression;
+        double seExpression;
+    };
+
+    QVector<ExpressionData> expressionList;
+    QMap<QString, QVector<double>> groupExpressions; // key: "gene_group"
+
+    for (const QString& gene : genes) {
+        if (refGenes.contains(gene)) continue; // Skip reference genes
+
+        for (const QString& group : groups) {
+            QVector<double> bioRepExpressions;
+
+            for (const QString& biorep : bioreps) {
+                // Find QCq and SD_QCq for this GOI
+                double qCq = 0, sdQCq = 0;
+                bool found = false;
+                for (const QCqData& data : qcqDataList) {
+                    if (data.biorep == biorep && data.group == group && data.gene == gene) {
+                        qCq = data.qCq;
+                        sdQCq = data.sdQCq;
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (found) {
+                    // Get factor
+                    QString key = biorep + "_" + group;
+                    if (factorMap.contains(key)) {
+                        const FactorData& factor = factorMap[key];
+
+                        // expression = QCq / factor
+                        double expression = qCq / factor.factor;
+
+                        // SD_1 = expression * sqrt((SD_QCq/QCq)^2 + (SD.factor/factor)^2)
+                        double sd1 = expression * std::sqrt(std::pow(sdQCq / qCq, 2) + std::pow(factor.sdFactor / factor.factor, 2));
+
+                        bioRepExpressions.append(expression);
+
+                        ExpressionData expData;
+                        expData.group = group;
+                        expData.gene = gene;
+                        expData.biorep = biorep;
+                        expData.bioRepExpression = expression;
+                        expData.sd1 = sd1;
+                        expressionList.append(expData);
+                    }
+                }
+            }
+
+            if (!bioRepExpressions.isEmpty()) {
+                groupExpressions[gene + "_" + group] = bioRepExpressions;
+            }
+        }
+    }
+
+    // Calculate mean, SD, SE for each (gene, group)
+    // Normalize to minimum expression per gene
+    QMap<QString, ExpressionData> finalResults; // key: "gene_group"
+
+    for (const QString& gene : genes) {
+        if (refGenes.contains(gene)) continue;
+
+        // Find minimum mean expression across all groups for this gene
+        double minMeanExpression = std::numeric_limits<double>::max();
+        for (const QString& group : groups) {
+            QString key = gene + "_" + group;
+            if (groupExpressions.contains(key)) {
+                const QVector<double>& exps = groupExpressions[key];
+                double mean = std::accumulate(exps.begin(), exps.end(), 0.0) / exps.size();
+                if (mean < minMeanExpression) {
+                    minMeanExpression = mean;
+                }
+            }
+        }
+
+        // Calculate statistics for each group and normalize
+        for (const QString& group : groups) {
+            QString key = gene + "_" + group;
+            if (groupExpressions.contains(key)) {
+                const QVector<double>& exps = groupExpressions[key];
+
+                double mean = std::accumulate(exps.begin(), exps.end(), 0.0) / exps.size();
+                double sd = calculateStandardDeviation(exps);
+                double se = sd / std::sqrt(exps.size());
+
+                // Normalize to minimum
+                ExpressionData expData;
+                expData.group = group;
+                expData.gene = gene;
+                expData.meanExpression = mean / minMeanExpression;
+                expData.sdExpression = sd / minMeanExpression;
+                expData.seExpression = se / minMeanExpression;
+
+                finalResults[key] = expData;
+            }
+        }
+    }
+
+    // Build result table
+    QVector<QVariant> finalGroups, finalGenes, finalExpr, finalSD, finalSE, finalSig;
+
+    for (const ExpressionData& expData : finalResults) {
+        finalGroups.append(expData.group);
+        finalGenes.append(expData.gene);
+        finalExpr.append(expData.meanExpression);
+        finalSD.append(expData.sdExpression);
+        finalSE.append(expData.seExpression);
+        finalSig.append("");  // Significance will be filled later
+    }
+
+    result.table.addColumn("Group", finalGroups);
+    result.table.addColumn("Gene", finalGenes);
+    result.table.addColumn("Expression", finalExpr);
+    result.table.addColumn("SD", finalSD);
+    result.table.addColumn("SE", finalSE);
+    result.table.addColumn("Significance", finalSig);
+
+    // Build raw data table
+    QVector<QVariant> rawGroups, rawGenes, rawBioReps, rawExpr;
+
+    for (const ExpressionData& expData : expressionList) {
+        rawGroups.append(expData.group);
+        rawGenes.append(expData.gene);
+        rawBioReps.append(expData.biorep);
+        rawExpr.append(expData.bioRepExpression);
+    }
+
+    result.rawData.addColumn("Group", rawGroups);
+    result.rawData.addColumn("Gene", rawGenes);
+    result.rawData.addColumn("BioRep", rawBioReps);
+    result.rawData.addColumn("Expression", rawExpr);
+
+    // Perform statistical tests
+    if (statMethod == "t.test") {
+        for (const QString& gene : genes) {
+            if (refGenes.contains(gene)) continue;
+
+            for (const QString& group : groups) {
+                if (group == params.controlGroup) continue;
+
+                QString controlKey = gene + "_" + params.controlGroup;
+                QString treatKey = gene + "_" + group;
+
+                if (finalResults.contains(controlKey) && finalResults.contains(treatKey)) {
+                    // Collect bio-rep level data
+                    QVector<double> controlData, treatData;
+                    for (const ExpressionData& expData : expressionList) {
+                        if (expData.gene == gene) {
+                            if (expData.group == params.controlGroup) {
+                                controlData.append(expData.bioRepExpression);
+                            } else if (expData.group == group) {
+                                treatData.append(expData.bioRepExpression);
+                            }
+                        }
+                    }
+
+                    if (!controlData.isEmpty() && !treatData.isEmpty()) {
+                        StatisticalResult statResult = performTTest(
+                            treatData,
+                            controlData,
+                            gene,
+                            group,
+                            params.controlGroup
+                        );
+                        result.statistics.append(statResult);
+                    }
+                }
+            }
+        }
+    } else if (statMethod == "wilcox.test") {
+        // Similar for Wilcoxon test
+        for (const QString& gene : genes) {
+            if (refGenes.contains(gene)) continue;
+
+            for (const QString& group : groups) {
+                if (group == params.controlGroup) continue;
+
+                QVector<double> controlData, treatData;
+                for (const ExpressionData& expData : expressionList) {
+                    if (expData.gene == gene) {
+                        if (expData.group == params.controlGroup) {
+                            controlData.append(expData.bioRepExpression);
+                        } else if (expData.group == group) {
+                            treatData.append(expData.bioRepExpression);
+                        }
+                    }
+                }
+
+                if (!controlData.isEmpty() && !treatData.isEmpty()) {
+                    StatisticalResult statResult = performWilcoxonTest(
+                        treatData,
+                        controlData,
+                        gene,
+                        group,
+                        params.controlGroup
+                    );
+                    result.statistics.append(statResult);
+                }
+            }
+        }
+    } else if (statMethod == "anova") {
+        // ANOVA + Tukey HSD
+        for (const QString& gene : genes) {
+            if (refGenes.contains(gene)) continue;
+
+            // Build DataFrame for ANOVA
+            QVector<QVariant> anovaGenes, anovaGroups, anovaExpr;
+
+            for (const ExpressionData& expData : expressionList) {
+                if (expData.gene == gene) {
+                    anovaGenes.append(expData.gene);
+                    anovaGroups.append(expData.group);
+                    anovaExpr.append(expData.bioRepExpression);
+                }
+            }
+
+            if (!anovaGenes.isEmpty()) {
+                DataFrame anovaData;
+                anovaData.addColumn("Gene", anovaGenes);
+                anovaData.addColumn("Group", anovaGroups);
+                anovaData.addColumn("Expression", anovaExpr);
+
+                QVector<StatisticalResult> anovaResults = performANOVA(anovaData, "Gene", "Group", "Expression");
+                for (const StatisticalResult& res : anovaResults) {
+                    result.statistics.append(res);
+                }
+            }
+        }
+    }
+
+    // Merge significance into result table
+    for (int i = 0; i < result.table.rowCount(); ++i) {
+        QString group = result.table.get(i, "Group").toString();
+        QString gene = result.table.get(i, "Gene").toString();
+
+        for (const StatisticalResult& stat : result.statistics) {
+            if (stat.gene == gene && stat.group == group) {
+                result.table.set(i, "Significance", stat.significance);
+                break;
+            }
+        }
+    }
 
     return result;
 }
@@ -1261,6 +1659,298 @@ QHash<QString, QString> ExpressionCalculator::generateLetterGroups(
     }
 
     return letterGroups;
+}
+
+//=============================================================================
+// Additional Helper Functions for Standard Curve Method
+//=============================================================================
+
+/**
+ * @brief Merge two DataFrames by Position column
+ */
+DataFrame ExpressionCalculator::mergeByPosition(const DataFrame& cqTable, const DataFrame& designTable)
+{
+    DataFrame result;
+
+    // Get columns from both tables
+    QStringList cqCols = cqTable.columns();
+    QStringList designCols = designTable.columns();
+
+    // Create column set
+    QSet<QString> allCols;
+    for (const QString& col : cqCols) {
+        allCols.insert(col);
+    }
+    for (const QString& col : designCols) {
+        allCols.insert(col);
+    }
+    allCols.remove("Position"); // Will add Position once
+
+    QStringList finalCols = allCols.values();
+    finalCols.prepend("Position"); // Position should be first
+
+    // Build data for each column
+    QMap<QString, QVector<QVariant>> columnData;
+    for (const QString& col : finalCols) {
+        columnData[col] = QVector<QVariant>();
+    }
+
+    // Merge data by Position
+    for (int i = 0; i < cqTable.rowCount(); ++i) {
+        QVariant posVar = cqTable.get(i, "Position");
+        QString pos = posVar.toString();
+
+        QMap<QString, QVariant> row;
+        row["Position"] = posVar;
+
+        // Add values from Cq table
+        for (const QString& col : cqCols) {
+            if (col != "Position") {
+                row[col] = cqTable.get(i, col);
+            }
+        }
+
+        // Find matching row in design table and add values
+        for (int j = 0; j < designTable.rowCount(); ++j) {
+            QVariant designPosVar = designTable.get(j, "Position");
+            if (designPosVar.toString() == pos) {
+                for (const QString& col : designCols) {
+                    if (col != "Position" && !row.contains(col)) {
+                        row[col] = designTable.get(j, col);
+                    }
+                }
+                break;
+            }
+        }
+
+        // Append to column data
+        for (const QString& col : finalCols) {
+            columnData[col].append(row[col]);
+        }
+    }
+
+    // Add columns to result
+    for (const QString& col : finalCols) {
+        result.addColumn(col, columnData[col]);
+    }
+
+    return result;
+}
+
+/**
+ * @brief Get unique values from a column
+ */
+QSet<QString> ExpressionCalculator::getUniqueValues(const DataFrame& df, const QString& columnName)
+{
+    QSet<QString> uniqueValues;
+
+    if (!df.hasColumn(columnName)) {
+        return uniqueValues;
+    }
+
+    for (int i = 0; i < df.rowCount(); ++i) {
+        QVariant val = df.get(i, columnName);
+        uniqueValues.insert(val.toString());
+    }
+
+    return uniqueValues;
+}
+
+/**
+ * @brief Get filtered values as double vector
+ */
+QVector<double> ExpressionCalculator::getFilteredValues(
+    const DataFrame& df,
+    const QString& col1Name, const QString& col1Value,
+    const QString& col2Name, const QString& col2Value,
+    const QString& col3Name, const QString& col3Value,
+    const QString& targetColName)
+{
+    QVector<double> result;
+
+    for (int i = 0; i < df.rowCount(); ++i) {
+        bool match = true;
+
+        if (!col1Name.isEmpty() && df.get(i, col1Name).toString() != col1Value) {
+            match = false;
+        }
+        if (!col2Name.isEmpty() && df.get(i, col2Name).toString() != col2Value) {
+            match = false;
+        }
+        if (!col3Name.isEmpty() && df.get(i, col3Name).toString() != col3Value) {
+            match = false;
+        }
+
+        if (match && df.hasColumn(targetColName)) {
+            QVariant val = df.get(i, targetColName);
+            bool ok;
+            double d = val.toDouble(&ok);
+            if (ok) {
+                result.append(d);
+            }
+        }
+    }
+
+    return result;
+}
+
+/**
+ * @brief Get filtered values as string vector
+ */
+QVector<QString> ExpressionCalculator::getFilteredValuesAsString(
+    const DataFrame& df,
+    const QString& col1Name, const QString& col1Value,
+    const QString& col2Name, const QString& col2Value)
+{
+    QVector<QString> result;
+
+    for (int i = 0; i < df.rowCount(); ++i) {
+        bool match = true;
+
+        if (!col1Name.isEmpty() && df.get(i, col1Name).toString() != col1Value) {
+            match = false;
+        }
+        if (!col2Name.isEmpty() && df.get(i, col2Name).toString() != col2Value) {
+            match = false;
+        }
+
+        if (match && df.hasColumn(col2Name)) {
+            result.append(df.get(i, col2Name).toString());
+        }
+    }
+
+    return result;
+}
+
+/**
+ * @brief Calculate standard deviation
+ */
+double ExpressionCalculator::calculateStandardDeviation(const QVector<double>& values)
+{
+    if (values.size() < 2) {
+        return 0.0;
+    }
+
+    double mean = std::accumulate(values.begin(), values.end(), 0.0) / values.size();
+    double sumSquaredDiff = 0.0;
+
+    for (double val : values) {
+        double diff = val - mean;
+        sumSquaredDiff += diff * diff;
+    }
+
+    return std::sqrt(sumSquaredDiff / (values.size() - 1));
+}
+
+/**
+ * @brief Select reference genes using geNorm algorithm
+ */
+QVector<QString> ExpressionCalculator::selectReferenceGenesByGeNorm(const DataFrame& df)
+{
+    // Get unique genes
+    QSet<QString> genesSet = getUniqueValues(df, "Gene");
+    QVector<QString> genes = genesSet.values();
+
+    if (genes.size() < 2) {
+        return genes; // Need at least 2 genes
+    }
+
+    // Build Cq matrix for geNorm
+    QMap<QString, QMap<QString, double>> cqMatrix; // gene -> (treatment_rep -> Cq)
+
+    QSet<QString> treatmentsSet = getUniqueValues(df, "Group");
+    QSet<QString> biorepsSet = getUniqueValues(df, "BioRep");
+    QSet<QString> techrepsSet = getUniqueValues(df, "TechRep");
+
+    // Collect Cq values
+    for (const QString& gene : genes) {
+        for (const QString& treatment : treatmentsSet) {
+            for (const QString& biorep : biorepsSet) {
+                for (const QString& techrep : techrepsSet) {
+                    QString key = treatment + biorep + techrep;
+
+                    for (int i = 0; i < df.rowCount(); ++i) {
+                        if (df.get(i, "Gene").toString() == gene &&
+                            df.get(i, "Group").toString() == treatment &&
+                            df.get(i, "BioRep").toString() == biorep &&
+                            df.get(i, "TechRep").toString() == techrep) {
+
+                            bool ok;
+                            double cq = df.get(i, "Cq").toDouble(&ok);
+                            if (ok) {
+                                cqMatrix[gene][key] = cq;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Calculate M values for each gene
+    QMap<QString, double> MValues;
+
+    for (const QString& gene : genes) {
+        double totalSD = 0.0;
+        int comparisons = 0;
+
+        // Compare with every other gene
+        for (const QString& otherGene : genes) {
+            if (otherGene == gene) continue;
+
+            // Calculate log2 ratios
+            QVector<double> log2Ratios;
+            const QMap<QString, double>& geneCqs = cqMatrix[gene];
+            const QMap<QString, double>& otherCqs = cqMatrix[otherGene];
+
+            for (auto it = geneCqs.begin(); it != geneCqs.end(); ++it) {
+                if (otherCqs.contains(it.key())) {
+                    double ratio = it.value() / otherCqs[it.key()];
+                    if (ratio > 0) {
+                        log2Ratios.append(std::log2(ratio));
+                    }
+                }
+            }
+
+            // Calculate SD of log2 ratios
+            if (log2Ratios.size() > 1) {
+                double mean = std::accumulate(log2Ratios.begin(), log2Ratios.end(), 0.0) / log2Ratios.size();
+                double sumSqDiff = 0.0;
+                for (double val : log2Ratios) {
+                    double diff = val - mean;
+                    sumSqDiff += diff * diff;
+                }
+                double sd = std::sqrt(sumSqDiff / (log2Ratios.size() - 1));
+                totalSD += sd;
+                comparisons++;
+            }
+        }
+
+        MValues[gene] = totalSD / comparisons;
+    }
+
+    // Select genes with lowest M values
+    // For simplicity, we'll select top 2 most stable genes
+    QVector<QPair<QString, double>> geneMList;
+    for (auto it = MValues.begin(); it != MValues.end(); ++it) {
+        geneMList.append(qMakePair(it.key(), it.value()));
+    }
+
+    // Sort by M value (lower is more stable)
+    std::sort(geneMList.begin(), geneMList.end(),
+              [](const QPair<QString, double>& a, const QPair<QString, double>& b) {
+                  return a.second < b.second;
+              });
+
+    // Return top 2 (or all if less than 2)
+    QVector<QString> refGenes;
+    int count = qMin(2, geneMList.size());
+    for (int i = 0; i < count; ++i) {
+        refGenes.append(geneMList[i].first);
+    }
+
+    return refGenes;
 }
 
 } // namespace qpcr

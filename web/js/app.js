@@ -1054,9 +1054,10 @@ function checkDataLoaded() {
  */
 function updateParameterDropdowns() {
     try {
-        // Update reference gene dropdown from Cq data
-        const referenceGeneSelect = document.getElementById('referenceGene');
-        if (referenceGeneSelect && currentCqData && Array.isArray(currentCqData)) {
+        // Update reference gene datalist from Cq data
+        const referenceGeneInput = document.getElementById('referenceGene');
+        const geneList = document.getElementById('geneList');
+        if (referenceGeneInput && geneList && currentCqData && Array.isArray(currentCqData)) {
             // Extract unique genes
             const genes = new Set();
             currentCqData.forEach(row => {
@@ -1066,25 +1067,22 @@ function updateParameterDropdowns() {
             });
 
             // Save current selection
-            const currentValue = referenceGeneSelect.value;
+            const currentValue = referenceGeneInput.value;
 
-            // Clear existing options (keep the first default option)
-            referenceGeneSelect.innerHTML = '<option value="">-- Select Reference Gene --</option>';
+            // Clear existing options
+            geneList.innerHTML = '';
 
-            // Add new options
+            // Add new options to datalist
             genes.forEach(gene => {
                 const option = document.createElement('option');
                 option.value = gene;
-                option.textContent = gene;
-                referenceGeneSelect.appendChild(option);
+                geneList.appendChild(option);
             });
 
-            // Restore selection if it still exists
-            if (genes.has(currentValue)) {
-                referenceGeneSelect.value = currentValue;
-            }
+            // Restore selection
+            referenceGeneInput.value = currentValue;
 
-            console.log('Updated reference gene dropdown with', genes.size, 'unique genes');
+            console.log('Updated reference gene datalist with', genes.size, 'unique genes');
         }
 
         // Update control group dropdown from Design data
@@ -1153,6 +1151,7 @@ function updateAnalysisMethodUI() {
     const deltaCtParams = document.getElementById('deltaCtParams');
     const controlGroupField = document.getElementById('controlGroupField');
     const removeOutliersField = document.getElementById('removeOutliersField');
+    const referenceGeneHelp = document.getElementById('referenceGeneHelp');
 
     if (method === 'standardCurve') {
         // Show standard curve parameters, hide deltaCt parameters
@@ -1165,12 +1164,27 @@ function updateAnalysisMethodUI() {
         deltaCtParams.style.display = 'block';
         controlGroupField.style.display = 'none';
         removeOutliersField.style.display = 'block';
+        if (referenceGeneHelp) {
+            referenceGeneHelp.textContent = 'Select a reference gene for normalization (e.g., GAPDH, Actin)';
+        }
     } else if (method === 'deltaDeltaCt') {
         // Show both for ΔΔCt method
         standardCurveParams.style.display = 'none';
         deltaCtParams.style.display = 'block';
         controlGroupField.style.display = 'block';
         removeOutliersField.style.display = 'block';
+        if (referenceGeneHelp) {
+            referenceGeneHelp.textContent = 'Select a reference gene for normalization (e.g., GAPDH, Actin)';
+        }
+    } else if (method === 'standardCurveExp') {
+        // Show both for Standard Curve Expression method
+        standardCurveParams.style.display = 'none';
+        deltaCtParams.style.display = 'block';
+        controlGroupField.style.display = 'block';
+        removeOutliersField.style.display = 'block';
+        if (referenceGeneHelp) {
+            referenceGeneHelp.textContent = 'Use 2 reference genes (comma-separated) or leave blank for auto-selection by geNorm algorithm';
+        }
     }
 }
 
@@ -1218,12 +1232,14 @@ async function runAnalysis() {
             return;
         }
     } else {
+        // All expression calculation methods require reference gene
         if (!referenceGene) {
             showNotification(i18n.t('msg.missingParams') + ': ' + i18n.t('param.referenceGene'), 'warning');
             return;
         }
 
-        if (method === 'deltaDeltaCt' && !controlGroup) {
+        // deltaDeltaCt and standardCurveExp require control group
+        if ((method === 'deltaDeltaCt' || method === 'standardCurveExp') && !controlGroup) {
             showNotification(i18n.t('msg.missingParams') + ': ' + i18n.t('param.controlGroup'), 'warning');
             return;
         }
@@ -1235,7 +1251,7 @@ async function runAnalysis() {
         return;
     }
 
-    if (method !== 'standardCurve' && !currentDesignData || currentDesignData.length === 0) {
+    if (method !== 'standardCurve' && (!currentDesignData || currentDesignData.length === 0)) {
         showNotification('No design data loaded', 'danger');
         return;
     }
@@ -1291,8 +1307,10 @@ async function runAnalysis() {
                 result = await bridge.calculateStandardCurve(JSON.stringify(params));
             } else if (method === 'deltaCt') {
                 result = await bridge.calculateByDeltaCt(JSON.stringify(params), statisticalTest);
-            } else { // deltaDeltaCt
+            } else if (method === 'deltaDeltaCt') {
                 result = await bridge.calculateByDeltaDeltaCt(JSON.stringify(params), statisticalTest);
+            } else if (method === 'standardCurveExp') {
+                result = await bridge.calculateByStandardCurve(JSON.stringify(params), statisticalTest);
             }
 
             console.log('Raw result from C++:', result);

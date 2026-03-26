@@ -69,6 +69,7 @@ const translations = {
 
         // Methods
         'method.standardCurve': '标准曲线法',
+        'method.standardCurveExp': '标曲表达量法',
         'method.deltaCt': 'ΔCt法',
         'method.deltaDeltaCt': 'ΔΔCt法',
 
@@ -193,6 +194,7 @@ const translations = {
 
         // Methods
         'method.standardCurve': 'Standard Curve',
+        'method.standardCurveExp': 'Standard Curve Expression',
         'method.deltaCt': 'ΔCt Method',
         'method.deltaDeltaCt': 'ΔΔCt Method',
 
