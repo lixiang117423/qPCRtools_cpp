@@ -992,24 +992,25 @@ ExpressionResult ExpressionCalculator::calculateByStandardCurve(
 
     QVector<QCqData> qcqDataList;
 
-    for (const QString& biorep : bioreps) {
-        for (const QString& gene : genes) {
-            // Calculate min.mean.cq for this gene across all groups
-            double minMeanCq = std::numeric_limits<double>::max();
+    // Calculate global min.mean.cq across all genes and groups
+    double globalMinMeanCq = std::numeric_limits<double>::max();
+    QMap<QString, QMap<QString, double>> allGroupMeanCq; // key: "gene_group" -> mean Cq
 
-            // First pass: calculate mean Cq for each group and find min
-            QMap<QString, double> groupMeanCq;
-            for (const QString& group : groups) {
-                QVector<double> cqValues = getFilteredValues(merged, "BioRep", biorep, "Gene", gene, "Group", group, "Cq");
-                if (!cqValues.isEmpty()) {
-                    double mean = std::accumulate(cqValues.begin(), cqValues.end(), 0.0) / cqValues.size();
-                    groupMeanCq[group] = mean;
-                    if (mean < minMeanCq) {
-                        minMeanCq = mean;
-                    }
+    for (const QString& gene : genes) {
+        for (const QString& group : groups) {
+            QVector<double> cqValues = getFilteredValues(merged, "Gene", gene, "Group", group, "", "", "Cq");
+            if (!cqValues.isEmpty()) {
+                double mean = std::accumulate(cqValues.begin(), cqValues.end(), 0.0) / cqValues.size();
+                allGroupMeanCq[gene][group] = mean;
+                if (mean < globalMinMeanCq) {
+                    globalMinMeanCq = mean;
                 }
             }
+        }
+    }
 
+    for (const QString& biorep : bioreps) {
+        for (const QString& gene : genes) {
             // Get efficiency for this gene (should be in Design table)
             double eff = 2.0; // Default efficiency
             for (int i = 0; i < merged.rowCount(); ++i) {
@@ -1027,21 +1028,23 @@ ExpressionResult ExpressionCalculator::calculateByStandardCurve(
                 }
             }
 
-            // Second pass: calculate QCq and SD_QCq
+            // Calculate QCq and SD_QCq for each group
             for (const QString& group : groups) {
                 QVector<double> cqValues = getFilteredValues(merged, "BioRep", biorep, "Gene", gene, "Group", group, "Cq");
                 if (!cqValues.isEmpty()) {
+                    double meanCq = allGroupMeanCq[gene][group];
+
                     QCqData data;
                     data.biorep = biorep;
                     data.group = group;
                     data.gene = gene;
-                    data.meanCq = groupMeanCq[group];
+                    data.meanCq = meanCq;
                     data.sdCq = calculateStandardDeviation(cqValues);
-                    data.minMeanCq = minMeanCq;
+                    data.minMeanCq = globalMinMeanCq;
                     data.eff = eff;
 
                     // QCq = eff^(min.mean.cq - mean.cq)
-                    data.qCq = std::pow(eff, minMeanCq - groupMeanCq[group]);
+                    data.qCq = std::pow(eff, globalMinMeanCq - meanCq);
 
                     // SD_QCq = sd.cq * QCq * log(eff)
                     data.sdQCq = data.sdCq * data.qCq * std::log(eff);
