@@ -1178,26 +1178,21 @@ ExpressionResult ExpressionCalculator::calculateByStandardCurve(
     }
 
     // Calculate mean, SD, SE for each (gene, group)
-    // Normalize to minimum expression per gene
+    // Normalize to control group (not minimum)
     QMap<QString, ExpressionData> finalResults; // key: "gene_group"
 
     for (const QString& gene : genes) {
         if (refGenes.contains(gene)) continue;
 
-        // Find minimum mean expression across all groups for this gene
-        double minMeanExpression = std::numeric_limits<double>::max();
-        for (const QString& group : groups) {
-            QString key = gene + "_" + group;
-            if (groupExpressions.contains(key)) {
-                const QVector<double>& exps = groupExpressions[key];
-                double mean = std::accumulate(exps.begin(), exps.end(), 0.0) / exps.size();
-                if (mean < minMeanExpression) {
-                    minMeanExpression = mean;
-                }
-            }
+        // Find control group mean expression for this gene
+        double controlGroupMean = std::numeric_limits<double>::quiet_NaN();
+        QString controlKey = gene + "_" + params.controlGroup;
+        if (groupExpressions.contains(controlKey)) {
+            const QVector<double>& exps = groupExpressions[controlKey];
+            controlGroupMean = std::accumulate(exps.begin(), exps.end(), 0.0) / exps.size();
         }
 
-        // Calculate statistics for each group and normalize
+        // Calculate statistics for each group and normalize to control
         for (const QString& group : groups) {
             QString key = gene + "_" + group;
             if (groupExpressions.contains(key)) {
@@ -1207,13 +1202,21 @@ ExpressionResult ExpressionCalculator::calculateByStandardCurve(
                 double sd = calculateStandardDeviation(exps);
                 double se = sd / std::sqrt(exps.size());
 
-                // Normalize to minimum
                 ExpressionData expData;
                 expData.group = group;
                 expData.gene = gene;
-                expData.meanExpression = mean / minMeanExpression;
-                expData.sdExpression = sd / minMeanExpression;
-                expData.seExpression = se / minMeanExpression;
+
+                // Normalize to control group mean
+                if (!std::isnan(controlGroupMean) && controlGroupMean > 0) {
+                    expData.meanExpression = mean / controlGroupMean;
+                    expData.sdExpression = sd / controlGroupMean;
+                    expData.seExpression = se / controlGroupMean;
+                } else {
+                    // If no control group, use absolute values
+                    expData.meanExpression = mean;
+                    expData.sdExpression = sd;
+                    expData.seExpression = se;
+                }
 
                 finalResults[key] = expData;
             }
@@ -1367,10 +1370,19 @@ ExpressionResult ExpressionCalculator::calculateByStandardCurve(
     }
 
     // Merge p-values and significance into result table
+    // Note: Control group should not have significance markers
     for (int i = 0; i < result.table.rowCount(); ++i) {
         QString group = result.table.get(i, "Group").toString();
         QString gene = result.table.get(i, "Gene").toString();
 
+        // Skip control group - it should not have significance
+        if (group == params.controlGroup) {
+            result.table.set(i, "PValue", QVariant());
+            result.table.set(i, "Significance", "");
+            continue;
+        }
+
+        // Find statistical test result for this (gene, group) combination
         for (const StatisticalResult& stat : result.statistics) {
             if (stat.gene == gene && stat.group2 == group) {
                 result.table.set(i, "PValue", stat.pValue);
