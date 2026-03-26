@@ -392,48 +392,6 @@
                     </div>
                 </div>
 
-                <!-- Standard Curve Parameters Section (for Standard Curve Expression method) -->
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-header bg-info text-white">
-                            <h5 class="mb-0">
-                                <span data-i18n="import.sdcData">Standard Curve Parameters</span>
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <label class="form-label" data-i18n="import.fileFormat">File Format</label>
-                                <select class="form-select" id="sdcFileFormat">
-                                    <option value="csv">CSV (Tab-delimited)</option>
-                                    <option value="excel">Excel (.xlsx, .xls)</option>
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label" data-i18n="import.selectFile">Select File</label>
-                                <input type="file" class="form-control" id="sdcFileInput" accept=".csv,.xlsx,.xls">
-                                <small class="form-text text-muted">
-                                    Contains Gene, Slope, Intercept, max.Cq, min.Cq
-                                </small>
-                            </div>
-                            <div class="d-flex justify-content-between">
-                                <button class="btn btn-info btn-sm" id="loadSdcBtn" data-i18n="btn.load">
-                                    Load File
-                                </button>
-                                <button class="btn btn-primary btn-sm" id="loadSdcExampleBtn">
-                                    <span data-i18n="btn.loadExample">Load Example</span>
-                                </button>
-                            </div>
-                            <div id="sdcPreview" class="mt-3">
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-striped" id="sdcPreviewTable">
-                                        <thead><tr><th data-i18n="table.preview">Preview</th></tr></thead>
-                                        <tbody><tr><td class="text-muted" data-i18n="table.noData">No data loaded</td></tr></tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <div class="row mt-3">
