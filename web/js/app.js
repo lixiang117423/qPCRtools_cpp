@@ -617,8 +617,10 @@ function setupImportPage() {
         loadExampleDesignData();
     });
 
-    // Concentration file loading
-    document.getElementById('loadConcenBtn').addEventListener('click', async function() {
+    // Concentration file loading (only if elements exist)
+    const loadConcenBtn = document.getElementById('loadConcenBtn');
+    if (loadConcenBtn) {
+        loadConcenBtn.addEventListener('click', async function() {
         const fileInput = document.getElementById('concenFileInput');
         if (fileInput.files.length === 0) {
             showNotification(i18n.t('msg.noFileSelected'), 'warning');
@@ -721,12 +723,16 @@ function setupImportPage() {
             }
             loadConcenFile(file);
         }
-    });
+        });
+    }
 
-    // Concentration example data loading
-    document.getElementById('loadConcenExampleBtn').addEventListener('click', function() {
-        loadExampleConcenData();
-    });
+    // Concentration example data loading (only if element exists)
+    const loadConcenExampleBtn = document.getElementById('loadConcenExampleBtn');
+    if (loadConcenExampleBtn) {
+        loadConcenExampleBtn.addEventListener('click', function() {
+            loadExampleConcenData();
+        });
+    }
 
     // Proceed to analysis button
     document.getElementById('proceedToAnalysis').addEventListener('click', function() {
