@@ -1221,38 +1221,52 @@ ExpressionResult ExpressionCalculator::calculateByStandardCurve(
     }
 
     // Build result table
-    QVector<QVariant> finalGroups, finalGenes, finalExpr, finalSD, finalSE, finalSig;
+    QVector<QVariant> finalGroups, finalGenes, finalMeans, finalStdDevs, finalSE, finalPValues, finalSig;
 
     for (const ExpressionData& expData : finalResults) {
         finalGroups.append(expData.group);
         finalGenes.append(expData.gene);
-        finalExpr.append(expData.meanExpression);
-        finalSD.append(expData.sdExpression);
+        finalMeans.append(expData.meanExpression);
+        finalStdDevs.append(expData.sdExpression);
         finalSE.append(expData.seExpression);
+        finalPValues.append(QVariant());  // P-value will be filled later
         finalSig.append("");  // Significance will be filled later
     }
 
     result.table.addColumn("Group", finalGroups);
     result.table.addColumn("Gene", finalGenes);
-    result.table.addColumn("Expression", finalExpr);
-    result.table.addColumn("SD", finalSD);
+    result.table.addColumn("Mean", finalMeans);
+    result.table.addColumn("StdDev", finalStdDevs);
     result.table.addColumn("SE", finalSE);
+    result.table.addColumn("PValue", finalPValues);
     result.table.addColumn("Significance", finalSig);
 
     // Build raw data table
-    QVector<QVariant> rawGroups, rawGenes, rawBioReps, rawExpr;
+    QVector<QVariant> rawGroups, rawGenes, rawBioReps, rawExpr, rawMeans, rawSDs;
 
     for (const ExpressionData& expData : expressionList) {
         rawGroups.append(expData.group);
         rawGenes.append(expData.gene);
         rawBioReps.append(expData.biorep);
         rawExpr.append(expData.bioRepExpression);
+
+        // Look up mean and SD from finalResults
+        QString key = expData.gene + "_" + expData.group;
+        if (finalResults.contains(key)) {
+            rawMeans.append(finalResults[key].meanExpression);
+            rawSDs.append(finalResults[key].sdExpression);
+        } else {
+            rawMeans.append(QVariant());  // NULL if not found
+            rawSDs.append(QVariant());
+        }
     }
 
     result.rawData.addColumn("Group", rawGroups);
     result.rawData.addColumn("Gene", rawGenes);
     result.rawData.addColumn("BioRep", rawBioReps);
     result.rawData.addColumn("Expression", rawExpr);
+    result.rawData.addColumn("Mean", rawMeans);
+    result.rawData.addColumn("SD", rawSDs);
 
     // Perform statistical tests
     if (statMethod == "t.test") {
@@ -1352,13 +1366,14 @@ ExpressionResult ExpressionCalculator::calculateByStandardCurve(
         }
     }
 
-    // Merge significance into result table
+    // Merge p-values and significance into result table
     for (int i = 0; i < result.table.rowCount(); ++i) {
         QString group = result.table.get(i, "Group").toString();
         QString gene = result.table.get(i, "Gene").toString();
 
         for (const StatisticalResult& stat : result.statistics) {
-            if (stat.gene == gene && stat.group == group) {
+            if (stat.gene == gene && stat.group2 == group) {
+                result.table.set(i, "PValue", stat.pValue);
                 result.table.set(i, "Significance", stat.significance);
                 break;
             }
