@@ -732,3 +732,45 @@ option {
         font-size: 1rem !important;
     }
 }
+
+/* Home Page Background */
+.home-page-bg {
+    position: relative;
+    min-height: calc(100vh - 150px);
+    background-image: url('../images/home-background.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.home-page-bg::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.85); /* 85% white overlay for readability */
+    z-index: 1;
+}
+
+.home-page-bg > .row {
+    position: relative;
+    z-index: 2;
+}
+
+.home-page-bg .jumbotron {
+    background: rgba(255, 255, 255, 0.7) !important;
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.home-page-bg .jumbotron h1 {
+    color: #2c3e50 !important;
+}
+
+.home-page-bg .jumbotron .lead,
+.home-page-bg .jumbotron p {
+    color: #556b7d !important;
+}
