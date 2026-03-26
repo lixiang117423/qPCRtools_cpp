@@ -62,7 +62,7 @@ const translations = {
         'import.title': '导入数据',
         'import.cqData': 'Cq数据',
         'import.designData': '实验设计',
-        'import.concenData': '浓度数据',
+        'import.sdcData': '标准曲线参数',
         'import.fileFormat': '文件格式',
         'import.selectFile': '选择文件',
 
@@ -191,7 +191,7 @@ const translations = {
         'import.title': 'Import Data',
         'import.cqData': 'Cq Data',
         'import.designData': 'Experimental Design',
-        'import.concenData': 'Concentration Data',
+        'import.sdcData': 'Standard Curve Parameters',
         'import.fileFormat': 'File Format',
         'import.selectFile': 'Select File',
 
