@@ -266,6 +266,89 @@ ExpressionResult ExpressionCalculator::calculateByDeltaCt(
     resultTable.addColumn("Significance", finalSignifs);
 
     result.table = resultTable;
+
+    // Build raw data table (BioRep level data)
+    qDebug() << "Building raw data table for ΔCt method...";
+
+    // Collect all data with bioRep information
+    QVector<QVariant> rawGenes, rawGroups, rawBioReps, rawExpressions, rawMeans, rawSDs;
+
+    for (const QString& group : groupSet) {
+        for (const QString& gene : geneSet) {
+            // Get all bioReps for this group
+            DataFrame groupData = merged.filter([group](const Row& row) {
+                return row.value("Group").toString() == group;
+            });
+
+            auto bioReps = groupData.getStringColumn("BioRep");
+            QSet<QString> bioRepSet;
+            for (const auto& rep : bioReps) {
+                bioRepSet.insert(rep);
+            }
+
+            QVector<double> groupGeneExprs;
+
+            for (const QString& bioRep : bioRepSet) {
+                QString refKey = group + "_" + bioRep;
+                if (!refGeneMeanCq.contains(refKey)) {
+                    continue;
+                }
+
+                double meanRefCq = refGeneMeanCq[refKey];
+
+                // Get target gene Cq values for this bioRep
+                DataFrame targetData = groupData.filter([bioRep, gene](const Row& row) {
+                    return row.value("BioRep").toString() == bioRep &&
+                           row.value("Gene").toString() == gene;
+                });
+
+                if (targetData.rowCount() > 0) {
+                    auto targetCqValues = targetData.getNumericColumn("Cq");
+                    for (double targetCq : targetCqValues) {
+                        // Calculate expression: 2^(mean.ref.cq - target.cq)
+                        double deltaCt = meanRefCq - targetCq;
+                        double expression = std::pow(2.0, deltaCt);
+
+                        rawGenes.append(gene);
+                        rawGroups.append(group);
+                        rawBioReps.append(bioRep);
+                        rawExpressions.append(expression);
+                        groupGeneExprs.append(expression);
+                    }
+                }
+            }
+
+            // Calculate mean and SD for this group-gene combination
+            if (!groupGeneExprs.isEmpty()) {
+                double mean = std::accumulate(groupGeneExprs.begin(), groupGeneExprs.end(), 0.0) / groupGeneExprs.size();
+                double sd = calculateStandardDeviation(groupGeneExprs);
+
+                // Update mean and SD for all rows in this group-gene combination
+                for (int i = 0; i < rawGenes.size(); ++i) {
+                    if (rawGenes[i].toString() == gene && rawGroups[i].toString() == group) {
+                        // Check if we already set mean/sd for this row
+                        if (rawMeans.size() <= i) {
+                            rawMeans.append(mean);
+                            rawSDs.append(sd);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Add columns to raw data table
+    DataFrame rawData;
+    rawData.addColumn("Gene", rawGenes);
+    rawData.addColumn("Group", rawGroups);
+    rawData.addColumn("BioRep", rawBioReps);
+    rawData.addColumn("Expression", rawExpressions);
+    rawData.addColumn("Mean", rawMeans);
+    rawData.addColumn("SD", rawSDs);
+
+    qDebug() << "Raw data table rows:" << rawData.rowCount();
+
+    result.rawData = rawData;
     return result;
 }
 
