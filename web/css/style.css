@@ -736,11 +736,14 @@ option {
 /* Home Page Background */
 .home-page-bg {
     position: relative;
-    min-height: calc(100vh - 150px);
+    min-height: 100vh;
+    margin-top: -1.5rem; /* Offset to start from top of container */
+    padding-top: 1.5rem;
     background-image: url('../images/home-background.jpg');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
+    background-attachment: fixed; /* Parallax effect */
 }
 
 .home-page-bg::before {
