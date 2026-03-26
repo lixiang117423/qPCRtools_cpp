@@ -486,6 +486,12 @@
 
                                 <!-- DeltaCt/DeltaDeltaCt Parameters -->
                                 <div id="deltaCtParams">
+                                    <!-- Warning message for Standard Curve method -->
+                                    <div class="alert alert-info mb-3" id="standardCurveMethodAlert" style="display: none;">
+                                        <strong>ℹ️ Requirement:</strong> For Standard Curve method, your Experimental Design table must include these columns:
+                                        <code>Slope</code>, <code>Intercept</code>, <code>min.Cq</code>, <code>max.Cq</code>
+                                    </div>
+
                                     <div class="mb-3">
                                         <label class="form-label" data-i18n="param.referenceGene">Reference Gene</label>
                                         <input type="text" class="form-control" id="referenceGene" list="geneList" placeholder="e.g., GAPDH or GAPDH,Actin">

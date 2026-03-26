@@ -1176,18 +1176,29 @@ function updateAnalysisMethodUI() {
     const controlGroupField = document.getElementById('controlGroupField');
     const removeOutliersField = document.getElementById('removeOutliersField');
     const referenceGeneHelp = document.getElementById('referenceGeneHelp');
+    const standardCurveMethodAlert = document.getElementById('standardCurveMethodAlert');
 
     if (method === 'standardCurve') {
-        // Show standard curve parameters, hide deltaCt parameters
-        standardCurveParams.style.display = 'block';
-        deltaCtParams.style.display = 'none';
+        // Standard Curve method: hide concentration parameters, show basic params
+        standardCurveParams.style.display = 'none';
+        deltaCtParams.style.display = 'block';
+        controlGroupField.style.display = 'block';
         removeOutliersField.style.display = 'none';
+        if (standardCurveMethodAlert) {
+            standardCurveMethodAlert.style.display = 'block';
+        }
+        if (referenceGeneHelp) {
+            referenceGeneHelp.textContent = 'Select a reference gene for normalization (e.g., GAPDH, Actin)';
+        }
     } else if (method === 'deltaCt') {
         // Hide control group and standard curve params for ΔCt method
         standardCurveParams.style.display = 'none';
         deltaCtParams.style.display = 'block';
         controlGroupField.style.display = 'none';
         removeOutliersField.style.display = 'block';
+        if (standardCurveMethodAlert) {
+            standardCurveMethodAlert.style.display = 'none';
+        }
         if (referenceGeneHelp) {
             referenceGeneHelp.textContent = 'Select a reference gene for normalization (e.g., GAPDH, Actin)';
         }
@@ -1197,6 +1208,9 @@ function updateAnalysisMethodUI() {
         deltaCtParams.style.display = 'block';
         controlGroupField.style.display = 'block';
         removeOutliersField.style.display = 'block';
+        if (standardCurveMethodAlert) {
+            standardCurveMethodAlert.style.display = 'none';
+        }
         if (referenceGeneHelp) {
             referenceGeneHelp.textContent = 'Select a reference gene for normalization (e.g., GAPDH, Actin)';
         }
@@ -1206,6 +1220,9 @@ function updateAnalysisMethodUI() {
         deltaCtParams.style.display = 'block';
         controlGroupField.style.display = 'block';
         removeOutliersField.style.display = 'block';
+        if (standardCurveMethodAlert) {
+            standardCurveMethodAlert.style.display = 'none';
+        }
         if (referenceGeneHelp) {
             referenceGeneHelp.textContent = 'Use 2 reference genes (comma-separated) or leave blank for auto-selection by geNorm algorithm';
         }
