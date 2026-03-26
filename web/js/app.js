@@ -179,6 +179,15 @@ function setupHomepageButtons() {
         });
     }
 
+    // Design Template with Slope/Intercept
+    const modalDownloadDesignWithSlopeBtn = document.getElementById('modalDownloadDesignWithSlopeTemplate');
+    if (modalDownloadDesignWithSlopeBtn) {
+        modalDownloadDesignWithSlopeBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            downloadDesignWithSlopeTemplate();
+        });
+    }
+
     // Standard Curve Expression example
     const modalDownloadSCExpExampleBtn = document.getElementById('modalDownloadStandardCurveExpExample');
     if (modalDownloadSCExpExampleBtn) {
@@ -2121,6 +2130,28 @@ B6,Treatment,TargetGene1,2,1,1.98`;
 
     downloadFile(csv, 'design_with_efficiency_template.csv', 'text/csv');
     showNotification('含扩增效率的实验设计模板下载成功！文件保存在：Downloads/design_with_efficiency_template.csv', 'success');
+}
+
+/**
+ * Download Design Template with Slope/Intercept (for Standard Curve method)
+ */
+function downloadDesignWithSlopeTemplate() {
+    const csv = `Position,Treatment,Gene,Slope,Intercept,min.Cq,max.Cq
+A1,CK,GAPDH,-0.97,31.95,20.53,30.84
+A2,CK,Actin,-0.90,32.04,22.25,33.24
+A3,CK,TargetGene1,-0.98,30.77,19.12,29.48
+A4,Treatment,GAPDH,-0.97,31.95,20.53,30.84
+A5,Treatment,Actin,-0.90,32.04,22.25,33.24
+A6,Treatment,TargetGene1,-0.98,30.77,19.12,29.48
+B1,CK,GAPDH,-0.97,31.95,20.53,30.84
+B2,CK,Actin,-0.90,32.04,22.25,33.24
+B3,CK,TargetGene1,-0.98,30.77,19.12,29.48
+B4,Treatment,GAPDH,-0.97,31.95,20.53,30.84
+B5,Treatment,Actin,-0.90,32.04,22.25,33.24
+B6,Treatment,TargetGene1,-0.98,30.77,19.12,29.48`;
+
+    downloadFile(csv, 'design_with_slope_intercept_template.csv', 'text/csv');
+    showNotification('含斜率截距的实验设计模板下载成功！文件保存在：Downloads/design_with_slope_intercept_template.csv', 'success');
 }
 
 /**
