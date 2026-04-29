@@ -752,39 +752,33 @@ function setupImportPage() {
 }
 
 /**
- * Load Cq data file
+ * Generic data file loader — replaces loadCqFile/loadDesignFile/loadConcenFile
+ * @param {File} file - File object from input
+ * @param {string} dialogTitle - i18n key for the file dialog title
+ * @param {string} bridgeMethod - name of the bridge method (e.g. 'loadCqFile')
+ * @param {string} previewFn - name of the preview function (e.g. 'displayCqPreview')
+ * @param {string} dataSlot - name of the global variable to store data (e.g. 'currentCqData')
  */
-function loadCqFile(file) {
+function loadDataFile(file, dialogTitle, bridgeMethod, previewFn, dataSlot) {
     if (bridge) {
-        // Use Qt file dialog
-        bridge.showFileDialog(i18n.t('import.cqData'), '*.csv;;*.xlsx *.xls').then(filePath => {
+        bridge.showFileDialog(dialogTitle, '*.csv;;*.xlsx *.xls').then(filePath => {
             if (filePath) {
                 try {
-                    const result = bridge.loadCqFile(filePath);
-                    console.log('=== Cq File Loading ===');
-                    console.log('Raw result type:', typeof result);
-                    console.log('Raw result length:', result.length);
-                    console.log('Raw result (first 1000 chars):', result.substring(0, 1000));
+                    const result = bridge[bridgeMethod](filePath);
                     const parsed = JSON.parse(result);
-                    console.log('Parsed result keys:', Object.keys(parsed));
-                    console.log('parsed.data:', parsed.data);
-                    console.log('parsed.data type:', Array.isArray(parsed.data) ? 'array' : typeof parsed.data);
-                    console.log('parsed.columns:', parsed.columns);
-                    console.log('parsed.columns type:', Array.isArray(parsed.columns) ? 'array' : typeof parsed.columns);
 
                     if (!Array.isArray(parsed.data)) {
-                        console.error('parsed.data is not an array! Full parsed object:', JSON.stringify(parsed, null, 2));
+                        console.error('Invalid data format: data is not an array', parsed);
                         showNotification('Invalid data format: data is not an array', 'danger');
                         return;
                     }
 
-                    currentCqData = parsed.data;
-                    currentCqData.columns = parsed.columns;
-                    displayCqPreview(currentCqData);
+                    window[dataSlot] = parsed.data;
+                    window[dataSlot].columns = parsed.columns;
+                    window[previewFn](window[dataSlot]);
                     checkDataLoaded();
                 } catch (error) {
-                    console.error('Error loading Cq file:', error);
-                    console.error('Error stack:', error.stack);
+                    console.error('Error loading file via ' + bridgeMethod + ':', error);
                     showNotification(i18n.t('msg.error') + ': ' + error.message, 'danger');
                 }
             }
@@ -795,8 +789,8 @@ function loadCqFile(file) {
         reader.onload = function(e) {
             try {
                 const data = parseCSV(e.target.result);
-                currentCqData = data;
-                displayCqPreview(data);
+                window[dataSlot] = data;
+                window[previewFn](data);
                 checkDataLoaded();
                 showNotification(i18n.t('msg.dataLoaded'), 'success');
             } catch (error) {
@@ -807,122 +801,40 @@ function loadCqFile(file) {
     }
 }
 
-/**
- * Load design data file
- */
-function loadDesignFile(file) {
-    if (bridge) {
-        bridge.showFileDialog(i18n.t('import.designData'), '*.csv;;*.xlsx *.xls').then(filePath => {
-            if (filePath) {
-                const result = bridge.loadDesignFile(filePath);
-                const parsed = JSON.parse(result);
-                currentDesignData = parsed.data;
-                currentDesignData.columns = parsed.columns;
-                displayDesignPreview(currentDesignData);
-                checkDataLoaded();
-            }
-        });
-    } else {
-        // Demo mode
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const data = parseCSV(e.target.result);
-                currentDesignData = data;
-                displayDesignPreview(data);
-                checkDataLoaded();
-                showNotification(i18n.t('msg.dataLoaded'), 'success');
-            } catch (error) {
-                showNotification(i18n.t('msg.error') + ': ' + error.message, 'danger');
-            }
-        };
-        reader.readAsText(file);
-    }
-}
+function loadCqFile(file)     { loadDataFile(file, i18n.t('import.cqData'),     'loadCqFile',     'displayCqPreview',     'currentCqData'); }
+function loadDesignFile(file) { loadDataFile(file, i18n.t('import.designData'), 'loadDesignFile', 'displayDesignPreview', 'currentDesignData'); }
+function loadConcenFile(file) { loadDataFile(file, i18n.t('import.concenData'), 'loadConcenFile', 'displayConcenPreview', 'currentConcenData'); }
 
 /**
- * Load concentration data file
+ * Generic table preview renderer — replaces displayCqPreview/displayDesignPreview/displayConcenPreview
+ * @param {string} tableId - DOM id of the <table> element
+ * @param {Array} data - array of row objects, optionally with a .columns property
+ * @param {string} [logLabel] - label for console logging
  */
-function loadConcenFile(file) {
-    if (bridge) {
-        bridge.showFileDialog(i18n.t('import.concenData'), '*.csv;;*.xlsx *.xls').then(filePath => {
-            if (filePath) {
-                const result = bridge.loadConcenFile(filePath);
-                const parsed = JSON.parse(result);
-                currentConcenData = parsed.data;
-                currentConcenData.columns = parsed.columns;
-                displayConcenPreview(currentConcenData);
-                checkDataLoaded();
-            }
-        });
-    } else {
-        // Demo mode
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const data = parseCSV(e.target.result);
-                currentConcenData = data;
-                displayConcenPreview(data);
-                checkDataLoaded();
-                showNotification(i18n.t('msg.dataLoaded'), 'success');
-            } catch (error) {
-                showNotification(i18n.t('msg.error') + ': ' + error.message, 'danger');
-            }
-        };
-        reader.readAsText(file);
-    }
-}
+function renderTablePreview(tableId, data, logLabel) {
+    console.log('=== renderTablePreview ===', logLabel || tableId);
 
-/**
- * Display Cq data preview
- */
-function displayCqPreview(data) {
-    console.log('=== displayCqPreview ===');
-    console.log('Input data:', data);
-    console.log('Data type:', Array.isArray(data) ? 'array' : typeof data);
-    console.log('Data length:', data ? data.length : 0);
-
-    const table = document.getElementById('cqPreviewTable');
+    const table = document.getElementById(tableId);
+    if (!table) return;
     const thead = table.querySelector('thead tr');
     const tbody = table.querySelector('tbody');
 
-    if (!data) {
-        console.error('No data provided to displayCqPreview');
-        tbody.innerHTML = '<tr><td class="text-muted">No data</td></tr>';
-        return;
-    }
-
-    if (!Array.isArray(data)) {
-        console.error('Data is not an array:', typeof data, data);
-        tbody.innerHTML = '<tr><td class="text-muted">Invalid data format</td></tr>';
-        return;
-    }
-
-    if (data.length === 0) {
-        console.warn('Data array is empty');
+    if (!data || !Array.isArray(data) || data.length === 0) {
         tbody.innerHTML = '<tr><td class="text-muted">' + i18n.t('table.noData') + '</td></tr>';
         return;
     }
 
-    console.log('First row:', data[0]);
-
-    // Clear existing
     thead.innerHTML = '';
     tbody.innerHTML = '';
 
-    // Headers - 优先使用保存的列顺序
     const headers = data.columns || Object.keys(data[0]);
-    console.log('Headers:', headers);
     headers.forEach(header => {
         const th = document.createElement('th');
         th.textContent = header;
         thead.appendChild(th);
     });
 
-    // Rows (limit to first 10)
-    const displayRows = data.slice(0, 10);
-    console.log('Displaying', displayRows.length, 'rows');
-    displayRows.forEach(row => {
+    data.slice(0, 10).forEach(row => {
         const tr = document.createElement('tr');
         headers.forEach(header => {
             const td = document.createElement('td');
@@ -931,129 +843,12 @@ function displayCqPreview(data) {
         });
         tbody.appendChild(tr);
     });
-
-    console.log('Table rendered successfully');
 }
 
-/**
- * Display design data preview
- */
-function displayDesignPreview(data) {
-    console.log('=== displayDesignPreview ===');
-    console.log('Input data:', data);
-    console.log('Data type:', Array.isArray(data) ? 'array' : typeof data);
-    console.log('Data length:', data ? data.length : 0);
-
-    const table = document.getElementById('designPreviewTable');
-    const thead = table.querySelector('thead tr');
-    const tbody = table.querySelector('tbody');
-
-    if (!data) {
-        console.error('No data provided to displayDesignPreview');
-        tbody.innerHTML = '<tr><td class="text-muted">No data</td></tr>';
-        return;
-    }
-
-    if (!Array.isArray(data)) {
-        console.error('Data is not an array:', typeof data, data);
-        tbody.innerHTML = '<tr><td class="text-muted">Invalid data format</td></tr>';
-        return;
-    }
-
-    if (data.length === 0) {
-        console.warn('Data array is empty');
-        tbody.innerHTML = '<tr><td class="text-muted">' + i18n.t('table.noData') + '</td></tr>';
-        return;
-    }
-
-    console.log('First row:', data[0]);
-
-    thead.innerHTML = '';
-    tbody.innerHTML = '';
-
-    // Headers - 优先使用保存的列顺序
-    const headers = data.columns || Object.keys(data[0]);
-    console.log('Headers:', headers);
-    headers.forEach(header => {
-        const th = document.createElement('th');
-        th.textContent = header;
-        thead.appendChild(th);
-    });
-
-    const displayRows = data.slice(0, 10);
-    console.log('Displaying', displayRows.length, 'rows');
-    displayRows.forEach(row => {
-        const tr = document.createElement('tr');
-        headers.forEach(header => {
-            const td = document.createElement('td');
-            td.textContent = row[header];
-            tr.appendChild(td);
-        });
-        tbody.appendChild(tr);
-    });
-
-    console.log('Table rendered successfully');
-}
-
-/**
- * Display concentration data preview
- */
-function displayConcenPreview(data) {
-    console.log('=== displayConcenPreview ===');
-    console.log('Input data:', data);
-    console.log('Data type:', Array.isArray(data) ? 'array' : typeof data);
-    console.log('Data length:', data ? data.length : 0);
-
-    const table = document.getElementById('concenPreviewTable');
-    const thead = table.querySelector('thead tr');
-    const tbody = table.querySelector('tbody');
-
-    if (!data) {
-        console.error('No data provided to displayConcenPreview');
-        tbody.innerHTML = '<tr><td class="text-muted">No data</td></tr>';
-        return;
-    }
-
-    if (!Array.isArray(data)) {
-        console.error('Data is not an array:', typeof data, data);
-        tbody.innerHTML = '<tr><td class="text-muted">Invalid data format</td></tr>';
-        return;
-    }
-
-    if (data.length === 0) {
-        console.warn('Data array is empty');
-        tbody.innerHTML = '<tr><td class="text-muted">' + i18n.t('table.noData') + '</td></tr>';
-        return;
-    }
-
-    console.log('First row:', data[0]);
-
-    thead.innerHTML = '';
-    tbody.innerHTML = '';
-
-    // Headers - 优先使用保存的列顺序
-    const headers = data.columns || Object.keys(data[0]);
-    console.log('Headers:', headers);
-    headers.forEach(header => {
-        const th = document.createElement('th');
-        th.textContent = header;
-        thead.appendChild(th);
-    });
-
-    const displayRows = data.slice(0, 10);
-    console.log('Displaying', displayRows.length, 'rows');
-    displayRows.forEach(row => {
-        const tr = document.createElement('tr');
-        headers.forEach(header => {
-            const td = document.createElement('td');
-            td.textContent = row[header];
-            tr.appendChild(td);
-        });
-        tbody.appendChild(tr);
-    });
-
-    console.log('Table rendered successfully');
-}
+// Convenience wrappers (kept for backwards compatibility)
+function displayCqPreview(data)    { renderTablePreview('cqPreviewTable',      data, 'Cq'); }
+function displayDesignPreview(data) { renderTablePreview('designPreviewTable',  data, 'Design'); }
+function displayConcenPreview(data) { renderTablePreview('concenPreviewTable',  data, 'Concen'); }
 
 /**
  * Check if both files are loaded
@@ -2532,73 +2327,9 @@ async function loadScConcenExampleData() {
     }
 }
 
-/**
- * Display Standard Curve Cq data preview
- */
-function displayScCqPreview(data) {
-    const table = document.getElementById('scCqPreviewTable');
-    const thead = table.querySelector('thead tr');
-    const tbody = table.querySelector('tbody');
-
-    if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr><td class="text-muted">' + i18n.t('table.noData') + '</td></tr>';
-        return;
-    }
-
-    const headers = data.columns || Object.keys(data[0]);
-    thead.innerHTML = '';
-    tbody.innerHTML = '';
-
-    headers.forEach(header => {
-        const th = document.createElement('th');
-        th.textContent = header;
-        thead.appendChild(th);
-    });
-
-    data.slice(0, 10).forEach(row => {
-        const tr = document.createElement('tr');
-        headers.forEach(header => {
-            const td = document.createElement('td');
-            td.textContent = row[header];
-            tr.appendChild(td);
-        });
-        tbody.appendChild(tr);
-    });
-}
-
-/**
- * Display Standard Curve Concentration data preview
- */
-function displayScConcenPreview(data) {
-    const table = document.getElementById('scConcenPreviewTable');
-    const thead = table.querySelector('thead tr');
-    const tbody = table.querySelector('tbody');
-
-    if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr><td class="text-muted">' + i18n.t('table.noData') + '</td></tr>';
-        return;
-    }
-
-    const headers = data.columns || Object.keys(data[0]);
-    thead.innerHTML = '';
-    tbody.innerHTML = '';
-
-    headers.forEach(header => {
-        const th = document.createElement('th');
-        th.textContent = header;
-        thead.appendChild(th);
-    });
-
-    data.slice(0, 10).forEach(row => {
-        const tr = document.createElement('tr');
-        headers.forEach(header => {
-            const td = document.createElement('td');
-            td.textContent = row[header];
-            tr.appendChild(td);
-        });
-        tbody.appendChild(tr);
-    });
-}
+// SC preview wrappers using the shared renderTablePreview
+function displayScCqPreview(data)     { renderTablePreview('scCqPreviewTable',      data, 'SC Cq'); }
+function displayScConcenPreview(data) { renderTablePreview('scConcenPreviewTable',  data, 'SC Concen'); }
 
 /**
  * Run Standard Curve calculation

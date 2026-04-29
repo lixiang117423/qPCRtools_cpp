@@ -250,6 +250,18 @@ private:
     QString jsonFromResult(const StandardCurveResult &result);
     QString jsonFromResult(const ExpressionResult &result);
     QString jsonFromStandardCurveResults(const QVector<StandardCurveResult>& results);
+
+    // Data type enum for generic data loading
+    enum class DataType { Cq, Design, Concen };
+
+    // Generic data loading helpers (eliminate duplication across Cq/Design/Concen)
+    DataFrame& tableRef(DataType type);
+    const QString& tableLabel(DataType type);
+    QString loadDataFile(DataType type, const QString &filePath);
+    bool setTableData(DataType type, const QString &jsonData);
+    QString loadDataFromContent(DataType type, const QString &csvContent);
+    QString loadExcelFromBase64(DataType type, const QString &base64Data, int sheetIndex, bool hasHeader);
+    bool writeTableToCSV(const QJsonArray &table, const QString &filePath, bool writeBOM = false);
 };
 
 } // namespace qpcr
