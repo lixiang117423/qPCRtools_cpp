@@ -6,8 +6,8 @@
 #include "Core/StandardCurve.h"
 #include "fixture_loader.h"
 
-// slope / intercept / rSquared / efficiency 应与 R 紧密一致。
-// pValue 故意不对比：C++ 用粗略阶跃近似（见 StandardCurve.cpp:251），并非真实 p 值。
+// slope / intercept / rSquared / efficiency / pValue 均与 R 紧密一致。
+// （pValue 此前是粗略阶跃近似，已改为 GSL t 分布的真实双侧 p 值。）
 TEST(StandardCurve, RegressionMatchesR) {
     auto cases  = testfix::load_json("expected_standard_curve.json").array();
     auto inputs = testfix::load_json("data.json").object().value("standard_curve").toArray();
@@ -29,6 +29,11 @@ TEST(StandardCurve, RegressionMatchesR) {
         testfix::expect_close(r.intercept,  exp.value("intercept").toDouble());
         testfix::expect_close(r.rSquared,   exp.value("rSquared").toDouble());
         testfix::expect_close(r.efficiency, exp.value("efficiency").toDouble());
+
+        // pValue 与 R 对比；完美拟合 (r²=1) 时 seSlope=0 → C++ 返回 NaN，跳过该情形。
+        if (std::isfinite(r.pValue)) {
+            testfix::expect_close(r.pValue, exp.value("pValue_real").toDouble());
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 # qPCRtools_cpp 代码完善路线图
 
 **日期**: 2026-06-26
-**状态**: 阶段 1 已合并到 `main`；阶段 2 批次 a 完成、批次 b ΔCt 完成（11/11 测试通过），ΔΔCt/CalExpCurve 待定
+**状态**: 阶段 1、阶段 2（批次 a + ΔCt）已合并到 `main`；StandardCurve pValue 假值 bug 已修复；ΔΔCt 归一化差异已记录（待定夺）；CalExpCurve/阶段 3-4 待启动
 **范围**: 代码库健康度提升 —— 清理死代码、补核心测试、重构大文件、修剩余 TODO
 
 ---
@@ -132,10 +132,11 @@ tests/
 - 用例（10 个，全绿）：StandardCurve 回归（slope/intercept/R²/efficiency 对比 R `lm()`）、efficiency 公式、formatFormula；StatisticalTest 的 tTest（Welch+Student）、pairedTTest、wilcoxonTest、anova，均对比 base R。
 - 实测确认：GSL 已链接（`HAS_GSL`），t/F 检验 p 值用精确分布，与 R 精确对齐。默认构建（`BUILD_TESTS=OFF`）不受影响，app 正常产出。
 
-**测试中发现的代码问题（待后续处理）**：
-1. **`StandardCurve` 回归 pValue 是粗略阶跃近似**（`StandardCurve.cpp:251`：按 |t| 分桶成 0.05/0.01/0.001/0.0001 再 ×2），并非真实 p 值，且未使用已链接的 GSL。**测试故不对比 pValue**。建议后续用 `gsl_cdf_tdist_P`（同 tTest）改为真实值——可纳入阶段 3 或单独修复。
-2. **`wilcoxonTest` 用正态近似、无连续性校正**（`StatisticalTest.cpp:192`），小样本下不如 R 精确分布准。测试令 R 用 `exact=FALSE, correct=FALSE` 同方法对比 p 值；统计量定义亦不同（C++ 报 min(U)，R 报 W），故仅比 p。
+**测试中发现的代码问题**：
+1. ~~`StandardCurve` 回归 pValue 是粗略阶跃近似~~ **✅ 已修复**（2026-06-26）：改用 `gsl_cdf_tdist_P` 计算斜率双侧真实 p 值（与 tTest 同法）。`RegressionMatchesR` 测试现增加 pValue 对比并通过（完美拟合 r²=1 时 C++ 返回 NaN，已跳过）。
+2. **`wilcoxonTest` 用正态近似、无连续性校正**（`StatisticalTest.cpp`），小样本下不如 R 精确分布准。测试令 R 用 `exact=FALSE, correct=FALSE` 同方法对比 p 值；统计量定义亦不同（C++ 报 min(U)，R 报 W），故仅比 p。
 3. 批次 a 暂未覆盖 `wilcoxonSignedRankTest`/`tukeyHSD`/`cohensD`/`confidenceInterval`/`shapiroWilk`——可后续补充。
+4. **ΔΔCt 归一化与 R 不一致**（待作者定夺）：C++ `calculateByDeltaDeltaCt` 用教科书式对照组归一（对照组 fold-change = 1.0）；R `qPCRtools::CalExp2ddCt` 对照组 `mean.expre` ≈ 0.587（≠1），似按各基因跨组总均值归一。两组间比值一致（仅差常数倍），绝对值不同。故 ΔΔCt 暂未写对比测试——需作者确认哪种是预期行为。
 
 **验收标准**：
 - [x] `cmake -DBUILD_TESTS=ON` 配置成功（FetchContent 拉取 gtest）。

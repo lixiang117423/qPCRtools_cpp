@@ -3,6 +3,11 @@
 #include <algorithm>
 #include <numeric>
 
+#ifdef HAS_GSL
+#include <gsl/gsl_cdf.h>
+#include <gsl/gsl_randist.h>
+#endif
+
 namespace qpcr {
 
 //=============================================================================
@@ -237,29 +242,15 @@ void StandardCurve::linearRegression(
 
         if (seSlope > 0) {
             double tStat = slope / seSlope;
-
-            // Approximate p-value using t-distribution (df = n-2)
-            // For large n, this approximates normal distribution
-            // Using two-tailed test
             int df = n - 2;
 
-            // Simplified p-value calculation
-            // For a more accurate result, use GSL or similar
-            double absT = std::abs(tStat);
-
-            // Approximate p-value
-            if (absT < 1.96) {
-                pValue = 0.05;  // Not significant
-            } else if (absT < 2.58) {
-                pValue = 0.01;  // Significant at 0.01 level
-            } else if (absT < 3.29) {
-                pValue = 0.001; // Significant at 0.001 level
-            } else {
-                pValue = 0.0001; // Highly significant
-            }
-
-            // Adjust for two-tailed
-            pValue *= 2.0;
+            // 斜率的双侧 p 值（t 分布，df = n-2）。
+#ifdef HAS_GSL
+            pValue = 2.0 * (1.0 - gsl_cdf_tdist_P(std::fabs(tStat), df));
+#else
+            // 无 GSL 时的正态近似回退
+            pValue = 2.0 * (1.0 - 0.5 * (1.0 + std::erf(std::fabs(tStat) / std::sqrt(2.0))));
+#endif
             if (pValue > 1.0) pValue = 1.0;
         } else {
             pValue = qQNaN();
