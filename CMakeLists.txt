@@ -36,6 +36,7 @@ add_library(qpcr_core STATIC
     src/Core/ExpressionCalculator.cpp
     src/Core/ExpressionCalculatorInternal.cpp
     src/Core/ExpressionCalculatorDeltaCt.cpp
+    src/Core/ExpressionCalculatorDeltaDeltaCt.cpp
     src/Core/StatisticalTest.cpp
     # Data
     src/Data/DataFrame.cpp
