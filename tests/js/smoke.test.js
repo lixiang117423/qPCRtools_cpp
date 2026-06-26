@@ -11,8 +11,9 @@ const { JSDOM, VirtualConsole } = require('jsdom');
 const WEB_DIR = path.resolve(__dirname, '..', '..', 'web');
 const indexHtml = fs.readFileSync(path.join(WEB_DIR, 'index.html'), 'utf8');
 const i18nSrc = fs.readFileSync(path.join(WEB_DIR, 'js', 'i18n.js'), 'utf8');
-const appSrc = fs.readFileSync(path.join(WEB_DIR, 'js', 'app.js'), 'utf8');
 const templatesSrc = fs.readFileSync(path.join(WEB_DIR, 'js', 'templates.js'), 'utf8');
+const standardCurveSrc = fs.readFileSync(path.join(WEB_DIR, 'js', 'standard_curve.js'), 'utf8');
+const appSrc = fs.readFileSync(path.join(WEB_DIR, 'js', 'app.js'), 'utf8');
 
 // app.js 在 setupFeatureCards 里 new bootstrap.Modal，故 mock 掉 echarts/bootstrap。
 // （localStorage 用 http origin 由 jsdom 原生提供，无需 mock。）
@@ -34,8 +35,9 @@ let html = indexHtml
 html = html.replace('</body>',
   `<script>${MOCKS}</script>` +
   `<script>${i18nSrc}</script>` +
-  `<script>${appSrc}</script>` +
   `<script>${templatesSrc}</script>` +
+  `<script>${standardCurveSrc}</script>` +
+  `<script>${appSrc}</script>` +
   `</body>`);
 
 const errors = [];
@@ -53,6 +55,9 @@ const EXPECTED_FNS = [
   'initializeApplication', 'initializeUI',
   'loadExampleData', 'loadExampleCqData', 'loadExampleDesignData', 'loadExampleConcenData',
   'setupImportPage', 'setupAnalysisPage', 'setupResultsPage', 'setupStandardCurvePage',
+  'displayStandardCurveResults', 'runStandardCurveCalculation', 'exportStandardCurveResults',
+  'loadScCqFile', 'loadScConcenFile', 'loadScCqExampleData', 'loadScConcenExampleData',
+  'displayScCqPreview', 'displayScConcenPreview', 'generateMockStandardCurveResults',
   'navigateToPage', 'displayResults', 'displayCharts', 'parseCSV', 'convertToCSV', 'downloadFile',
   'exportResults', 'exportChart',
   'downloadCqTemplate', 'downloadDesignTemplate', 'downloadExampleDataFiles',
