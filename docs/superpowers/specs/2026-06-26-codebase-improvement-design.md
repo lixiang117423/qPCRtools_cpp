@@ -1,7 +1,7 @@
 # qPCRtools_cpp 代码完善路线图
 
 **日期**: 2026-06-26
-**状态**: 阶段 1、阶段 2（批次 a + ΔCt）已合并到 `main`；StandardCurve pValue 假值 bug 已修复；ΔΔCt 归一化差异已记录（待定夺）；CalExpCurve/阶段 3-4 待启动
+**状态**: 阶段 1、阶段 2（+ pValue 修复）已合并到 `main`；阶段 3 进行中（已提取 ExpressionCalculator 内部辅助函数）；ΔΔCt 归一化差异已记录（待定夺）；CalExpCurve/阶段 4 待启动
 **范围**: 代码库健康度提升 —— 清理死代码、补核心测试、重构大文件、修剩余 TODO
 
 ---
@@ -144,9 +144,10 @@ tests/
 - [x] `generate_reference.R` 可重跑并复现 fixtures。
 - [x] 默认构建（`BUILD_TESTS=OFF`）不受影响。
 
-### 阶段 3：重构大文件
-- `ExpressionCalculator.cpp`：按方法族（ΔCt / ΔΔCt / 标准曲线）拆分为更小单元。
-- `web/js/app.js`：按职责（数据交互 / 图表 / UI 控制 / i18n）拆分模块。
+### 阶段 3：重构大文件（进行中）
+- ✅ `ExpressionCalculator.cpp`：已把 7 个内部辅助函数（sortedUnique / computeMean / runPairwiseTests / runAnovaTests / buildResultTableWithPValues 等）提取到 `src/Core/ExpressionCalculatorInternal.{h,cpp}`（1182→1034 行）。11/11 测试保持全绿。
+- ⏳ 继续：按方法族（ΔCt / ΔΔCt / 标准曲线）把 `calculateBy*` 方法拆到独立文件。
+- ⏳ `web/js/app.js`：按职责（数据交互 / 图表 / UI 控制 / i18n）拆分模块——无测试兜底，风险较高，建议单独专注。
 - 依赖阶段 2 测试保证行为不变。
 
 ### 阶段 4：修剩余 TODO
