@@ -72,3 +72,6 @@ translations/*.qm
 *.tmp
 *.bak
 *.backup
+
+# Node.js (jsdom smoke test for app.js)
+tests/js/node_modules/
