@@ -161,7 +161,9 @@ public:
      */
     static QString formatSignificance(double pValue);
 
-private:
+    // 以下三个统计辅助方法需被 ExpressionCalculator.cpp 内 file-local 的
+    // 自由函数 (runPairwiseTests / runAnovaTests) 调用，故设为 public。
+    // （阶段 3 重构时，更地道的做法是把它们移入 .cpp 的匿名命名空间。）
     /**
      * @brief 执行 t检验
      */
@@ -185,6 +187,16 @@ private:
     );
 
     /**
+     * @brief 生成ANOVA字母标记
+     */
+    static QHash<QString, QString> generateLetterGroups(
+        const QHash<QString, double>& groupMeans,
+        const QVector<TestResult>& tukeyResults,
+        double alpha = 0.05
+    );
+
+private:
+    /**
      * @brief 执行 ANOVA + Tukey HSD
      */
     static QVector<StatisticalResult> performANOVA(
@@ -192,15 +204,6 @@ private:
         const QString& geneCol,
         const QString& groupCol,
         const QString& valueCol
-    );
-
-    /**
-     * @brief 生成ANOVA字母标记
-     */
-    static QHash<QString, QString> generateLetterGroups(
-        const QHash<QString, double>& groupMeans,
-        const QVector<TestResult>& tukeyResults,
-        double alpha = 0.05
     );
 
     /**
