@@ -44,9 +44,6 @@ set(SOURCES
     # GUI
     src/GUI/WebMainWindow.cpp
     src/GUI/WebBridge.cpp
-
-    # Utils - 暂时注释，Web界面使用JavaScript实现ggplot2主题
-    # src/Utils/GgplotTheme.cpp
 )
 
 # 头文件
@@ -64,24 +61,12 @@ set(HEADERS
     # GUI
     include/GUI/WebMainWindow.h
     include/GUI/WebBridge.h
-
-    # Utils - 暂时注释
-    # include/Utils/GgplotTheme.h
 )
-
-# UI 文件 (暂时不用，我们用纯代码创建 UI)
-# set(UI_FILES
-#     resources/ui/mainwindow.ui
-#     resources/ui/importpage.ui
-#     resources/ui/configpage.ui
-#     resources/ui/resultspage.ui
-# )
 
 # 创建可执行文件
 add_executable(${PROJECT_NAME} MACOSX_BUNDLE
     ${SOURCES}
     ${HEADERS}
-    # ${UI_FILES}
 )
 
 # 设置 macOS app bundle 属性
