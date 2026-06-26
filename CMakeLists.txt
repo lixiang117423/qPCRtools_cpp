@@ -35,6 +35,7 @@ add_library(qpcr_core STATIC
     src/Core/StandardCurve.cpp
     src/Core/ExpressionCalculator.cpp
     src/Core/ExpressionCalculatorInternal.cpp
+    src/Core/ExpressionCalculatorDeltaCt.cpp
     src/Core/StatisticalTest.cpp
     # Data
     src/Data/DataFrame.cpp
