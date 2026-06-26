@@ -27,46 +27,51 @@ find_package(Eigen3 REQUIRED)
 find_package(GSL 2.7 QUIET)
 find_package(OpenXLSX QUIET)
 
-# 源文件
-set(SOURCES
-    src/main_simple.cpp
-
+# =============================================================================
+# qpcr_core：核心算法 + 数据处理静态库（app 与 tests 共用，避免重复编译）
+# =============================================================================
+add_library(qpcr_core STATIC
     # Core
     src/Core/StandardCurve.cpp
     src/Core/ExpressionCalculator.cpp
     src/Core/StatisticalTest.cpp
-
     # Data
     src/Data/DataFrame.cpp
     src/Data/CSVParser.cpp
     src/Data/ExcelImporter.cpp
+)
 
-    # GUI
+target_include_directories(qpcr_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+# Core 依赖 Qt6::Core（容器/字符串）与 Eigen3
+target_link_libraries(qpcr_core PUBLIC Qt6::Core Eigen3::Eigen)
+
+# 可选：GSL（StatisticalTest 精确计算）
+if(TARGET GSL::gsl)
+    target_link_libraries(qpcr_core PUBLIC GSL::gsl GSL::gslcblas)
+    target_compile_definitions(qpcr_core PUBLIC HAS_GSL)
+endif()
+
+# 可选：OpenXLSX（Excel 导入）
+if(TARGET OpenXLSX::OpenXLSX)
+    target_link_libraries(qpcr_core PUBLIC OpenXLSX::OpenXLSX)
+    target_compile_definitions(qpcr_core PUBLIC HAS_OPENXLSX)
+else()
+    message(WARNING "OpenXLSX not found, Excel support will be disabled")
+endif()
+
+# =============================================================================
+# 主程序：Qt6 + WebEngine 图形界面
+# =============================================================================
+add_executable(${PROJECT_NAME} MACOSX_BUNDLE
+    src/main_simple.cpp
     src/GUI/WebMainWindow.cpp
     src/GUI/WebBridge.cpp
-)
-
-# 头文件
-set(HEADERS
-    # Core
-    include/Core/StandardCurve.h
-    include/Core/ExpressionCalculator.h
-    include/Core/StatisticalTest.h
-
-    # Data
-    include/Data/DataFrame.h
-    include/Data/CSVParser.h
-    include/Data/ExcelImporter.h
-
-    # GUI
     include/GUI/WebMainWindow.h
     include/GUI/WebBridge.h
-)
-
-# 创建可执行文件
-add_executable(${PROJECT_NAME} MACOSX_BUNDLE
-    ${SOURCES}
-    ${HEADERS}
 )
 
 # 设置 macOS app bundle 属性
@@ -77,37 +82,13 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/macos/Info.plist
 )
 
-# 链接库
-target_link_libraries(${PROJECT_NAME}
-    PRIVATE
-    Qt6::Core
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    qpcr_core
     Qt6::Widgets
     Qt6::WebEngineCore
     Qt6::WebEngineWidgets
     Qt6::WebChannel
     Qt6::PrintSupport
-    Eigen3::Eigen
-)
-
-# 如果找到 GSL
-if(TARGET GSL::gsl)
-    target_link_libraries(${PROJECT_NAME} PRIVATE GSL::gsl GSL::gslcblas)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_GSL)
-endif()
-
-# 如果找到 OpenXLSX
-if(TARGET OpenXLSX::OpenXLSX)
-    target_link_libraries(${PROJECT_NAME} PRIVATE OpenXLSX::OpenXLSX)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_OPENXLSX)
-else()
-    message(WARNING "OpenXLSX not found, Excel support will be disabled")
-endif()
-
-# 包含目录
-target_include_directories(${PROJECT_NAME}
-    PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 # 国际化支持
@@ -142,10 +123,12 @@ install(DIRECTORY examples/
 
 # 打包配置
 #include(cpack/CPackConfig.cmake)
-#
-## 开发者选项
-#option(BUILD_TESTS "Build test suite" OFF)
-#if(BUILD_TESTS)
-#    enable_testing()
-#    add_subdirectory(tests)
-#endif()
+
+# =============================================================================
+# 测试（默认关闭；开启时通过 FetchContent 拉取 GoogleTest）
+# =============================================================================
+option(BUILD_TESTS "Build test suite" OFF)
+if(BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
