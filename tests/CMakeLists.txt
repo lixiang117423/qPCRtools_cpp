@@ -17,6 +17,7 @@ add_executable(qpcr_tests
     test_smoke.cpp
     test_standard_curve.cpp
     test_statistical_test.cpp
+    test_expression_calculator.cpp
 )
 target_link_libraries(qpcr_tests PRIVATE
     qpcr_core

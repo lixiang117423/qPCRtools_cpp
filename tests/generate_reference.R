@@ -6,6 +6,7 @@
 # 输出： tests/fixtures/{data.json, expected_stat.json, expected_standard_curve.json}
 # =============================================================================
 suppressPackageStartupMessages(library(jsonlite))
+suppressPackageStartupMessages(library(qPCRtools))  # CalExp2dCt 等表达量参考
 
 fix_dir <- file.path("tests", "fixtures")
 dir.create(fix_dir, showWarnings = FALSE, recursive = TRUE)
@@ -92,9 +93,29 @@ sc <- lapply(data$standard_curve, function(c) {
 })
 J(sc, "expected_standard_curve.json")
 
+# -----------------------------------------------------------------------------
+# ExpressionCalculator ΔCt vs R qPCRtools::CalExp2dCt（examples 数据）
+# expre = 2^-(targetCq - refMeanCq)，mean.expre 为各 group 的均值。
+# 每个 gene 取其各 group 的 mean.expre 升序列表，C++ 按同方式收集 table.Mean 对比。
+# -----------------------------------------------------------------------------
+cq_tb     <- read.csv("examples/cq.csv",     check.names = FALSE)
+design_tb <- read.csv("examples/design.csv", check.names = FALSE)
+ref_gene  <- "Beta Actin"
+dct <- tryCatch(
+  CalExp2dCt(cq_table = cq_tb, design_table = design_tb, ref_gene = ref_gene),
+  error = function(e) { message("CalExp2dCt ERROR: ", conditionMessage(e)); NULL }
+)
+if (!is.null(dct)) {
+  by_gene <- lapply(split(dct, dct$gene), function(d) sort(unique(d$mean.expre)))
+  J(list(ref_gene = ref_gene, by_gene = by_gene), "expected_expression_dct.json")
+} else {
+  message("Skipped expected_expression_dct.json (CalExp2dCt failed)")
+}
+
 cat("OK -> wrote fixtures to", normalizePath(fix_dir), "\n")
 cat("  ttest:", length(stat$ttest),
     " paired:", length(stat$paired),
     " wilcox:", length(stat$wilcox),
     " anova:", length(stat$anova),
-    " standard_curve:", length(sc), "\n")
+    " standard_curve:", length(sc),
+    " expression_dct:", if (!is.null(dct)) length(by_gene) else 0, "\n")

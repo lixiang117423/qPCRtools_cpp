@@ -1,7 +1,7 @@
 # qPCRtools_cpp 代码完善路线图
 
 **日期**: 2026-06-26
-**状态**: 阶段 1 已合并到 `main`；阶段 2 批次 a 完成（10/10 测试通过），批次 b 待启动
+**状态**: 阶段 1 已合并到 `main`；阶段 2 批次 a 完成、批次 b ΔCt 完成（11/11 测试通过），ΔΔCt/CalExpCurve 待定
 **范围**: 代码库健康度提升 —— 清理死代码、补核心测试、重构大文件、修剩余 TODO
 
 ---
@@ -122,7 +122,9 @@ tests/
 
 **覆盖范围（分批）**：
 - **批次 a（纯函数，先做）**：`StatisticalTest`（tTest 独立/配对、wilcoxon、wilcoxonSignedRank、anova、tukeyHSD、cohensD、confidenceInterval、shapiroWilk）对比 base R；`StandardCurve`（calculateSingle 的 slope/intercept/R²/pValue/efficiency、calculateEfficiency、formatFormula）对比 R `lm()`。
-- **批次 b（集成，后做）**：`ExpressionCalculator`（calculateByDeltaCt→`CalExp2dCt`、calculateByDeltaDeltaCt→`CalExp2ddCt`、calculateByStandardCurve→`CalExpCurve`），用 examples 数据对比 qPCRtools R 包。
+- **批次 b（集成）**：`ExpressionCalculator` 对比 qPCRtools R 包。
+  - ✅ `calculateByDeltaCt` ↔ `CalExp2dCt`：每个 gene 各 group 的平均表达量（`table.Mean`）与 R `mean.expre` 一致（examples 数据，11/11 通过）。
+  - ⏳ `calculateByDeltaDeltaCt` ↔ `CalExp2ddCt`、`calculateByStandardCurve` ↔ `CalExpCurve`：待做。
 
 **已交付（批次 a，2026-06-26）**：
 - 测试基建：`qpcr_core` 静态库（Core+Data）；`BUILD_TESTS=ON` 经 `FetchContent` 拉 GoogleTest v1.15.2；`tests/CMakeLists.txt`。
