@@ -9,13 +9,22 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
+# 将 fixtures 目录路径烧入生成的头文件（避免在编译宏里传递非 ASCII 路径）
+configure_file(test_config.h.in test_config.h @ONLY)
+
 # 测试可执行文件（链接 qpcr_core 复用核心算法，不重复编译）
 add_executable(qpcr_tests
     test_smoke.cpp
+    test_standard_curve.cpp
+    test_statistical_test.cpp
 )
 target_link_libraries(qpcr_tests PRIVATE
     qpcr_core
     GTest::gtest_main
+)
+target_include_directories(qpcr_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}      # fixture_loader.h
+    ${CMAKE_CURRENT_BINARY_DIR}      # 生成的 test_config.h
 )
 
 # 让 ctest 自动发现用例

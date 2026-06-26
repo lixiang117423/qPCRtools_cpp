@@ -1,0 +1,4 @@
+// 由 CMake configure_file 生成，将 fixtures 目录路径烧入测试二进制
+// （避免在编译宏里传递含非 ASCII 字符的路径）。
+#pragma once
+#define QPCR_TEST_FIXTURES_DIR "@CMAKE_CURRENT_SOURCE_DIR@/fixtures"

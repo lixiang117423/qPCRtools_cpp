@@ -1,0 +1,18 @@
+[
+  {
+    "id": "perfect",
+    "slope": -3,
+    "intercept": 20,
+    "rSquared": 1,
+    "efficiency": 0.587401051968199,
+    "pValue_real": 2.57567967836573e-34
+  },
+  {
+    "id": "noisy",
+    "slope": -2.9,
+    "intercept": 19.95,
+    "rSquared": 0.995030761949834,
+    "efficiency": 0.612897963515365,
+    "pValue_real": 0.00248771338402335
+  }
+]

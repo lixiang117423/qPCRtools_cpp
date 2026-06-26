@@ -1,7 +1,7 @@
 # qPCRtools_cpp 代码完善路线图
 
 **日期**: 2026-06-26
-**状态**: 阶段 1 已完成并提交（分支 `refactor/remove-dead-code`，2 个 commit）；阶段 2-4 待启动
+**状态**: 阶段 1 已合并到 `main`；阶段 2 批次 a 完成（10/10 测试通过），批次 b 待启动
 **范围**: 代码库健康度提升 —— 清理死代码、补核心测试、重构大文件、修剩余 TODO
 
 ---
@@ -99,10 +99,47 @@ include/Utils/GgplotTheme.h          (144)   src/Utils/GgplotTheme.cpp (293)
 
 ## 4. 阶段 2-4 概述（到达时再细化）
 
-### 阶段 2：核心算法单元测试
-- 引入 GoogleTest（CMake `BUILD_TESTS` 选项已预留，当前被注释）。
-- 用例覆盖：标准曲线回归（斜率/截距/R²/效率）、ΔCt 与 ΔΔCt 表达量、t 检验/Wilcoxon/ANOVA/Tukey。
-- 如能取得 R 版 qPCRtools 的参考输出，加入数值对比用例（容差内一致）。
+### 阶段 2：核心算法单元测试（进行中）
+
+**框架**：GoogleTest，CMake `FetchContent` 获取，受 `BUILD_TESTS=ON` 控制（默认 OFF，不影响日常构建与发布）。联网已确认可用。
+
+**CMake 结构**：把 Core+Data 抽成静态库 `qpcr_core`（`add_library(qpcr_core STATIC ...)`），app 与 tests 都链接它——避免重复编译、不改变 app 产物。
+
+**目录结构**：
+```
+tests/
+├── CMakeLists.txt          # FetchContent gtest + 测试目标
+├── generate_reference.R    # 用 R 生成黄金参考（可重跑）
+├── fixtures/
+│   ├── data.json           # 输入数据集（R 与 C++ 共用）
+│   └── expected_*.json     # R 计算的期望值
+├── test_statistical_test.cpp
+├── test_standard_curve.cpp
+└── test_expression_calculator.cpp   # 批次 b
+```
+
+**R 参考策略（golden fixtures）**：`generate_reference.R` 读取 `fixtures/data.json`，用 base R stats（`t.test`/`wilcox.test`/`aov`/`TukeyHSD`/`shapiro.test`）与 `lm()` 计算期望值，写入 `fixtures/expected_*.json`。C++ 测试用 `QJsonDocument` 加载输入与期望，运行 C++ 函数，`EXPECT_NEAR` 容差比较。测试运行时不依赖 R；脚本可随时重跑。
+
+**覆盖范围（分批）**：
+- **批次 a（纯函数，先做）**：`StatisticalTest`（tTest 独立/配对、wilcoxon、wilcoxonSignedRank、anova、tukeyHSD、cohensD、confidenceInterval、shapiroWilk）对比 base R；`StandardCurve`（calculateSingle 的 slope/intercept/R²/pValue/efficiency、calculateEfficiency、formatFormula）对比 R `lm()`。
+- **批次 b（集成，后做）**：`ExpressionCalculator`（calculateByDeltaCt→`CalExp2dCt`、calculateByDeltaDeltaCt→`CalExp2ddCt`、calculateByStandardCurve→`CalExpCurve`），用 examples 数据对比 qPCRtools R 包。
+
+**已交付（批次 a，2026-06-26）**：
+- 测试基建：`qpcr_core` 静态库（Core+Data）；`BUILD_TESTS=ON` 经 `FetchContent` 拉 GoogleTest v1.15.2；`tests/CMakeLists.txt`。
+- 黄金参考：`tests/generate_reference.R`（base R stats + `lm()`，可重跑）→ `tests/fixtures/{data,expected_stat,expected_standard_curve}.json`。
+- 用例（10 个，全绿）：StandardCurve 回归（slope/intercept/R²/efficiency 对比 R `lm()`）、efficiency 公式、formatFormula；StatisticalTest 的 tTest（Welch+Student）、pairedTTest、wilcoxonTest、anova，均对比 base R。
+- 实测确认：GSL 已链接（`HAS_GSL`），t/F 检验 p 值用精确分布，与 R 精确对齐。默认构建（`BUILD_TESTS=OFF`）不受影响，app 正常产出。
+
+**测试中发现的代码问题（待后续处理）**：
+1. **`StandardCurve` 回归 pValue 是粗略阶跃近似**（`StandardCurve.cpp:251`：按 |t| 分桶成 0.05/0.01/0.001/0.0001 再 ×2），并非真实 p 值，且未使用已链接的 GSL。**测试故不对比 pValue**。建议后续用 `gsl_cdf_tdist_P`（同 tTest）改为真实值——可纳入阶段 3 或单独修复。
+2. **`wilcoxonTest` 用正态近似、无连续性校正**（`StatisticalTest.cpp:192`），小样本下不如 R 精确分布准。测试令 R 用 `exact=FALSE, correct=FALSE` 同方法对比 p 值；统计量定义亦不同（C++ 报 min(U)，R 报 W），故仅比 p。
+3. 批次 a 暂未覆盖 `wilcoxonSignedRankTest`/`tukeyHSD`/`cohensD`/`confidenceInterval`/`shapiroWilk`——可后续补充。
+
+**验收标准**：
+- [x] `cmake -DBUILD_TESTS=ON` 配置成功（FetchContent 拉取 gtest）。
+- [x] `ctest` 通过批次 a 的全部用例（10/10）。
+- [x] `generate_reference.R` 可重跑并复现 fixtures。
+- [x] 默认构建（`BUILD_TESTS=OFF`）不受影响。
 
 ### 阶段 3：重构大文件
 - `ExpressionCalculator.cpp`：按方法族（ΔCt / ΔΔCt / 标准曲线）拆分为更小单元。
