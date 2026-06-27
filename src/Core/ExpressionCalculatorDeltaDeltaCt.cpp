@@ -34,26 +34,30 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
     QList<QString> sortedGenes = sortedUniqueExclude(merged.getStringColumn("Gene"), params.referenceGene);
     QList<QString> sortedGroups = sortedUnique(merged.getStringColumn("Group"));
 
-    // Compute mean DeltaCt for control group per gene
-    QHash<QString, double> controlDeltaCtByGene;
+    // Compute the GLOBAL mean DeltaCt across ALL groups per gene — this is the
+    // normalization baseline R qPCRtools::CalExp2ddCt actually uses: it averages
+    // the target and reference gene over every group (see CalExp2ddCt.R lines
+    // 102-111), NOT just the control group. Pinning to the control group instead
+    // would force the control group toward 1.0 and diverge from R by a constant
+    // factor. (controlGroup is still consumed below for the statistical tests.)
+    QHash<QString, double> globalDeltaCtByGene;
     for (const QString& gene : sortedGenes) {
-        DataFrame controlData = merged.filter(
+        DataFrame geneData = merged.filter(
             [&params, &gene](const Row& row) {
-                return row.value("Group").toString() == params.controlGroup &&
-                       (row.value("Gene").toString() == gene ||
-                        row.value("Gene").toString() == params.referenceGene);
+                return row.value("Gene").toString() == gene ||
+                       row.value("Gene").toString() == params.referenceGene;
             });
 
         QVector<double> targetCqs, refCqs;
-        for (int i = 0; i < controlData.rowCount(); ++i) {
-            QString g = controlData.get(i, "Gene").toString();
-            double cq = controlData.get(i, "Cq").toDouble();
+        for (int i = 0; i < geneData.rowCount(); ++i) {
+            QString g = geneData.get(i, "Gene").toString();
+            double cq = geneData.get(i, "Cq").toDouble();
             if (g == gene) targetCqs.append(cq);
             else if (g == params.referenceGene) refCqs.append(cq);
         }
 
         if (!targetCqs.isEmpty() && !refCqs.isEmpty()) {
-            controlDeltaCtByGene[gene] = computeMean(targetCqs) - computeMean(refCqs);
+            globalDeltaCtByGene[gene] = computeMean(targetCqs) - computeMean(refCqs);
         }
     }
 
@@ -90,7 +94,7 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
 
                 if (!targetCqs.isEmpty() && !refCqs.isEmpty()) {
                     double deltaCt = computeMean(targetCqs) - computeMean(refCqs);
-                    double deltaDeltaCt = deltaCt - controlDeltaCtByGene.value(gene, 0.0);
+                    double deltaDeltaCt = deltaCt - globalDeltaCtByGene.value(gene, 0.0);
                     double expression = std::pow(2.0, -deltaDeltaCt);
 
                     allData[group][gene].append(expression);

@@ -1,0 +1,7 @@
+{
+  "ref_gene": "Beta Actin",
+  "by_gene": {
+    "fos-glo-myc": [0.587162224960086, 1.10948465115786, 1.5860735041988]
+  },
+  "note": "CalExp2ddCt, remove_outliers=FALSE; R normalizes by the GLOBAL mean over all groups (control != 1)."
+}

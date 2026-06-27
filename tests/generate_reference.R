@@ -112,10 +112,30 @@ if (!is.null(dct)) {
   message("Skipped expected_expression_dct.json (CalExp2dCt failed)")
 }
 
+# -----------------------------------------------------------------------------
+# ExpressionCalculator ΔΔCt vs R qPCRtools::CalExp2ddCt（examples 数据）
+# 关键：R 的 CalExp2ddCt 用「全数据均值」做归一化基准（平均所有 group 的 target/ref，
+# 不是只取对照组），故对照组表达量 ≠ 1。C++ 端必须用同一基准，否则与对照组基准相差一个
+# 常数因子。remove_outliers=FALSE：C++ 不做 IQR 离群值剔除，此处对齐以隔离归一化对比。
+# -----------------------------------------------------------------------------
+ddct <- tryCatch(
+  CalExp2ddCt(cq_table = cq_tb, design_table = design_tb,
+              ref_gene = ref_gene, ref_group = "0", remove_outliers = FALSE),
+  error = function(e) { message("CalExp2ddCt ERROR: ", conditionMessage(e)); NULL }
+)
+if (!is.null(ddct)) {
+  ddct_t <- ddct[["table"]]
+  by_gene_ddct <- lapply(split(ddct_t, ddct_t$gene), function(d) sort(unique(d$mean.expre)))
+  J(list(ref_gene = ref_gene, by_gene = by_gene_ddct), "expected_expression_ddct.json")
+} else {
+  message("Skipped expected_expression_ddct.json (CalExp2ddCt failed)")
+}
+
 cat("OK -> wrote fixtures to", normalizePath(fix_dir), "\n")
 cat("  ttest:", length(stat$ttest),
     " paired:", length(stat$paired),
     " wilcox:", length(stat$wilcox),
     " anova:", length(stat$anova),
     " standard_curve:", length(sc),
-    " expression_dct:", if (!is.null(dct)) length(by_gene) else 0, "\n")
+    " expression_dct:", if (!is.null(dct)) length(by_gene) else 0,
+    " expression_ddct:", if (!is.null(ddct)) length(by_gene_ddct) else 0, "\n")
