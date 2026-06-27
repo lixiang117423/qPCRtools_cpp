@@ -96,3 +96,48 @@ TEST(ExpressionCalculator, DeltaDeltaCtMatchesR) {
         }
     }
 }
+
+// 标准曲线（效率法）表达量：对应 R qPCRtools::CalExpRqPCR —— 基于 Eff 的
+// QCq = Eff^(min.meanCq - meanCq)、参考基因几何均值校正、按基因内最小组均值归一化。
+// 注意：这不是 CalExpCurve（斜率截距法）。用 rqpcr 示例数据（examples/rqpcr_*.csv），
+// 升序集合对比。
+TEST(ExpressionCalculator, StandardCurveRqPCRMatchesR) {
+    qpcr::CSVParser parser;
+    qpcr::DataFrame cq     = parser.parse(QString(QPCR_EXAMPLES_DIR) + "/rqpcr_cq.csv");
+    qpcr::DataFrame design = parser.parse(QString(QPCR_EXAMPLES_DIR) + "/rqpcr_design.csv");
+    ASSERT_GT(cq.rowCount(), 0);
+    ASSERT_GT(design.rowCount(), 0);
+
+    auto fix    = testfix::load_json("expected_expression_rqpcr.json").object();
+    QString ref = fix.value("ref_gene").toString();
+
+    qpcr::StandardCurveParams params;
+    params.cqTable       = cq;
+    params.designTable   = design;
+    params.referenceGene = ref;
+    params.controlGroup  = "CK";
+
+    qpcr::ExpressionResult result =
+        qpcr::ExpressionCalculator::calculateByStandardCurve(params, "t.test");
+
+    auto byGene = fix.value("by_gene").toObject();
+    for (const QString& gene : byGene.keys()) {
+        SCOPED_TRACE(("expression_rqpcr gene=" + gene).toStdString());
+        QVector<double> expected = testfix::to_doubles(byGene.value(gene).toArray());  // R 已升序
+
+        QVector<double> got;
+        auto genes = result.table.getStringColumn("Gene");
+        auto means = result.table.getNumericColumn("Mean");
+        ASSERT_EQ(genes.size(), means.size());
+        for (int i = 0; i < genes.size(); ++i) {
+            if (genes[i] == gene) got.append(means[i]);
+        }
+        ASSERT_EQ(got.size(), expected.size())
+            << "gene '" << gene.toStdString() << "' group-count mismatch (C++=" << got.size()
+            << " vs R=" << expected.size() << ")";
+        std::sort(got.begin(), got.end());
+        for (int i = 0; i < got.size(); ++i) {
+            testfix::expect_close(got[i], expected[i]);
+        }
+    }
+}

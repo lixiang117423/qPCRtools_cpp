@@ -72,8 +72,9 @@ struct StandardCurveParams {
 /**
  * @brief 表达量计算器
  *
- * 提供 ΔCt、ΔΔCt 和基于标准曲线的表达量计算
- * 对应 R 函数: CalExp2dCt(), CalExp2ddCt(), CalExpCurve()
+ * 提供 ΔCt、ΔΔCt 和基于效率（标准曲线）的表达量计算
+ * 对应 R 函数: CalExp2dCt(), CalExp2ddCt(), CalExpRqPCR()
+ * （R 的 CalExpCurve() 斜率截距法尚未移植）
  */
 class ExpressionCalculator
 {
@@ -110,7 +111,11 @@ public:
     );
 
     /**
-     * @brief 使用标准曲线计算表达量
+     * @brief 基于扩增效率（RqPCR 法）计算表达量
+     *
+     * 对应 R qPCRtools::CalExpRqPCR：QCq = Eff^(min.meanCq - meanCq)，参考基因几何均值
+     * 校正，按基因内最小组均值归一化。designTable 需含 Eff 列。
+     * （注意：这不是 R 的 CalExpCurve 斜率截距法。）
      *
      * @param params 计算参数
      * @param statMethod 统计方法

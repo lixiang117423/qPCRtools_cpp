@@ -131,6 +131,27 @@ if (!is.null(ddct)) {
   message("Skipped expected_expression_ddct.json (CalExp2ddCt failed)")
 }
 
+# -----------------------------------------------------------------------------
+# ExpressionCalculator 标准曲线(效率法) vs R qPCRtools::CalExpRqPCR（examples/rqpcr_*.csv）
+# 注意：这是 CalExpRqPCR（Eff 法，QCq=Eff^(min.meanCq-meanCq)、参考基因几何均值校正、
+# 按基因内最小组均值归一化），不是 CalExpCurve（斜率截距法）。ref_gene 固定为 OsUBQ
+# 以隔离表达量计算（避免 GeNorm 自动选择引入额外变量）。
+# -----------------------------------------------------------------------------
+rqpcr_cq     <- read.csv("examples/rqpcr_cq.csv",     check.names = FALSE)
+rqpcr_design <- read.csv("examples/rqpcr_design.csv", check.names = FALSE)
+rqpcr <- tryCatch(
+  CalExpRqPCR(cq_table = rqpcr_cq, design_table = rqpcr_design,
+              ref_gene = "OsUBQ", ref_group = "CK", stat_method = "t.test"),
+  error = function(e) { message("CalExpRqPCR ERROR: ", conditionMessage(e)); NULL }
+)
+if (!is.null(rqpcr)) {
+  rqpcr_t <- rqpcr[["table"]]
+  by_gene_rqpcr <- lapply(split(rqpcr_t, rqpcr_t$gene), function(d) sort(unique(d$Expression)))
+  J(list(ref_gene = "OsUBQ", by_gene = by_gene_rqpcr), "expected_expression_rqpcr.json")
+} else {
+  message("Skipped expected_expression_rqpcr.json (CalExpRqPCR failed)")
+}
+
 cat("OK -> wrote fixtures to", normalizePath(fix_dir), "\n")
 cat("  ttest:", length(stat$ttest),
     " paired:", length(stat$paired),
@@ -138,4 +159,5 @@ cat("  ttest:", length(stat$ttest),
     " anova:", length(stat$anova),
     " standard_curve:", length(sc),
     " expression_dct:", if (!is.null(dct)) length(by_gene) else 0,
-    " expression_ddct:", if (!is.null(ddct)) length(by_gene_ddct) else 0, "\n")
+    " expression_ddct:", if (!is.null(ddct)) length(by_gene_ddct) else 0,
+    " expression_rqpcr:", if (!is.null(rqpcr)) length(by_gene_rqpcr) else 0, "\n")
