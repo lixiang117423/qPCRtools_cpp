@@ -7,6 +7,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:   # 允许 Actions 页面手动触发（首次启用 Actions 后可直接跑一次验证）
 
 env:
   QT_VERSION: '6.5.3'
