@@ -30,14 +30,6 @@ find_package(OpenXLSX QUIET)
 # =============================================================================
 # qpcr_core：核心算法 + 数据处理静态库（app 与 tests 共用，避免重复编译）
 # =============================================================================
-
-# MSVC（Windows CI）：Qt 6.5.x 的 qvarlengtharray.h 用 stdext::checked_array_iterator，
-# 其传递 include 在新版 MSVC STL 上断裂，报 'stdext' identifier not found。
-# 强制每个编译单元先 include <iterator>，把 stdext 引入作用域。仅影响 MSVC。
-if(MSVC)
-    add_compile_options(/FI"iterator")
-endif()
-
 add_library(qpcr_core STATIC
     # Core
     src/Core/StandardCurve.cpp
