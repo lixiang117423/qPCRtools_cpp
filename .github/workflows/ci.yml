@@ -1,0 +1,49 @@
+name: CI (tests)
+
+# 每次提交都验证核心算法与测试，早发现问题。与发版构建 build.yml 分离：
+# 这里只构建 qpcr_core + 测试（依赖 Qt6::Core，不需要 WebEngine/Widgets），更快。
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  QT_VERSION: '6.5.3'
+
+jobs:
+  test:
+    name: Build & run tests (macOS)
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: ${{ env.QT_VERSION }}
+        host: 'mac'
+        target: 'desktop'
+        arch: 'clang_64'
+        cache: true
+
+    - name: Install dependencies
+      # gsl 必装：StatisticalTest.cpp 的无 GSL 分支用了不存在的 std::erfInverse
+      run: brew install eigen gsl ninja
+
+    - name: Configure (BUILD_TESTS=ON)
+      run: |
+        cmake -B build \
+          -DCMAKE_PREFIX_PATH="$Qt6_DIR" \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_TESTS=ON \
+          -GNinja
+
+    - name: Build
+      run: cmake --build build
+
+    - name: Run tests
+      run: ctest --test-dir build --output-on-failure
