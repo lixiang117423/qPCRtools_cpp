@@ -16,6 +16,7 @@
     --bg-color: #f5f7fa;
     --surface-color: #ffffff;
     --border-color: #e1e8ed;
+    --light-color: #f8f9fa;   /* 浅背景：toast-header / dropdown hover / scrollbar-track（此前未定义，相关样式失效）*/
 
     /* 文字颜色 */
     --text-primary: #2c3e50;
@@ -228,14 +229,14 @@ body {
 }
 
 .btn-success {
-    background: linear-gradient(45deg, #5dade2, #3498db) !important;
+    background: linear-gradient(45deg, #2ecc71, #27ae60) !important;
     border: none;
     color: white;
 }
 
 .btn-success:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+    box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
 }
 
 .btn-lg {
@@ -279,7 +280,7 @@ body {
 .form-control:focus,
 .form-select:focus {
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+    box-shadow: 0 0 0 0.2rem rgba(46, 125, 124, 0.15);
 }
 
 /* Jumbotron */
@@ -426,7 +427,7 @@ body {
 }
 
 .btn-group-vertical .btn-outline-primary:hover {
-    background-color: rgba(13, 110, 253, 0.05) !important;
+    background-color: rgba(46, 125, 124, 0.05) !important;
     border-color: var(--primary-color);
     color: var(--primary-color);
 }
