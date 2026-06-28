@@ -8,7 +8,7 @@ int main(int argc, char* argv[])
 
     // 设置应用程序信息
     QApplication::setApplicationName("qPCRtools");
-    QApplication::setApplicationVersion("1.0.0");
+    QApplication::setApplicationVersion("1.1.0");
     QApplication::setOrganizationName("qPCRtools");
 
     // 创建并显示主窗口

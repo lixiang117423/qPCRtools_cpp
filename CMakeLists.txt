@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(qPCRtools VERSION 1.0.0 LANGUAGES CXX)
+project(qPCRtools VERSION 1.1.0 LANGUAGES CXX)
 
 # C++17 标准
 set(CMAKE_CXX_STANDARD 17)
