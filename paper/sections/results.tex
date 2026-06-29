@@ -5,22 +5,26 @@
 \subsection{Typical analysis workflow}
 
 To illustrate a typical analysis, we analyzed the bundled example dataset
-(\texttt{examples/cq.csv} and \texttt{examples/design.csv}) comprising the
+(\texttt{examples/cq.csv} and \texttt{examples/design.csv}), comprising the
 target gene \textit{fos-glo-myc} normalized against the reference gene
-\textit{Beta Actin} across three treatment groups (0, 0.5, 1). Using the
-$\Delta\Delta C_t$ method with a two-sample $t$-test against the control
-group~(0), relative expression rose monotonically to 1.11 at dose~0.5 and
-1.59 at dose~1, both significant at $p < 10^{-3}$ (Figure~\ref{fig:results}).
-Applied to a four-fold dilution series of four genes, the standard-curve
-module recovered slopes between $-2.07$ and $-2.24$ with $R^2 > 0.99$ for
-three of the four primers, illustrating amplification-efficiency estimation.
+\textit{Beta Actin} across three treatment groups (0, 0.5, 1) with three
+biological replicates each. Using the $\Delta\Delta C_t$ method with a
+two-sample $t$-test against the control group~(0), relative expression rose
+monotonically to 1.11 at dose~0.5 and 1.59 at dose~1, both significant at
+$p < 10^{-3}$ (Figure~\ref{fig:results}). Applied to a four-fold dilution
+series of four genes, the standard-curve module recovered slopes between
+$-2.07$ and $-2.24$ with $R^2 > 0.99$ for three of the four primers
+(efficiencies 0.85--0.95), illustrating amplification-efficiency estimation
+that, per MIQE guidance, determines which quantification method is
+appropriate. The complete workflow---import, configuration, analysis, and
+export---is performed through the graphical interface without writing code.
 
 \begin{figure}[h]
 \centering
 \includegraphics[width=\linewidth]{figures/fig2_results.pdf}
-\caption{Analysis output on real data. (A) Standard curves for four genes
+\caption{Analysis output on real data. (A)~Standard curves for four genes
 over a four-fold dilution series, with fitted regressions and $R^2$.
-(B) Relative expression of \textit{fos-glo-myc} across treatment groups
+(B)~Relative expression of \textit{fos-glo-myc} across treatment groups
 ($\Delta\Delta C_t$ method), with significance labels.}
 \label{fig:results}
 \end{figure}
@@ -31,8 +35,11 @@ We validated the C++ implementation against the original R package
 \cite{li2022qpcrtools} by running both on identical inputs for every shared
 method---$\Delta\Delta C_t$ (\texttt{CalExp2ddCt}), the standard curve
 (\texttt{CalCurve}), and the efficiency-based RqPCR method
-(\texttt{CalExpRqPCR})---and comparing the resulting quantities pairwise
-(Table~\ref{tab:equivalence}, Figure~\ref{fig:equivalence}).
+(\texttt{CalExpRqPCR})---and comparing every resulting quantity pairwise
+(Table~\ref{tab:equivalence}, Figure~\ref{fig:equivalence}). Inputs were
+drawn from the repository's example data and from a dilution series used in
+the original R package; both implementations read the same on-disk files, so
+any difference reflects the implementations alone.
 
 \begin{table}[h]
 \centering
@@ -50,17 +57,19 @@ RqPCR               & expression, SE                          & 16 & $2.1 \times
 \end{tabular}
 \end{table}
 
-For the two expression methods ($\Delta\Delta C_t$ and RqPCR), every compared
+For the two expression methods, $\Delta\Delta C_t$ and RqPCR, every compared
 quantity---expression values, standard deviations, and standard
 errors---matched between implementations to within floating-point precision
 (maximum relative difference $< 4 \times 10^{-15}$). For the standard curve,
 slope, intercept, $R^2$, and efficiency agreed to within $2.5 \times 10^{-3}$
 relative difference; the residual is attributable to the R package rounding
-its tabulated output to two to four decimal places, since the underlying $C_q$
-inputs are identical. Plotting every C++ result against its R counterpart,
-all points fall on the line $y = x$ (Figure~\ref{fig:equivalence}). The
-validation is fully reproducible from the open scripts in \texttt{validation/}
-(see Availability).
+its tabulated output to two to four decimal places, since the underlying
+$C_q$ inputs are identical. Plotting every C++ result against its R
+counterpart, all points fall on the line $y = x$
+(Figure~\ref{fig:equivalence}). These results confirm that the C++
+reimplementation preserves the analytical behavior of the R package across
+all shared methods. The validation is fully reproducible from the open
+scripts in \texttt{validation/} (see Availability).
 
 \begin{figure}[h]
 \centering

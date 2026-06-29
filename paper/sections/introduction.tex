@@ -3,34 +3,38 @@
 Quantitative real-time PCR (qPCR) is among the most widely used techniques
 in molecular biology for quantifying nucleic acids and measuring gene
 expression \cite{bustin2009miqe}. A sound qPCR analysis involves several
-interdependent steps: estimating primer amplification efficiency, choosing
-an appropriate quantification strategy, performing statistical testing,
-and producing publication-quality figures \cite{bustin2010miqe}. When the
-amplification efficiencies of target and reference genes are comparable,
-the $2^{-\Delta\Delta C_T}$ method \cite{livak2001analysis} is convenient;
-when they differ, an efficiency-corrected or standard-curve-based approach
-is required instead \cite{pfaffl2001new}. These analytical choices, combined
+interdependent steps: estimating primer amplification efficiency, choosing an
+appropriate quantification strategy, performing statistical testing, and
+producing publication-quality figures \cite{bustin2010miqe}. When the
+amplification efficiencies of target and reference genes are comparable, the
+$2^{-\Delta\Delta C_T}$ method \cite{livak2001analysis} is convenient; when
+they differ, an efficiency-corrected or standard-curve-based approach is
+required instead \cite{pfaffl2001new}. These analytical choices, combined
 with the need for rigorous statistics and clear visualization, make qPCR
 data analysis demanding for many laboratory researchers.
 
 A range of tools address qPCR analysis \cite{pabinger2014survey}, yet each
 carries trade-offs. R packages---including our own \textit{qPCRtools}
-\cite{li2022qpcrtools} and \textit{pcr} \cite{ahmed2018pcr}---implement
-sound algorithms but demand R programming skill and a configured software
-environment. Commercial packages such as QuantStudio and CFX Maestro offer
-graphical interfaces but are costly, closed-source, and platform-restricted.
-Free web-based tools are frequently discontinued and require uploading
-experimental data to remote servers, raising reproducibility and privacy
-concerns. The gap, therefore, is for a tool that combines
-\emph{validated algorithmic equivalence} to a trusted implementation with a
-\emph{native, cross-platform, zero-dependency} delivery.
+\cite{li2022qpcrtools} and \textit{pcr} \cite{ahmed2018pcr}---implement sound
+algorithms but demand R programming skill and a configured software
+environment, which hampers reproducibility across collaborators. Commercial
+packages such as QuantStudio, CFX Maestro, REST, and qbase+ offer graphical
+interfaces but are costly, closed-source, and frequently restricted to a
+single operating system or instrument. Free web-based tools exist but are
+often discontinued and require uploading experimental data to remote
+servers, raising reproducibility and privacy concerns. The gap, therefore,
+is for a tool that combines \emph{validated algorithmic equivalence} to a
+trusted implementation with a \emph{native, cross-platform, zero-dependency}
+delivery, together with statistical options broader than those of the
+original R package.
 
 We introduce \textit{qPCRtools}, a C++/Qt6 desktop application that
 reimplements the analytical core of our R package behind a point-and-click
 interface distributed as a single executable. This Application Note makes
-four contributions: (i) a C++/Qt architecture in which a tested core
-algorithm library is decoupled from a web-based user interface;
-(ii) a validation demonstrating numerical equivalence to the R package
-across all shared quantification methods; (iii) statistical and functional
-extensions beyond the original R version; and (iv) a fully reproducible
-validation package.
+four contributions: (i)~a C++/Qt architecture in which a tested core
+algorithm library is decoupled from a web-based user interface; (ii)~a
+validation demonstrating numerical equivalence to the R package across all
+shared quantification methods; (iii)~statistical and functional extensions
+beyond the original R version, including non-parametric tests, normality
+testing, effect sizes, and reference-gene selection; and (iv)~a fully
+reproducible validation package.
