@@ -12,7 +12,20 @@ as HTML, CSS, and JavaScript while all numerical work stays in compiled
 native code. The analytical core is encapsulated in a standalone static
 library, \texttt{qpcr\_core}, which is independent of the GUI and exercised
 by the unit-test suite; statistical computations use the GNU Scientific
-Library (GSL) for accurate distribution functions.
+Library (GSL) for accurate distribution functions. The resulting interface is
+shown in Figure~\ref{fig:overview}.
+
+\begin{figure}[h]
+\centering
+% TODO(用户): 运行 qPCRtools 截取界面后，将下一行注释替换为:
+% \includegraphics[width=\linewidth]{figures/fig1_overview.pdf}
+\fbox{\parbox{0.9\linewidth}{\centering\vspace{3em}\textit{[Figure 1 placeholder:
+qPCRtools interface overview --- capture from the running application]}\vspace{3em}}}
+\caption{The qPCRtools desktop interface. A single cross-platform window hosts
+the web-based UI for data import, method and statistics configuration, and
+interactive results; no programming or runtime dependencies are required.}
+\label{fig:overview}
+\end{figure}
 
 \subsection{Quantification algorithms}
 
