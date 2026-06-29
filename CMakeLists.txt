@@ -125,6 +125,17 @@ install(DIRECTORY examples/
     FILES_MATCHING PATTERN "*.csv"
 )
 
+# =============================================================================
+# 等价性验证 driver（可选，默认关闭）
+# 用于与 R 版 qPCRtools 做结果一致性验证，仅链接 qpcr_core（Qt6::Core）。
+# 构建：cmake -B build-val -DQPCRTOOLS_BUILD_VALIDATION=ON .
+# =============================================================================
+option(QPCRTOOLS_BUILD_VALIDATION "Build equivalence-validation driver (run_cpp)" OFF)
+if(QPCRTOOLS_BUILD_VALIDATION)
+    add_executable(run_cpp validation/run_cpp.cpp)
+    target_link_libraries(run_cpp PRIVATE qpcr_core)
+endif()
+
 # 打包配置
 #include(cpack/CPackConfig.cmake)
 
