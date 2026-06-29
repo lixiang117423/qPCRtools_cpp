@@ -62,10 +62,23 @@ int main(int argc, char** argv) {
     }
 
     // ---- 方法 2: RqPCR（对应 R CalExpRqPCR）----
-    // TODO(数据流): ExpressionCalculator::calculateByStandardCurve 需要 curveTable；
-    //   rqpcr_design.csv 含 Eff 列，待确认 curveTable 的构造方式后启用。
-    // DataFrame rqCq     = DataFrame::fromCSV("examples/rqpcr_cq.csv");
-    // DataFrame rqDesign = DataFrame::fromCSV("examples/rqpcr_design.csv");
+    // calculateByStandardCurve 实际只用 cqTable + designTable(含 Eff)；curveTable 未使用。
+    // 参考基因 OsUBQ+OsRBBI2 与 R(CalExpRqPCR, ref_gene=NULL) 的自动选择一致
+    // (R 输出中 OsUBQ/OsRBBI2 未作为目标基因出现)。
+    {
+        DataFrame rqCq     = DataFrame::fromCSV("examples/rqpcr_cq.csv");
+        DataFrame rqDesign = DataFrame::fromCSV("examples/rqpcr_design.csv");
+
+        StandardCurveParams p;
+        p.cqTable       = rqCq;
+        p.designTable   = rqDesign;
+        p.curveTable    = DataFrame();
+        p.referenceGene = "OsUBQ,OsRBBI2";
+        p.controlGroup  = "CK";
+
+        ExpressionResult res = ExpressionCalculator::calculateByStandardCurve(p, "t.test");
+        writeExpressionResult("rqpcr", res);
+    }
 
     // ---- 方法 3: 标准曲线 CalCurve（对应 R CalCurve）----
     // 数据：web/calsc.cq.txt (Position,Cq) + web/calsc.info.txt (Position,Gene,Conc)

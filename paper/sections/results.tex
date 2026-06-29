@@ -1,8 +1,6 @@
 \section{Results}
 
-% 纪律：本节所有数值必须来自 validation/results/ 的真实输出，禁止手敲。
-% 4.1 的数值取自 cpp_deltadeltaCt.csv 与 cpp_standardcurve.csv（C++ 真实结果）。
-% 4.2 的等价表待 run_R.R 产出 R_*.csv 后用 comparison.csv 填写。
+% 纪律：本节所有数值均来自 validation/results/ 的真实输出（R 与 C++ 实跑）。
 
 \subsection{Typical analysis workflow}
 
@@ -12,10 +10,20 @@ target gene \textit{fos-glo-myc} normalized against the reference gene
 \textit{Beta Actin} across three treatment groups (0, 0.5, 1). Using the
 $\Delta\Delta C_t$ method with a two-sample $t$-test against the control
 group~(0), relative expression rose monotonically to 1.11 at dose~0.5 and
-1.59 at dose~1, both significant at $p < 10^{-3}$ (Figure~2). Applied to a
-four-fold dilution series of four genes, the standard-curve module recovered
-slopes between $-2.07$ and $-2.24$ with $R^2 > 0.99$ for three of the four
-primers, illustrating amplification-efficiency estimation.
+1.59 at dose~1, both significant at $p < 10^{-3}$ (Figure~\ref{fig:results}).
+Applied to a four-fold dilution series of four genes, the standard-curve
+module recovered slopes between $-2.07$ and $-2.24$ with $R^2 > 0.99$ for
+three of the four primers, illustrating amplification-efficiency estimation.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\linewidth]{figures/fig2_results.pdf}
+\caption{Analysis output on real data. (A) Standard curves for four genes
+over a four-fold dilution series, with fitted regressions and $R^2$.
+(B) Relative expression of \textit{fos-glo-myc} across treatment groups
+($\Delta\Delta C_t$ method), with significance labels.}
+\label{fig:results}
+\end{figure}
 
 \subsection{Equivalence to the R package}
 
@@ -23,30 +31,43 @@ We validated the C++ implementation against the original R package
 \cite{li2022qpcrtools} by running both on identical inputs for every shared
 method---$\Delta\Delta C_t$ (\texttt{CalExp2ddCt}), the standard curve
 (\texttt{CalCurve}), and the efficiency-based RqPCR method
-(\texttt{CalExpRqPCR}). For each, we compared expression values, test
-statistics and $p$-values, and, for the standard curve, slope, $R^2$, and
-efficiency.
+(\texttt{CalExpRqPCR})---and comparing the resulting quantities pairwise
+(Table~\ref{tab:equivalence}, Figure~\ref{fig:equivalence}).
 
-% TODO(数据依赖): run_R.R 产出 R_*.csv 后，用 validation/results/comparison.csv
-% 的真实逐项相对差填写下表数值与正文结论，并确认 Figure 3 已生成。
 \begin{table}[h]
 \centering
-\caption{Equivalence of C++ and R results across shared methods. Values to
-be populated from \texttt{validation/results/comparison.csv}.}
+\caption{Equivalence of C++ and R results across all shared methods on
+identical inputs. Relative difference is $|R - \mathrm{C{+}{+}}|/|R|$.}
 \label{tab:equivalence}
-\begin{tabular}{lll}
+\begin{tabular}{llcc}
 \toprule
-Method & Compared quantities & Max.\ rel.\ diff.\ (C++ vs R) \\
+Method & Compared quantities & Pairs & Max.\ rel.\ diff.\ \\
 \midrule
-$\Delta\Delta C_t$ & expression, $t$, $p$ & [from comparison.csv] \\
-Standard curve & slope, $R^2$, efficiency & [from comparison.csv] \\
-RqPCR & expression, $p$ & [from comparison.csv] \\
+$\Delta\Delta C_t$  & expression, SD                          & 6  & $3.8 \times 10^{-15}$ \\
+Standard curve      & slope, intercept, $R^2$, efficiency     & 16 & $2.5 \times 10^{-3}$  \\
+RqPCR               & expression, SE                          & 16 & $2.1 \times 10^{-15}$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Across all shared methods the two implementations agreed to within
-floating-point precision (maximum relative difference $< 10^{-6}$); every
-C++ result plotted against its R counterpart falls on the line $y = x$
-(Figure~3). The validation is fully reproducible from the open scripts in
-\texttt{validation/} (see Availability).
+For the two expression methods ($\Delta\Delta C_t$ and RqPCR), every compared
+quantity---expression values, standard deviations, and standard
+errors---matched between implementations to within floating-point precision
+(maximum relative difference $< 4 \times 10^{-15}$). For the standard curve,
+slope, intercept, $R^2$, and efficiency agreed to within $2.5 \times 10^{-3}$
+relative difference; the residual is attributable to the R package rounding
+its tabulated output to two to four decimal places, since the underlying $C_q$
+inputs are identical. Plotting every C++ result against its R counterpart,
+all points fall on the line $y = x$ (Figure~\ref{fig:equivalence}). The
+validation is fully reproducible from the open scripts in \texttt{validation/}
+(see Availability).
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.7\linewidth]{figures/fig3_equivalence.pdf}
+\caption{Numerical equivalence of the C++ implementation and the R package.
+Each C++ result is plotted against the corresponding R result across all
+shared methods ($\Delta\Delta C_t$, standard curve, RqPCR); all points fall
+on the $y = x$ line.}
+\label{fig:equivalence}
+\end{figure}
