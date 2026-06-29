@@ -1,0 +1,36 @@
+% qPCRtools — Bioinformatics (Oxford) Application Note
+%
+% NOTE: 投稿前将 \documentclass 替换为 Bioinformatics 官方 Application Note
+%       模板 (cls)，并按官方要求调整 bst 与排版参数。当前用 article 骨架，
+%       便于在 Overleaf 上编辑预览。
+\documentclass[11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{amsmath}
+
+\title{qPCRtools: a cross-platform C++ desktop application for qPCR data
+analysis with validated equivalence to its R implementation}
+
+\author{Xiang Li\\
+State Key Laboratory for Conservation and Utilization of Bio-Resources in Yunnan,\\
+Yunnan Agricultural University, Kunming, China\\
+\texttt{lixiang117423@gmail.com}}
+
+\date{}  % Application Note 通常不显示日期
+
+\begin{document}
+\maketitle
+
+\input{sections/abstract}
+\input{sections/introduction}
+\input{sections/implementation}
+\input{sections/results}
+\input{sections/availability}
+
+\bibliographystyle{plain}  % 投稿前换 Bioinformatics 官方 bst
+\bibliography{refs}
+
+\end{document}
