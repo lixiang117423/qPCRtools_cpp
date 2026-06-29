@@ -1,5 +1,26 @@
-% Abstract — Task 7 填写
-% ~200 词，单段，无引用。四拍：问题 → 方案 → 实现要点+范围 → 验证结论 → 可用性
 \begin{abstract}
-Abstract placeholder (to be written in Task 7).
+Quantitative real-time PCR (qPCR) is a cornerstone technique for measuring
+gene expression, yet rigorous analysis---primer-amplification-efficiency
+estimation, choice of quantification method, statistical testing, and
+publication-quality visualization---remains non-trivial. Existing tools
+either require programming, notably in R (including our own
+\textit{qPCRtools} package), or are commercial software that is costly,
+closed-source, and platform-restricted, or are web services that are often
+discontinued and raise data-privacy concerns. Here we present
+\textit{qPCRtools}, a cross-platform desktop application written in C++
+with Qt6 that delivers a complete qPCR analysis pipeline through a
+graphical interface and ships as a single executable with no runtime
+dependencies. The application implements standard-curve construction and
+amplification-efficiency estimation, the $\Delta C_t$ and
+$\Delta\Delta C_t$ methods, and an efficiency-based (RqPCR) method, together
+with extended statistical testing (independent, paired, and Welch
+$t$-tests, Wilcoxon tests, one-way ANOVA with Tukey's HSD, Shapiro--Wilk
+normality testing, and Cohen's $d$) and interactive, publication-quality
+visualization; the standard-curve slope--intercept quantification and
+reverse-transcription volume calculation of the R version are not yet
+ported. We validated the C++ implementation against the original R package
+on multiple real datasets: across all shared methods the results agree to
+numerical precision, and the validation is fully reproducible from open
+scripts. \textit{qPCRtools} is freely available under the MIT license for
+Windows and macOS, with source code compilable on Linux.
 \end{abstract}

@@ -1,3 +1,50 @@
-% Implementation — Task 9 填写
 \section{Implementation}
-Placeholder (to be written in Task 9).
+
+\subsection{Architecture}
+
+\textit{qPCRtools} is written in C++17 and built on Qt6 \cite{qt}, which
+provides cross-platform abstractions and the graphical application shell.
+The user interface is rendered with web technologies---Bootstrap~5.3 for
+layout and Apache ECharts \cite{echarts} for interactive charts---hosted
+inside a \texttt{QWebEngineView}, and communicates with the native backend
+through Qt WebChannel. This separation lets the interface iterate rapidly
+as HTML, CSS, and JavaScript while all numerical work stays in compiled
+native code. The analytical core is encapsulated in a standalone static
+library, \texttt{qpcr\_core}, which is independent of the GUI and exercised
+by the unit-test suite; statistical computations use the GNU Scientific
+Library (GSL) for accurate distribution functions.
+
+\subsection{Quantification algorithms}
+
+The core re-implements the analytical methods of the R package. Amplification
+efficiency is obtained from a dilution series by linear regression of $C_q$
+on $\log_{10}(\text{concentration})$, yielding slope, intercept, $R^2$, and a
+regression $p$-value, with efficiency
+$E = \text{dilution}^{-1/\text{slope}} - 1$. Relative expression is computed
+by the $\Delta C_t$ and $\Delta\Delta C_t$ methods \cite{livak2001analysis}
+and by an efficiency-based (RqPCR) method in which per-sample quantities are
+$E^{\,C_{q,\min} - C_q}$ and are normalized by the geometric mean of
+reference genes \cite{pfaffl2001new,rancurel2019satqpcr}.
+
+\subsection{Statistical and functional extensions}
+
+Beyond the original R version, the desktop application offers independent,
+paired, and Welch $t$-tests, Wilcoxon rank-sum and signed-rank tests,
+one-way ANOVA with Tukey's HSD post-hoc letter grouping, Shapiro--Wilk
+normality testing, Cohen's $d$ effect sizes, and IQR-based outlier removal,
+and can select reference genes by the geNorm algorithm
+\cite{vandesompele2002accurate}. Visualization follows a ggplot2-inspired
+aesthetic \cite{wickham2016ggplot2} and supports multiple color palettes and
+significance annotations. The interface is bilingual (Chinese/English) and
+accepts both CSV and Excel input.
+
+\subsection{Scope and distribution}
+
+Two functions of the R package are not yet ported: the standard-curve
+slope--intercept quantification (\texttt{CalExpCurve}) and the
+reverse-transcription reagent volume calculation (\texttt{CalRTable}); both
+are planned for a future release. The application is distributed as a
+single, self-contained executable for Windows and macOS---requiring no
+installation of R, Python, or any runtime---and the source, managed with
+CMake, compiles on Linux. \textit{qPCRtools} is released under the MIT
+license.
