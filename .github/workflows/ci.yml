@@ -13,7 +13,8 @@ env:
   # 6.5.3 在 macos-latest (arm64) 上不含 WebEngine 模块，configure 直接失败；
   # 与 build.yml 对齐用 6.7.3 + 显式安装 WebEngine/WebChannel。
   QT_VERSION: '6.7.3'
-  QT_MODULES: 'qtwebengine qtwebchannel'
+  # qtpositioning 是 WebEngine 的硬依赖（缺少时 Qt6WebEngineCore 配置失败）
+  QT_MODULES: 'qtwebengine qtwebchannel qtpositioning'
 
 jobs:
   test:
