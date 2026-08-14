@@ -218,7 +218,7 @@ async function loadScCqExampleData() {
             const position = row.Position;
             let gene = '';
             // Determine gene based on position number (1-3 for Gene1, 4-6 for Gene2, etc.)
-            const posNum = position.match(/\d+/)[0];
+            const posNum = parseInt(position.match(/\d+/)[0], 10);  // 字符串需转数值比较
             if (posNum >= 1 && posNum <= 3) gene = 'Gene1';
             else if (posNum >= 4 && posNum <= 6) gene = 'Gene2';
             else if (posNum >= 7 && posNum <= 9) gene = 'Gene3';
@@ -418,38 +418,37 @@ function displayStandardCurveResults(results) {
  * Export Standard Curve results
  */
 function exportStandardCurveResults(format) {
-    if (!scResults || !scResults.table) {
-        showNotification('No results to export', 'warning');
+    if (!scResults || !scResults.table || scResults.table.length === 0) {
+        showNotification(i18n.t('msg.noData'), 'warning');
         return;
     }
 
-    const data = scResults.table;
-    let content, filename, type;
+    const headers = ['Gene', 'Formula', 'Slope', 'Intercept', 'R2', 'PValue', 'Efficiency', 'MinCq', 'MaxCq'];
 
-    if (format === 'csv') {
-        const headers = ['Gene', 'Formula', 'Slope', 'Intercept', 'R2', 'PValue', 'Efficiency', 'MinCq', 'MaxCq'];
-        content = headers.join(',') + '\n';
-        data.forEach(row => {
-            const values = headers.map(h => row[h]);
+    if (bridge) {
+        // 桌面端走 C++ 导出（Excel 输出真正的 xlsx 语义：带 BOM 的 CSV 内容；
+        // 旧实现把 CSV 内容下载成 .xlsx 文件，Excel 无法打开）
+        const payload = { table: scResults.table };
+        bridge.showSaveDialog(i18n.t('btn.export'), format === 'csv' ? '*.csv' : '*.xlsx', 'standard_curve_results').then(filePath => {
+            if (filePath) {
+                if (format === 'csv') {
+                    bridge.exportToCSV(JSON.stringify(payload), filePath);
+                } else {
+                    bridge.exportToExcel(JSON.stringify(payload), filePath);
+                }
+                showNotification(i18n.t('msg.analysisCompleted'), 'success');
+            }
+        });
+    } else {
+        // 浏览器 demo 模式：CSV 下载（不再伪造 .xlsx 扩展名）
+        let content = headers.join(',') + '\n';
+        scResults.table.forEach(row => {
+            const values = headers.map(h => (row[h] === null || row[h] === undefined) ? '' : row[h]);
             content += values.join(',') + '\n';
         });
-        filename = 'standard_curve_results.csv';
-        type = 'text/csv';
-    } else if (format === 'excel') {
-        // For now, export as CSV with .xlsx extension
-        // In a real implementation, you would use a library like SheetJS
-        const headers = ['Gene', 'Formula', 'Slope', 'Intercept', 'R2', 'PValue', 'Efficiency', 'MinCq', 'MaxCq'];
-        content = headers.join(',') + '\n';
-        data.forEach(row => {
-            const values = headers.map(h => row[h]);
-            content += values.join(',') + '\n';
-        });
-        filename = 'standard_curve_results.xlsx';
-        type = 'text/csv';
+        downloadFile(content, 'standard_curve_results.csv', 'text/csv');
+        showNotification(i18n.t('msg.analysisCompleted'), 'success');
     }
-
-    downloadFile(content, filename, type);
-    showNotification('Results exported successfully', 'success');
 }
 
 /**

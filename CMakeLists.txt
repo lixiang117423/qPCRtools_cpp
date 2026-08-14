@@ -95,6 +95,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::PrintSupport
 )
 
+# 让 WebBridge::getAppVersion() 使用与 project() 一致的版本号
+target_compile_definitions(${PROJECT_NAME} PRIVATE QPCRTOOLS_VERSION="${PROJECT_VERSION}")
+
 # 国际化支持
 set(TS_FILES
     translations/qpcr_tools_zh_CN.ts

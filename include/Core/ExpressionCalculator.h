@@ -200,9 +200,8 @@ public:
         double alpha = 0.05
     );
 
-private:
     /**
-     * @brief 执行 ANOVA + Tukey HSD
+     * @brief 执行 ANOVA + Tukey HSD（公开以便测试与第三方调用）
      */
     static QVector<StatisticalResult> performANOVA(
         const DataFrame& data,
@@ -210,6 +209,8 @@ private:
         const QString& groupCol,
         const QString& valueCol
     );
+
+private:
 
     /**
      * @brief 合并两个DataFrame（通过Position列）

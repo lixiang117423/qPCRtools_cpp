@@ -84,6 +84,7 @@ const translations = {
         // Parameters
         'param.referenceGene': '参考基因',
         'param.controlGroup': '对照组',
+        'param.selectControlGroup': '-- 选择对照组 --',
         'param.lowestConcen': '最低浓度',
         'param.highestConcen': '最高浓度',
         'param.dilution': '稀释倍数',
@@ -217,6 +218,7 @@ const translations = {
         // Parameters
         'param.referenceGene': 'Reference Gene',
         'param.controlGroup': 'Control Group',
+        'param.selectControlGroup': '-- Select Control Group --',
         'param.lowestConcen': 'Lowest Concentration',
         'param.highestConcen': 'Highest Concentration',
         'param.dilution': 'Dilution Factor',

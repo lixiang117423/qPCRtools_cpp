@@ -10,7 +10,10 @@ on:
   workflow_dispatch:   # 允许 Actions 页面手动触发（首次启用 Actions 后可直接跑一次验证）
 
 env:
-  QT_VERSION: '6.5.3'
+  # 6.5.3 在 macos-latest (arm64) 上不含 WebEngine 模块，configure 直接失败；
+  # 与 build.yml 对齐用 6.7.3 + 显式安装 WebEngine/WebChannel。
+  QT_VERSION: '6.7.3'
+  QT_MODULES: 'qtwebengine qtwebchannel'
 
 jobs:
   test:
@@ -30,9 +33,10 @@ jobs:
         target: 'desktop'
         arch: 'clang_64'
         cache: true
+        modules: ${{ env.QT_MODULES }}
 
     - name: Install dependencies
-      # gsl 必装：StatisticalTest.cpp 的无 GSL 分支用了不存在的 std::erfInverse
+      # gsl 提供精确 t/F 分布（无 GSL 时回退到内置不完全 Beta，结果一致）
       run: brew install eigen gsl ninja
 
     - name: Configure (BUILD_TESTS=ON)

@@ -30,8 +30,8 @@ static QString makeErrorResult(const QString &message)
 
 static QString dataframeToCompactJson(const DataFrame &df)
 {
-    QVariantMap result;
-
+    // 直接构建 JSON（旧实现先把 data/columns 编码成字符串再解析回来，
+    // 且在此过程中丢掉了 rowCount/columnCount）。
     QStringList columnNames = df.columns();
     QJsonArray rows;
     for (int i = 0; i < df.rowCount(); ++i) {
@@ -49,16 +49,13 @@ static QString dataframeToCompactJson(const DataFrame &df)
         rows.append(row);
     }
 
-    result["columns"] = QJsonDocument(QJsonArray::fromStringList(columnNames)).toJson(QJsonDocument::Compact);
-    result["data"] = QJsonDocument(rows).toJson(QJsonDocument::Compact);
-    result["rowCount"] = df.rowCount();
-    result["columnCount"] = columnNames.size();
+    QJsonObject out;
+    out["data"] = rows;
+    out["columns"] = QJsonArray::fromStringList(columnNames);
+    out["rowCount"] = df.rowCount();
+    out["columnCount"] = columnNames.size();
 
-    QJsonObject completeResult;
-    completeResult["data"] = QJsonDocument::fromJson(result["data"].toString().toUtf8()).array();
-    completeResult["columns"] = QJsonDocument::fromJson(result["columns"].toString().toUtf8()).array();
-
-    return QJsonDocument(completeResult).toJson(QJsonDocument::Compact);
+    return QJsonDocument(out).toJson(QJsonDocument::Compact);
 }
 
 //=============================================================================
@@ -167,15 +164,17 @@ bool WebBridge::setTableData(DataType type, const QString &jsonData)
         for (const QJsonValue &rowValue : rows) {
             QJsonObject rowObj = rowValue.toObject();
             for (const QString &col : columns) {
-                if (rowObj.contains(col)) {
-                    QJsonValue val = rowObj[col];
-                    if (val.isDouble()) {
-                        columnData[col].append(val.toDouble());
-                    } else {
-                        columnData[col].append(val.toString());
-                    }
-                } else {
+                if (!rowObj.contains(col)) {
                     columnData[col].append(QVariant());
+                    continue;
+                }
+                QJsonValue val = rowObj[col];
+                if (val.isDouble()) {
+                    columnData[col].append(val.toDouble());
+                } else if (val.isNull() || val.isUndefined()) {
+                    columnData[col].append(QVariant());  // JSON null 保持无效值，而不是空字符串
+                } else {
+                    columnData[col].append(val.toString());
                 }
             }
         }
@@ -435,6 +434,13 @@ QString WebBridge::calculateByDeltaCt(const QString &params, const QString &stat
         dcParams.referenceGene = obj["referenceGene"].toString().trimmed();
         dcParams.controlGroup = obj["controlGroup"].toString().trimmed();
 
+        // 与其他计算方法一致的参数校验（旧实现缺失；空参考基因会产生空结果而非明确报错）
+        if (dcParams.referenceGene.isEmpty()) {
+            emit errorOccurred(tr("Reference gene is required"));
+            emit calculationCompleted(false, tr("Reference gene is required"));
+            return "{}";
+        }
+
         qDebug() << "=== ΔCt calculation ===" << "Ref:" << dcParams.referenceGene
                  << "Ctrl:" << dcParams.controlGroup << "Stat:" << statMethod;
 
@@ -593,6 +599,26 @@ QString WebBridge::calculateByStandardCurve(const QString &params, const QString
 // Export methods
 //=============================================================================
 
+namespace {
+
+// 数值导出用一般格式：固定 4 位小数会把很小的 p 值（如 1e-6）导出成 0.0000。
+QString csvNumber(double v)
+{
+    return QString::number(v, 'g', 10);
+}
+
+QString csvField(const QString& s)
+{
+    if (s.contains(',') || s.contains('"') || s.contains('\n') || s.contains('\r')) {
+        QString escaped = s;
+        escaped.replace("\"", "\"\"");
+        return '"' + escaped + '"';
+    }
+    return s;
+}
+
+} // namespace
+
 bool WebBridge::writeTableToCSV(const QJsonArray &table, const QString &filePath, bool writeBOM)
 {
     if (table.isEmpty()) {
@@ -612,24 +638,22 @@ bool WebBridge::writeTableToCSV(const QJsonArray &table, const QString &filePath
     if (writeBOM) out << "\xEF\xBB\xBF";
 
     QJsonObject firstRow = table[0].toObject();
-    QStringList headers = firstRow.keys();
+    const QStringList rawHeaders = firstRow.keys();
+    QStringList headers = rawHeaders;
+    for (QString& h : headers) h = csvField(h);
     out << headers.join(",") << "\n";
 
     for (const QJsonValue &rowValue : table) {
         QJsonObject rowObj = rowValue.toObject();
         QStringList values;
-        for (const QString &header : headers) {
+        for (const QString &header : rawHeaders) {
             QJsonValue val = rowObj[header];
             if (val.isDouble()) {
-                values.append(QString::number(val.toDouble(), 'f', 4));
-            } else if (val.isNull()) {
+                values.append(csvNumber(val.toDouble()));
+            } else if (val.isNull() || val.isUndefined()) {
                 values.append("");
             } else {
-                QString strVal = val.toString();
-                if (strVal.contains(",") || strVal.contains("\"") || strVal.contains("\n")) {
-                    strVal = "\"" + strVal.replace("\"", "\"\"") + "\"";
-                }
-                values.append(strVal);
+                values.append(csvField(val.toString()));
             }
         }
         out << values.join(",") << "\n";
@@ -692,7 +716,12 @@ QString WebBridge::getSupportedFileTypes()
 
 QString WebBridge::getAppVersion()
 {
-    return "1.0.0";
+    // 与 CMake project() 版本保持一致（旧实现硬编码 1.0.0，与 CMakeLists 的 1.1.0 不符）
+#ifdef QPCRTOOLS_VERSION
+    return QLatin1String(QPCRTOOLS_VERSION);
+#else
+    return QLatin1String("1.0.0");
+#endif
 }
 
 void WebBridge::setLanguage(const QString &language)
@@ -726,42 +755,6 @@ void WebBridge::showMessage(const QString &title, const QString &message)
 //=============================================================================
 // JSON conversion helpers
 //=============================================================================
-
-QVariantMap WebBridge::dataframeToVariantMap(const DataFrame &df)
-{
-    QVariantMap result;
-
-    QStringList columnNames = df.columns();
-
-    QJsonArray rows;
-    for (int i = 0; i < df.rowCount(); ++i) {
-        QJsonObject row;
-        for (const QString &name : columnNames) {
-            QVariant value = df.get(i, name);
-            if (value.typeId() == QMetaType::Double) {
-                row[name] = value.toDouble();
-            } else if (value.isNull() || !value.isValid()) {
-                row[name] = QJsonValue();
-            } else {
-                row[name] = value.toString();
-            }
-        }
-        rows.append(row);
-    }
-
-    result["columns"] = QJsonDocument(QJsonArray::fromStringList(columnNames)).toJson(QJsonDocument::Compact);
-    result["data"] = QJsonDocument(rows).toJson(QJsonDocument::Compact);
-    result["rowCount"] = df.rowCount();
-    result["columnCount"] = columnNames.size();
-
-    return result;
-}
-
-DataFrame WebBridge::variantMapToDataframe(const QVariantMap &map)
-{
-    // TODO: Implement conversion from QVariantMap to DataFrame
-    return DataFrame();
-}
 
 QString WebBridge::jsonFromResult(const StandardCurveResult &result)
 {

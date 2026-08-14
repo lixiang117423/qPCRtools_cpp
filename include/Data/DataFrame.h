@@ -4,6 +4,7 @@
 #include <QVector>
 #include <QString>
 #include <QVariant>
+#include <QMetaType>
 #include <QHash>
 #include <QSharedPointer>
 #include <functional>
@@ -51,8 +52,8 @@ public:
     QStringList columns() const;
     QSet<QString> columnSet() const;
 
-    // 数据类型
-    QVariant::Type columnType(const QString& columnName) const;
+    // 数据类型（QVariant::Type 已在 Qt6 弃用，改用 QMetaType::Type）
+    QMetaType::Type columnType(const QString& columnName) const;
 
     // 列操作
     bool hasColumn(const QString& columnName) const;
@@ -79,7 +80,6 @@ public:
 
     // 数据操作
     DataFrame filter(const std::function<bool(const Row&)>& predicate) const;
-    DataFrame groupBy(const QString& column) const;
     DataFrame join(const DataFrame& other, const QString& keyColumn) const;
     DataFrame orderBy(const QString& column, bool ascending = true) const;
 

@@ -76,6 +76,21 @@ DataFrame DataFrame::fromVariantMap(const QVariantMap& data) {
     return df;
 }
 
+namespace {
+
+// RFC 4180 风格字段转义：含逗号/引号/换行的字段用双引号包裹，内部引号翻倍。
+QString csvEscapeField(const QString& field)
+{
+    if (field.contains(',') || field.contains('"') || field.contains('\n') || field.contains('\r')) {
+        QString escaped = field;
+        escaped.replace("\"", "\"\"");
+        return '"' + escaped + '"';
+    }
+    return field;
+}
+
+} // namespace
+
 bool DataFrame::saveCSV(const QString& path) const {
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
@@ -85,21 +100,16 @@ bool DataFrame::saveCSV(const QString& path) const {
     QTextStream out(&file);
     out.setEncoding(QStringConverter::Utf8);
 
-    // Write header
-    out << m_columnNames.join(",") << "\n";
+    // Write header（表头同样转义；旧实现既不转义引号也不转义换行）
+    QStringList headerValues;
+    for (const QString& col : m_columnNames) headerValues.append(csvEscapeField(col));
+    out << headerValues.join(",") << "\n";
 
     // Write data
     for (int i = 0; i < m_rowCount; ++i) {
         QStringList values;
         for (const QString& col : m_columnNames) {
-            QVariant val = m_data[col][i];
-            QString str = val.toString();
-
-            // Escape quotes and wrap in quotes if contains comma
-            if (str.contains(",")) {
-                str = "\"" + str.replace("\"", "\"\"") + "\"";
-            }
-            values.append(str);
+            values.append(csvEscapeField(m_data[col][i].toString()));
         }
         out << values.join(",") << "\n";
     }
@@ -136,11 +146,11 @@ QSet<QString> DataFrame::columnSet() const {
     return QSet<QString>(m_columnNames.begin(), m_columnNames.end());
 }
 
-QVariant::Type DataFrame::columnType(const QString& columnName) const {
+QMetaType::Type DataFrame::columnType(const QString& columnName) const {
     if (!hasColumn(columnName) || m_data[columnName].isEmpty()) {
-        return QVariant::Invalid;
+        return QMetaType::UnknownType;
     }
-    return m_data[columnName].first().type();
+    return static_cast<QMetaType::Type>(m_data[columnName].first().typeId());
 }
 
 bool DataFrame::hasColumn(const QString& columnName) const {
@@ -306,36 +316,14 @@ DataFrame DataFrame::filter(const std::function<bool(const Row&)>& predicate) co
     return result;
 }
 
-DataFrame DataFrame::groupBy(const QString& column) const {
-    DataFrame result;
-
-    if (!hasColumn(column)) {
-        return result;
-    }
-
-    auto groups = uniqueValues<QString>(column);
-
-    for (const auto& group : groups) {
-        // Create a filtered dataframe for this group
-        auto groupDf = filter([column, group](const Row& row) {
-            return row.value(column).toString() == group;
-        });
-
-        // Add to result
-        for (const QString& col : m_columnNames) {
-            QString colName = col + "_" + group;
-            // ... implement grouping logic
-        }
-    }
-
-    return result;
-}
-
 DataFrame DataFrame::join(const DataFrame& other, const QString& keyColumn) const {
     DataFrame result;
 
-    // Get all unique column names
-    QSet<QString> allCols = columnSet() + other.columnSet();
+    // 列序确定：先本表的列，再补 other 的新列（旧实现用 QSet，列序不稳定）
+    QStringList finalCols = columns();
+    for (const QString& col : other.columns()) {
+        if (!finalCols.contains(col)) finalCols.append(col);
+    }
 
     // Build index for the other dataframe
     QHash<QString, int> otherIndex;
@@ -346,26 +334,25 @@ DataFrame DataFrame::join(const DataFrame& other, const QString& keyColumn) cons
         }
     }
 
+    for (const QString& col : finalCols) {
+        result.addColumn(col, QVector<QVariant>());
+    }
+
     // Join
     for (int i = 0; i < m_rowCount; ++i) {
         QString key = get(i, keyColumn).toString();
 
-        for (const QString& col : allCols) {
-            QVariant value;
+        for (const QString& col : finalCols) {
             if (hasColumn(col)) {
-                value = get(i, col);
+                result.m_data[col].append(get(i, col));
             } else if (other.hasColumn(col) && otherIndex.contains(key)) {
-                value = other.get(otherIndex[key], col);
+                result.m_data[col].append(other.get(otherIndex[key], col));
+            } else {
+                result.m_data[col].append(QVariant());
             }
-
-            if (!result.hasColumn(col)) {
-                result.addColumn(col, QVector<QVariant>());
-            }
-            result.m_data[col].append(value);
         }
     }
 
-    result.m_columnNames = allCols.values().toVector();
     result.m_rowCount = m_rowCount;
 
     return result;

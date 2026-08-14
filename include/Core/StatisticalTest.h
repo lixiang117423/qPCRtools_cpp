@@ -30,6 +30,11 @@ struct TestResult {
     // 额外信息
     int degreesOfFreedom;     // 自由度
     QString effectSize;       // 效应量描述
+
+    // 两两比较的两个组名（Tukey HSD 等事后检验使用；
+    // 供 generateLetterGroups 直接引用，避免解析 testName 字符串）
+    QString group1Name;
+    QString group2Name;
 };
 
 /**
@@ -172,6 +177,8 @@ public:
     /**
      * @brief 计算 Shapiro-Wilk 正态性检验
      *
+     * @warning 尚未实现（旧实现返回伪造的 p=0.05）；当前返回 pValue=NaN，
+     *          调用方需显式处理未实现的情况。
      * @param data 数据向量
      * @return 检验结果
      */
@@ -187,21 +194,6 @@ private:
      * @brief 计算方差
      */
     static double variance(const QVector<double>& data);
-
-    /**
-     * @brief 计算 t分布的累积概率
-     */
-    static double tCDF(double t, int df);
-
-    /**
-     * @brief 计算 t分布的分位数
-     */
-    static double tQuantile(double p, int df);
-
-    /**
-     * @brief 计算 F分布的累积概率
-     */
-    static double fCDF(double f, int df1, int df2);
 };
 
 } // namespace qpcr

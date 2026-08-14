@@ -59,13 +59,14 @@ ExpressionResult ExpressionCalculator::calculateByDeltaCt(
     QVector<QVariant> rawGenes, rawGroups, rawBioReps, rawExpressions, rawMeans, rawSDs;
 
     for (const QString& group : sortedGroups) {
+        // 每个 group 只过滤一次（旧实现在 gene 循环里重复过滤整个表）
+        DataFrame groupData = merged.filter([group](const Row& row) {
+            return row.value("Group").toString() == group;
+        });
+        QList<QString> bioReps = sortedUnique(groupData.getStringColumn("BioRep"));
+
         for (const QString& gene : sortedGenes) {
             QVector<double> expressions;
-
-            DataFrame groupData = merged.filter([group](const Row& row) {
-                return row.value("Group").toString() == group;
-            });
-            QList<QString> bioReps = sortedUnique(groupData.getStringColumn("BioRep"));
 
             for (const QString& bioRep : bioReps) {
                 QString refKey = group + "_" + bioRep;
@@ -92,19 +93,20 @@ ExpressionResult ExpressionCalculator::calculateByDeltaCt(
             if (expressions.isEmpty()) continue;
 
             allData[group][gene] = expressions;
-            double mean = computeMean(expressions);
-            double sd = computeStdDev(expressions);
+            const double mean = computeMean(expressions);
+            const double sd = computeStdDev(expressions);
 
             finalGroups.append(group);
             finalGenes.append(gene);
             finalMeans.append(mean);
             finalStdDevs.append(sd);
 
-            for (int i = 0; i < rawGenes.size(); ++i) {
-                if (rawGenes[i].toString() == gene && rawGroups[i].toString() == group && rawMeans.size() <= i) {
-                    rawMeans.append(mean);
-                    rawSDs.append(sd);
-                }
+            // 本 (group, gene) 组合的 raw 行已在上面的 bioRep 循环中按顺序追加，
+            // 这里直接为每个 raw 行补上对应的 Mean/SD（旧实现用全表扫描 + 下标
+            // 判断的循环做同样的事，既 O(n²) 又难读）。
+            for (int k = 0; k < expressions.size(); ++k) {
+                rawMeans.append(mean);
+                rawSDs.append(sd);
             }
         }
     }
@@ -113,9 +115,11 @@ ExpressionResult ExpressionCalculator::calculateByDeltaCt(
     QString refGroup = params.controlGroup.isEmpty() ? (sortedGroups.isEmpty() ? "" : sortedGroups[0]) : params.controlGroup;
 
     if (statMethod == "anova") {
-        qWarning() << "ANOVA not yet supported for DeltaCt method, using t.test instead";
+        // 与 ΔΔCt 一致：ANOVA + Tukey 字母标记（旧实现这里静默退化成 t.test）
+        runAnovaTests(allData, sortedGenes, sortedGroups, result.statistics);
+    } else {
+        runPairwiseTests(allData, sortedGenes, sortedGroups, refGroup, statMethod, result.statistics);
     }
-    runPairwiseTests(allData, sortedGenes, sortedGroups, refGroup, statMethod, result.statistics);
 
     result.table = buildResultTableWithPValues(finalGenes, finalGroups, finalMeans, finalStdDevs, result.statistics);
 

@@ -245,8 +245,6 @@ private:
     ExpressionCalculator m_expressionCalculator;
 
     // 辅助方法
-    QVariantMap dataframeToVariantMap(const DataFrame &df);
-    DataFrame variantMapToDataframe(const QVariantMap &map);
     QString jsonFromResult(const StandardCurveResult &result);
     QString jsonFromResult(const ExpressionResult &result);
     QString jsonFromStandardCurveResults(const QVector<StandardCurveResult>& results);

@@ -327,10 +327,13 @@ ExpressionResult ExpressionCalculator::calculateByStandardCurve(
                 }
 
                 if (!controlData.isEmpty() && !treatData.isEmpty()) {
+                    // 命名约定与 runPairwiseTests 一致：group1=对照组, group2=处理组。
+                    // （旧实现把 group2 写成 controlGroup，导致最后的 PValue 合并循环
+                    //   永远匹配不上，结果表 PValue 列恒为空。）
                     if (statMethod == "wilcox.test") {
-                        result.statistics.append(performWilcoxonTest(treatData, controlData, gene, group, params.controlGroup));
+                        result.statistics.append(performWilcoxonTest(controlData, treatData, gene, params.controlGroup, group));
                     } else {
-                        result.statistics.append(performTTest(treatData, controlData, gene, group, params.controlGroup));
+                        result.statistics.append(performTTest(controlData, treatData, gene, params.controlGroup, group));
                     }
                 }
             }

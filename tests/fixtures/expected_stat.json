@@ -1,46 +1,89 @@
 {
-  "ttest": [
-    {
-      "id": "basic",
-      "welch": {
-        "statistic": -1.89736659610103,
-        "pvalue": 0.107531194930627
-      },
-      "student": {
-        "statistic": -1.89736659610103,
-        "pvalue": 0.0943497728424376
-      }
-    },
-    {
-      "id": "similar",
-      "welch": {
-        "statistic": -0.458831467741124,
-        "pvalue": 0.659750565496824
-      },
-      "student": {
-        "statistic": -0.458831467741124,
-        "pvalue": 0.658563876567665
-      }
-    }
-  ],
-  "paired": [
-    {
-      "id": "shift",
-      "statistic": 4.47213595499958,
-      "pvalue": 0.0110564933934501
-    }
-  ],
-  "wilcox": [
-    {
-      "id": "shifted",
-      "pvalue": 0.00902343881808033
-    }
-  ],
-  "anova": [
-    {
-      "id": "3groups",
-      "statistic": 27,
-      "pvalue": 0.001
-    }
-  ]
+ "ttest": [
+  {
+   "id": "basic",
+   "welch": {
+    "statistic": -1.89736659610103,
+    "pvalue": 0.107531194930627
+   },
+   "student": {
+    "statistic": -1.89736659610103,
+    "pvalue": 0.0943497728424376
+   }
+  },
+  {
+   "id": "similar",
+   "welch": {
+    "statistic": -0.458831467741124,
+    "pvalue": 0.659750565496824
+   },
+   "student": {
+    "statistic": -0.458831467741124,
+    "pvalue": 0.658563876567665
+   }
+  }
+ ],
+ "paired": [
+  {
+   "id": "shift",
+   "statistic": 4.47213595499958,
+   "pvalue": 0.0110564933934501
+  }
+ ],
+ "wilcox": [
+  {
+   "id": "shifted",
+   "pvalue": 0.00902343881808033,
+   "statistic": 0
+  },
+  {
+   "id": "ties1",
+   "statistic": 9,
+   "pvalue": 0.44470740102325174
+  },
+  {
+   "id": "ties2",
+   "statistic": 5,
+   "pvalue": 0.10034824646229072
+  },
+  {
+   "id": "ties3",
+   "statistic": 19,
+   "pvalue": 0.1632328854401169
+  },
+  {
+   "id": "identical",
+   "statistic": 12.5,
+   "pvalue": 1.0
+  }
+ ],
+ "anova": [
+  {
+   "id": "3groups",
+   "statistic": 27,
+   "pvalue": 0.001
+  }
+ ],
+ "wilcox_signed": [
+  {
+   "id": "signed1",
+   "statistic": 2,
+   "pvalue": 0.12897804299196425
+  },
+  {
+   "id": "signed2",
+   "statistic": 2,
+   "pvalue": 0.12897804299196425
+  },
+  {
+   "id": "signed3",
+   "statistic": 0,
+   "pvalue": 0.004677734981047264
+  },
+  {
+   "id": "signed4",
+   "statistic": "NaN",
+   "pvalue": "NaN"
+  }
+ ]
 }

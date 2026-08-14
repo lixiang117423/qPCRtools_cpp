@@ -84,8 +84,13 @@ QVector<StandardCurveResult> StandardCurve::calculate(
                 concToCqs[validConcs[i]].append(validCqs[i]);
             }
 
+            // QHash 键序不稳定：按浓度升序排列，保证输出（logConcentrations/
+            // predictedCq）确定且与稀释序列一致
             QVector<double> uniqueConcs = concToCqs.keys().toVector();
+            std::sort(uniqueConcs.begin(), uniqueConcs.end());
+
             QVector<double> meanCqs;
+            meanCqs.reserve(uniqueConcs.size());
 
             for (double conc : uniqueConcs) {
                 const auto& cqs = concToCqs[conc];

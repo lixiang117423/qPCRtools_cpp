@@ -56,8 +56,8 @@ TEST(StatisticalTest, PairedTTestMatchesR) {
     }
 }
 
-// Wilcoxon 秩和（Mann-Whitney）：C++ 用正态近似、无连续性校正，
-// 故 R 亦用 exact=FALSE, correct=FALSE 对比 p 值（统计量定义不同，仅比 p）。
+// Wilcoxon 秩和（Mann-Whitney）：C++ 用平均秩 + 并列方差校正、无连续性校正，
+// 故 R 亦用 exact=FALSE, correct=FALSE 对比；统计量按 R 报告 group1 的秩和 W。
 TEST(StatisticalTest, WilcoxonMatchesR) {
     auto cases  = testfix::load_json("expected_stat.json").object().value("wilcox").toArray();
     auto inputs = testfix::load_json("data.json").object().value("wilcox").toArray();
@@ -70,7 +70,31 @@ TEST(StatisticalTest, WilcoxonMatchesR) {
         auto g1 = col(in, "g1");
         auto g2 = col(in, "g2");
         auto r = qpcr::StatisticalTest::wilcoxonTest(g1, g2);
+        testfix::expect_close(r.statistic, e.value("statistic").toDouble());
         testfix::expect_close(r.pValue, e.value("pvalue").toDouble());
+    }
+}
+
+// Wilcoxon 符号秩（配对）：统计量 V 按 R 约定 = (before - after) 正差值的秩和。
+TEST(StatisticalTest, WilcoxonSignedRankMatchesR) {
+    auto cases  = testfix::load_json("expected_stat.json").object().value("wilcox_signed").toArray();
+    auto inputs = testfix::load_json("data.json").object().value("wilcox_signed").toArray();
+    ASSERT_EQ(cases.size(), inputs.size());
+
+    for (int i = 0; i < cases.size(); ++i) {
+        auto e = cases[i].toObject();
+        auto in = inputs[i].toObject();
+        SCOPED_TRACE(("wilcox_signed id=" + e.value("id").toString()).toStdString());
+        auto before = col(in, "before");
+        auto after  = col(in, "after");
+        auto r = qpcr::StatisticalTest::wilcoxonSignedRankTest(before, after);
+        if (e.value("statistic").isString()) {
+            EXPECT_TRUE(std::isnan(r.statistic));
+            EXPECT_TRUE(std::isnan(r.pValue));
+        } else {
+            testfix::expect_close(r.statistic, e.value("statistic").toDouble());
+            testfix::expect_close(r.pValue, e.value("pvalue").toDouble());
+        }
     }
 }
 

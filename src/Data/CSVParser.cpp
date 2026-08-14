@@ -195,7 +195,7 @@ DataFrame CSVParser::parseString(const QString& content, bool hasHeader) {
     return df;
 }
 
-QString CSVParser::parseLine(const QString& line, QStringList& fields) {
+void CSVParser::parseLine(const QString& line, QStringList& fields) {
     fields.clear();
 
     QString currentField;
@@ -222,8 +222,6 @@ QString CSVParser::parseLine(const QString& line, QStringList& fields) {
 
     // Add last field
     fields.append(currentField.trimmed());
-
-    return QString();
 }
 
 QVariant CSVParser::convertValue(const QString& str, int columnIndex) {

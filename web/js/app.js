@@ -276,8 +276,6 @@ function loadExampleCqData() {
     ];
 
     console.log('Loaded example Cq data:', currentCqData.length, 'rows');
-    console.log('First 6 rows of Cq data:', currentCqData.slice(0, 6));
-    console.log('Full Cq data:', currentCqData);
 
     // Show preview
     displayCqPreview(currentCqData);
@@ -398,7 +396,11 @@ function navigateToPage(pageName) {
     document.querySelectorAll('.nav-link').forEach(link => {
         link.classList.remove('active');
     });
-    document.querySelector(`[data-page="${pageName}"]`).classList.add('active');
+    // 无对应导航链接时不再抛 TypeError（如某些页面只在特定路径可达）
+    const navLink = document.querySelector(`[data-page="${pageName}"]`);
+    if (navLink) {
+        navLink.classList.add('active');
+    }
 }
 
 /**
@@ -928,7 +930,7 @@ function updateParameterDropdowns() {
             const currentValue = controlGroupSelect.value;
 
             // Clear existing options (keep the first default option)
-            controlGroupSelect.innerHTML = '<option value="">-- Select Control Group --</option>';
+            controlGroupSelect.innerHTML = '<option value="">' + i18n.t('param.selectControlGroup') + '</option>';
 
             // Add new options
             groups.forEach(group => {
@@ -1115,13 +1117,7 @@ async function runAnalysis() {
     if (bridge) {
         try {
             // Send data to C++ backend first
-            console.log('=== Sending data to C++ ===');
-            console.log('Cq data type:', Array.isArray(currentCqData) ? 'array' : typeof currentCqData);
-            console.log('Cq data length:', currentCqData ? currentCqData.length : 0);
-
             const cqJson = JSON.stringify(currentCqData);
-            console.log('Cq JSON length:', cqJson.length);
-
             await bridge.setCqData(cqJson);
 
             // Send concentration data if using standard curve
@@ -1158,9 +1154,7 @@ async function runAnalysis() {
                 result = await bridge.calculateByStandardCurve(JSON.stringify(params), statisticalTest);
             }
 
-            console.log('Raw result from C++:', result);
             analysisResults = JSON.parse(result);
-            console.log('Parsed analysisResults:', analysisResults);
 
             // Navigate to results page first
             navigateToPage('results');
@@ -1243,8 +1237,12 @@ function displayResultsTable(results) {
     thead.innerHTML = '';
     tbody.innerHTML = '';
 
-    // Define the desired column order
-    const headers = ['Gene', 'Group', 'Mean', 'StdDev', 'PValue', 'Significance'];
+    // 期望的列顺序；标曲表达量法的结果表带 SE 列，动态补上
+    const headers = ['Gene', 'Group', 'Mean', 'StdDev'];
+    if (results.table.some(row => row.SE !== undefined && row.SE !== null)) {
+        headers.push('SE');
+    }
+    headers.push('PValue', 'Significance');
     console.log('Headers:', headers);
 
     const headerRow = document.createElement('tr');

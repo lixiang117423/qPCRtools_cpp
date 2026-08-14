@@ -18,6 +18,7 @@ add_executable(qpcr_tests
     test_standard_curve.cpp
     test_statistical_test.cpp
     test_expression_calculator.cpp
+    test_bugfixes.cpp
 )
 target_link_libraries(qpcr_tests PRIVATE
     qpcr_core

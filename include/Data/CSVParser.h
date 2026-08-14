@@ -76,7 +76,7 @@ public:
     static QStringList preview(const QString& path, int lines = 10);
 
 private:
-    QString parseLine(const QString& line, QStringList& fields);
+    void parseLine(const QString& line, QStringList& fields);
     QVariant convertValue(const QString& str, int columnIndex);
 
     QChar m_separator = ',';
