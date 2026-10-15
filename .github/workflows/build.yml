@@ -97,7 +97,11 @@ jobs:
 
   build-macos:
     name: Build macOS (DMG)
-    runs-on: macos-latest
+    # 2026-10-15：改用 macos-14。macos-latest（macOS 15 + Xcode 26 SDK）里 Apple 已移除
+    # 老旧的 AGL 框架，而 Qt 6.7.3 的 CMake 仍然 `-framework AGL`，链接阶段直接
+    # `ld: framework 'AGL' not found` 而失败（v1.2.0 首次打 tag 实测）。macos-14 的
+    # SDK 仍有 AGL，可正常出包；升级 Qt 到不再引用 AGL 的版本后可换回 macos-latest。
+    runs-on: macos-14
     timeout-minutes: 60
 
     steps:

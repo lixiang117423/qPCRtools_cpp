@@ -5,7 +5,10 @@
 //
 // 构建（在 code/ 目录下）：cmake -S . -B ../build-val -DQPCRTOOLS_BUILD_VALIDATION=ON
 //                          && cmake --build ../build-val --target run_cpp
-// 运行（在 code/ 目录下）：../build-val/run_cpp
+// 运行（在 code/ 目录下）：../build-val/run_cpp [输出文件名后缀]
+//   不给后缀 → 写 cpp_deltadeltaCt.csv 等（历史文件名，对应 1.1.0 时代的口径）；
+//   给后缀（如 v12）→ 写 cpp_deltadeltaCt_v12.csv 等，便于在不覆盖历史结果的前提下
+//   重新生成当前版本（1.2.0，ΔΔCt 校准基准＝对照组）的输出，供统计层对照使用。
 //
 // 覆盖方法：ΔΔCt、标准曲线（CalCurve）。RqPCR 的 C++ 入口
 // (calculateByStandardCurve) 需要 curveTable，数据流待确认，暂标注 TODO。
@@ -22,9 +25,12 @@
 
 using namespace qpcr;
 
+// 输出文件名后缀（命令行第 1 个参数，可为空）
+static QString g_suffix;
+
 static void writeExpressionResult(const QString& tag, const ExpressionResult& res) {
     QDir().mkpath("validation/results");
-    QString path = QString("validation/results/cpp_%1.csv").arg(tag);
+    QString path = QString("validation/results/cpp_%1%2.csv").arg(tag, g_suffix);
     res.table.saveCSV(path);
 
     std::cout << "[cpp] " << tag.toStdString()
@@ -43,6 +49,9 @@ static void writeExpressionResult(const QString& tag, const ExpressionResult& re
 int main(int argc, char** argv) {
     QCoreApplication app(argc, argv);
     QDir().mkpath("validation/results");
+    if (argc > 1) {
+        g_suffix = QString("_") + QString::fromLocal8Bit(argv[1]);
+    }
 
     // ---- 方法 1: ΔΔCt（对应 R CalExp2ddCt）----
     // 数据：examples/cq.csv + examples/design.csv
@@ -59,6 +68,11 @@ int main(int argc, char** argv) {
 
         ExpressionResult res = ExpressionCalculator::calculateByDeltaDeltaCt(p, "t.test");
         writeExpressionResult("deltadeltaCt", res);
+
+        // 统计层：ANOVA + Tukey HSD（字母标记），供与 R 的 TukeyHSD / 独立参照对照。
+        // 检验尺度与 t.test 一致（线性相对表达量），只是换成单因素方差分析 + Tukey。
+        ExpressionResult resAnova = ExpressionCalculator::calculateByDeltaDeltaCt(p, "anova");
+        writeExpressionResult("deltadeltaCt_anova", resAnova);
     }
 
     // ---- 方法 2: RqPCR（对应 R CalExpRqPCR）----
@@ -93,7 +107,8 @@ int main(int argc, char** argv) {
             scCq, scInfo, /*lowestConcen*/4.0, /*highestConcen*/4096.0,
             /*dilution*/4.0, /*byMean*/true);
 
-        std::ofstream ofs("validation/results/cpp_standardcurve.csv");
+        std::ofstream ofs(QString("validation/results/cpp_standardcurve%1.csv")
+                              .arg(g_suffix).toStdString());
         ofs << "Gene,Slope,Intercept,RSquared,PValue,Efficiency\n";
         for (const StandardCurveResult& sc : scResults) {
             ofs << sc.gene.toStdString() << ","
@@ -106,7 +121,8 @@ int main(int argc, char** argv) {
                       << "  E=" << sc.efficiency
                       << "  (" << sc.formula.toStdString() << ")\n";
         }
-        std::cout << "[cpp] standard curve -> validation/results/cpp_standardcurve.csv"
+        std::cout << "[cpp] standard curve -> validation/results/cpp_standardcurve"
+                  << g_suffix.toStdString() << ".csv"
                   << std::endl;
     }
 

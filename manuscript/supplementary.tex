@@ -45,6 +45,9 @@ Yunnan Agricultural University, Kunming, China%
   \item Figure~S2 --- Numerical equivalence of the C++ implementation and the
         R package.
   \item Table~S1 --- Equivalence summary across all shared methods.
+        Panel~(a): numerical equivalence with the R package.
+        Panel~(b): the statistical layer (means, Welch $p$-values, ANOVA and
+        Tukey letters) against an independent base-R reference.
 \end{itemize}
 
 \section{Analysis output on the bundled example data}
@@ -90,17 +93,34 @@ result across all shared methods; all points fall on the line $y = x$.}
 
 \begin{table}[h]
 \centering
-\caption{\textbf{Table S1.} Equivalence of C++ and R results across all
-shared methods on identical inputs. Relative difference is
-$|R - \mathrm{C{+}{+}}|/|R|$.}
+\caption{\textbf{Table S1.} Equivalence of the application (C++) with the
+reference implementations. (a)~Numerical equivalence with the R package on
+identical inputs; relative difference is $|R - \mathrm{C{+}{+}}|/|R|$.
+(b)~Statistical layer on the bundled $\Delta\Delta C_t$ example, recomputed
+independently in base R without installing any package
+(\texttt{code/validation/verify\_stats.R}).}
 \label{tab:s1}
-\begin{tabular}{llcc}
+\small
+\begin{tabular}{lll}
 \toprule
-Method & Compared quantities & Pairs & Max.\ rel.\ diff.\ \\
+\multicolumn{3}{l}{\textit{(a) numerical equivalence to the R package}}\\
 \midrule
-$\Delta\Delta C_t$  & expression, SD                          & 6  & $3.8 \times 10^{-15}$ \\
-Standard curve      & slope, intercept, $R^2$, efficiency     & 16 & $2.5 \times 10^{-3}$  \\
-RqPCR               & expression, SE                          & 16 & $2.1 \times 10^{-15}$ \\
+Method & Compared quantities & Max.\ rel.\ diff.\ \\
+\midrule
+$\Delta\Delta C_t$  & expression, SD                      & $3.8 \times 10^{-15}$ \\
+Standard curve      & slope, intercept, $R^2$, efficiency & $2.5 \times 10^{-3}$  \\
+RqPCR               & expression, SE                      & $2.1 \times 10^{-15}$ \\
+\midrule
+\multicolumn{3}{l}{\textit{(b) statistical layer (bundled example, $\Delta\Delta C_t$)}}\\
+\midrule
+Quantity & Application (C++) & Independent base-R reference \\
+\midrule
+Mean $\pm$ SD, group 0.0   & $1.0145 \pm 0.2098$ & $1.0145 \pm 0.2098$ \\
+Mean $\pm$ SD, group 0.5   & $1.9169 \pm 0.2060$ & $1.9169 \pm 0.2060$ \\
+Mean $\pm$ SD, group 1.0   & $2.7403 \pm 0.5580$ & $2.7403 \pm 0.5580$ \\
+Welch $p$ vs control       & 0.006027 / 0.022191 & 0.006027 / 0.022191 \\
+ANOVA $p$ (all groups)     & 0.0034471 & 0.0034471 \\
+Tukey letters              & b / ab / a & b / ab / a \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -108,5 +128,15 @@ RqPCR               & expression, SE                          & 16 & $2.1 \times
 The residual $2.5 \times 10^{-3}$ for the standard curve is attributable to
 the R package rounding its tabulated output to two to four decimal places,
 since the underlying $C_q$ inputs are identical.
+
+The statistical layer in Table~S1(b) is reproduced by an independent base-R
+script that needs no package at all (\texttt{code/validation/verify\_stats.R}),
+so the reported $p$-values and letter groupings can be checked without
+installing the R package. The letter display is the compact letter display of
+the Tukey HSD: group~0 and group~1 differ ($p_{\mathrm{adj}} = 0.0028$), whereas
+group~0.5 is not separated from either ($p_{\mathrm{adj}} = 0.052$ and
+$0.073$), giving b~/~ab~/~a. That borderline comparison is exactly the case in
+which an incorrect multiple-comparison step is exposed, and it is covered by
+both the script above and the regression tests in the repository.
 
 \end{document}

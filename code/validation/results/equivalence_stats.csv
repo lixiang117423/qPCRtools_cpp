@@ -1,0 +1,13 @@
+"method","quantity","key","app_cpp","independent_base_r","abs_diff","rel_diff","agrees"
+"deltadeltaCt","mean","0","1.01446560323","1.01446560323",8.88178419700125e-16,8.75513587517371e-16,TRUE
+"deltadeltaCt","sd","0","0.209820329644","0.209820329644",2.4980018054066e-16,1.19054326606268e-15,TRUE
+"deltadeltaCt","mean","0.5","1.91690467825","1.91690467825",1.77635683940025e-15,9.26679797675442e-16,TRUE
+"deltadeltaCt","sd","0.5","0.205983215029","0.205983215029",3.60822483003176e-16,1.75170818142671e-15,TRUE
+"deltadeltaCt","mean","1","2.74032787841","2.74032787841",2.22044604925031e-15,8.10284808157686e-16,TRUE
+"deltadeltaCt","sd","1","0.557972249544","0.557972249544",4.44089209850063e-16,7.95898380632349e-16,TRUE
+"deltadeltaCt","welch_p_vs_control","0_vs_0.5","0.00602744516532","0.00602744516532",1.0842021724855e-16,1.79877567152844e-14,TRUE
+"deltadeltaCt","welch_p_vs_control","0_vs_1","0.0221908161441","0.0221908161441",1.04083408558608e-17,4.69038217804414e-16,TRUE
+"deltadeltaCt","anova_p","all_groups","0.00344707474052","0.00344707474052",5.160802341031e-17,1.49715417549933e-14,TRUE
+"deltadeltaCt","tukey_letter","0","b","b",NA,NA,TRUE
+"deltadeltaCt","tukey_letter","0.5","ab","ab",NA,NA,TRUE
+"deltadeltaCt","tukey_letter","1","a","a",NA,NA,TRUE

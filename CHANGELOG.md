@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 2026-10-15 18:22 — 第②步：统计层（p 值 / Tukey 字母）进等价性报告 + 独立参照对账；发布 v1.2.0
+
+- **统计层验证**（对应导师意见一-3「等价性报告表要含 p 值与 Tukey 字母」与四「要有独立参照」）：
+  - 新增 `code/validation/verify_stats.R`：**零依赖 base R**，从原始 Cq 值重算 ΔΔCt 各组均值/SD、Welch p 值、ANOVA p 值与 Tukey 字母，并与应用输出逐项对账 → 输出 `validation/results/equivalence_stats.csv`，末尾打印 `STATS-VERIFY PASS`。
+  - `code/validation/run_cpp.cpp` 增加**输出文件名后缀**参数（不覆盖历史结果）与 **ANOVA 分支**：`run_cpp v12` → `cpp_*_v12.csv` 与 `cpp_deltadeltaCt_anova_v12.csv`。
+  - 关键数字：均值 1.0145 / 1.9169 / 2.7403；Welch p = 0.0060274 / 0.0221908；ANOVA p = 0.0034471；Tukey 字母 **b / ab / a**（0 vs 0.5 的 p_adj = 0.052 属临界，恰好用来检验多重比较实现）。
+  - 途中纠错：参照脚本里我第一版 CLD 只做"贪心并入已有列"，得到错误的 b/a/a（漏掉"0 与 0.5 不显著却无共用字母"），按 Piepho insert-and-absorb 重写后才与应用一致。
+  - 补充材料 Table S1 改为上下两块：(a) 与 R 包的数值等价；(b) 统计层三方对账；并补一段解释字母含义与那个临界比较。
+- **发布 v1.2.0**（用户要求"软件没问题就 release"）：
+  - 打 annotated tag `v1.2.0` → CI 两作业：Windows ZIP 成功；**macOS 失败**（macos-latest 的 Xcode 26 SDK 已移除 AGL 框架，而 Qt 6.7.3 仍链接 `-framework AGL`）→ 工作流 macOS 作业改 `runs-on: macos-14`（该镜像 SDK 仍有 AGL）。
+  - 本地出 macOS DMG（Homebrew Qt 6.11），过程中发现并修复一个**打包缺陷**：Homebrew Qt 的 `QtWebEngineProcess` helper 依赖未被改写，主窗口报 "Failed to load the web interface"（控制台为 `dyld: Library not loaded ... QtWebChannel`）。修法＝在 helper 的 Contents 下建指向主包 Frameworks 的**相对软链**、用 `install_name_tool` 把 helper 自身的 `/opt/homebrew/...` 绝对依赖改写成 `@executable_path/../Frameworks/...`、再重新 ad-hoc 签名；该修法已写回 `code/scripts/13_fix_helper_final.sh`（替换原先"复制全部框架"的做法，DMG 体积不再翻倍）。修复后实测：打包版可启动、WebEngine 正常加载界面、无 dyld 报错。
+  - 产物：<https://github.com/lixiang117423/qPCRtools_cpp/releases/tag/v1.2.0>，附 `qPCRtools-1.2.0-macOS.dmg`（本地构建、已实测启动）与 `qPCRtools-windows.zip`（CI 构建）；发布说明含 macOS 未公证包"右键打开 / xattr"提示与验证脚本入口。
+  - 稿件版本：`main_v10_20261015.pdf`（7 页）、`supplementary_v2_20261015.pdf`（3 页）。
+
 ## 2026-10-15 17:32 — 图 1 换成真实"分析结果页"截图；修复误差线"画不出/不居中"两个 bug
 
 - **图 1 换图**（导师一-3 要求）：用 1.2.0 实机跑一遍捆绑示例（ΔΔCt + Welch + 对照组 0）后截图，替换原来的首页截图。成品 `manuscript/figures/fig1_results_page_en_v3.png`（1262×857），上下两段拼自同一窗口的两个滚动位置：上段＝汇总表（Mean/StdDev/PValue/Significance），下段＝界面内的相对表达量图（三条 SD 误差线 + 显著性星号）。成品 PDF：`manuscript/main_v9_20261015.pdf`（7 页，图在第 3 页、236 ppi）。改图同时在 `main.tex` 加 A4/2.5 cm 页边距（本地预览用），并给 abstract/introduction 加 `\sloppy` 消掉超版心。
