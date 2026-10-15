@@ -1,5 +1,62 @@
 # CHANGELOG
 
+## 2026-10-15 14:10 — 第②项：Tukey HSD 换真 Tukey（学生化极差分布）；顺带修复输出顺序不确定
+
+按既定顺序推进到第②项（导师意见第 3 条相关的统计正确性）。本轮同时发现并修掉一个此前
+未被记录的真实缺陷（结果输出顺序不稳定），一并记录在下面第 2 节。
+
+### 1. `StatisticalTest::tukeyHSD`：从「t + Bonferroni」近似改为真 Tukey（Tukey–Kramer）
+
+- **问题**：原实现虽已算出学生化极差统计量 `Q`，却用 `t` 分布 + Bonferroni（×组对数）算 p 值
+  （`StatisticalTest.cpp:718-733`）。两者不是同一个量，p 值系统性偏保守。
+- **改法**：新增学生化极差分布上尾的直接实现，p = P(Q_studentizedRange > Q)。
+  - 依据 Batista et al. (2017) 的双重积分形式，与 `scipy.stats.studentized_range` 积分核一致
+    （SciPy 为 BSD-3-Clause）。**未使用 R 的 `ptukey` 代码**（R nmath 为 GPL，本项目 MIT）。
+  - 内层 z 积分：6 段 × 16 点 Gauss–Legendre（[-12,12]，|z|>12 处 φ<2e-32）；
+    外层把 χ² 换元为 y=√(χ²/ν) 消掉 u^{ν/2−1} 在 0 处的奇性，按 0.6 等宽分段、每段 12 点。
+  - 内层的 `1−k·a^{k−1}` 与尾部分段都用 erf/erfc 写成无相消形式，尾部绝对精度 ~1e-16。
+  - df ≥ 1e5 走 df=∞ 极限形式（与 R/SciPy 的渐近切换一致）。
+- **精度核对**（2026-10-15，逐点与自适应高精度积分 / 蒙特卡洛对照）：
+  - p ≥ 1e-6 区间相对误差 ≤ 3e-13；更小的尾部受双精度相消限制，绝对误差 ~1e-16。
+  - 生成 fixture 时同步核对 `ptukey` 与 `TukeyHSD()$p adj`：最大差异 **1.4e-15**。
+  - **R 的 `ptukey` 在极小误差自由度处本身不准**：df=2、k=2、q=12 时 R 给 0.0134441，
+    而 2×10⁷ 次蒙特卡洛给 0.013639 ± 0.000051、高精度积分给 0.0136061；本实现与后两者一致。
+    该情形已单独立测试锁住（`Bugfix.TukeyTinyErrorDegreesOfFreedom`），并在代码注释中写明。
+  - 实测单次 p 值耗时 ~0.5 ms（1500 次调用 0.7 s），GUI 每基因调用的代价可接受。
+- **测试**：`generate_reference.R` 新增 4 个 Tukey 数据集（3 组等重复 / 4 组不等重复 / 均值接近 /
+  差异极大），期望值用 `ptukey` 生成并与 `TukeyHSD()` 交叉核对；新增
+  `StatisticalTest.TukeyHSDMatchesR` + `Bugfix.TukeyUsesStudentizedRangeNotBonferroni` +
+  `Bugfix.TukeyTinyErrorDegreesOfFreedom` + `Bugfix.TukeyDegenerateInputs`。
+  fixture 重生成后与旧 fixture 逐字段比对：`expected_stat.json` 除新增 `tukey` 段外**完全一致**。
+
+### 2. 顺带修复：结果输出顺序不确定（同一次分析的两次运行结果不同）
+
+- **发现过程**：核验第②项时在沙箱里连跑 validation driver 三次，发现
+  `cpp_standardcurve.csv` 与 `cpp_rqpcr.csv` **行序、末位浮点在不同运行之间不同**（同一二进制）。
+- **根因**：多处用 `QSet<QString>` / `QHash` 的迭代顺序决定遍历与输出顺序，而 Qt 的哈希种子
+  每次进程启动都随机（此前只修过 `StandardCurve::calculate(byMean=true)` 的同类问题）。
+- **改动**：
+  - `StandardCurve::calculate`：基因遍历改为「去重 + 排序」。
+  - 新增 `ExpressionCalculator::getUniqueValuesOrdered()`（按输入首次出现顺序去重），替换
+    `calculateByStandardCurve`（RqPCR 的 genes/groups/bioreps）、`performANOVA`、`selectReferenceGenesByGeNorm`
+    里的 `QSet::values()`；旧的 `getUniqueValues()` 保留但注明只适合包含性判断。
+  - `mergeByPosition`：合并表的**列序**改为「Cq 表 → 设计表」首次出现顺序（原为 QSet 迭代序）。
+- **效果**：三份 validation 输出连跑三次**逐字节一致**；`cpp_deltadeltaCt.csv` 与已提交版本一致，
+  `cpp_rqpcr.csv` 仅末位浮点（1e-16）与 `cpp_standardcurve.csv` 仅行序（现为 Gene1–Gene4 有序）
+  与已提交版本不同 —— 已提交的那两份是在旧随机序下生成的，**未覆盖**（等用户决定是否重生成）。
+- **测试**：新增 `Bugfix.StandardCurveGeneOrderDeterministic`、
+  `ExpressionCalculator.AnovaStatisticsFollowInputOrder`。
+
+### 验证与提交
+
+- `ctest` **47/47 通过**（上一轮 41 → 本轮 +6：4 个 Tukey + 2 个顺序确定化）；
+  GUI（`qPCRtools.app`）与等价性 driver（`run_cpp`）均编译通过。
+- 三份 validation 输出三次运行逐字节一致（见上）。
+- 本文档同批提交并推送 `paper/bioinformatics-application-note`。
+- **遗留（下一步）**：③ geNorm 输入改相对量 + 逐步剔除；④ RqPCR 去重/配对；⑤ ΔΔCt 基准决策（要用户拍板）；
+  ⑥ SE 公式；⑦ 图 2A 重画 + 公式口径。另有两处待用户决定：0.5 节列的
+  `validation/results/*.csv` 是否重生成（仅行序/末位浮点差异）。
+
 ## 2026-10-15 08:55 — 按计划推进：第 0 步推送仓库 + 第①项 Wilcoxon 精确检验（含 fixture 脱节修复）
 
 用户指示"按你的逻辑逐步推进"（顺序：先推代码 → 修正确性 → 评估旧版影响 → 补功能 → 改文章）。

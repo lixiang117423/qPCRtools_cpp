@@ -223,6 +223,16 @@ private:
     static QSet<QString> getUniqueValues(const DataFrame& df, const QString& columnName);
 
     /**
+     * @brief 获取列中所有唯一值，按「在表中首次出现的顺序」返回
+     *
+     * QSet/QHash 的迭代顺序依赖进程启动时的随机哈希种子，用它决定遍历顺序会让
+     * 结果表行序、导出列序与浮点求和顺序在同一次分析的两次运行之间变化
+     * （2026-10-15 实测：validation 的 RqPCR 输出两次运行行序与末位浮点都不同）。
+     * 凡是用唯一值决定遍历/输出顺序的地方，都应使用本函数而不是 getUniqueValues()。
+     */
+    static QVector<QString> getUniqueValuesOrdered(const DataFrame& df, const QString& columnName);
+
+    /**
      * @brief 获取过滤后的数值
      */
     static QVector<double> getFilteredValues(

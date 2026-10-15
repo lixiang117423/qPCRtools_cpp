@@ -53,6 +53,39 @@ TEST(ExpressionCalculator, DeltaCtMatchesR) {
     }
 }
 
+// performANOVA 的输出行序必须由输入决定。旧实现遍历 QSet，行序随每次进程启动的
+// 随机哈希种子变化（2026-10-15 实测 validation 输出两次运行不一致）。
+TEST(ExpressionCalculator, AnovaStatisticsFollowInputOrder) {
+    qpcr::DataFrame df;
+    const QStringList genes  = {"G3", "G3", "G1", "G1", "G1", "G3"};
+    const QStringList groups = {"B",  "A",  "A",  "B",  "A",  "B"};
+    const QList<double> values = {1.0, 2.0, 3.0, 4.0, 3.5, 1.5};
+
+    QList<QVariant> geneV, groupV, valueV;
+    for (int i = 0; i < genes.size(); ++i) {
+        geneV.append(genes[i]);
+        groupV.append(groups[i]);
+        valueV.append(values[i]);
+    }
+    df.addColumn("Gene", geneV);
+    df.addColumn("Group", groupV);
+    df.addColumn("Value", valueV);
+
+    auto res = qpcr::ExpressionCalculator::performANOVA(df, "Gene", "Group", "Value");
+    ASSERT_EQ(res.size(), 4);   // 2 个基因 × 2 个组
+
+    // 基因与组都按在输入表中的首次出现顺序，且组序是全局的（第 0 行 G3/B 先用 B）：
+    // 基因 G3 → G1；组 B → A
+    EXPECT_EQ(res[0].gene.toStdString(), "G3");
+    EXPECT_EQ(res[0].group.toStdString(), "B");
+    EXPECT_EQ(res[1].gene.toStdString(), "G3");
+    EXPECT_EQ(res[1].group.toStdString(), "A");
+    EXPECT_EQ(res[2].gene.toStdString(), "G1");
+    EXPECT_EQ(res[2].group.toStdString(), "B");
+    EXPECT_EQ(res[3].gene.toStdString(), "G1");
+    EXPECT_EQ(res[3].group.toStdString(), "A");
+}
+
 // ΔΔCt 方法：R qPCRtools::CalExp2ddCt 用「全数据均值」做归一化基准（不是对照组），
 // 故对照组表达量 ≠ 1。C++ 必须与之对齐，否则对照组被钉死在 1.0。
 // 同样用升序集合对比，规避 group 在 C++/R 间字符串/数值表示的差异。

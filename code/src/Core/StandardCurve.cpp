@@ -35,15 +35,20 @@ QVector<StandardCurveResult> StandardCurve::calculate(
         return results;
     }
 
-    // Get unique genes
+    // Get unique genes。
+    // 注意：QSet 的迭代顺序依赖每次进程启动时的随机哈希种子，直接遍历会让
+    // 结果行序在同一次分析的两次运行之间飘动（2026-10-15 实测标准曲线结果
+    // CSV 的行序两次运行不同）。这里改为「去重 + 排序」，保证输出确定。
     QSet<QString> geneSet;
     auto genes = merged.getStringColumn("Gene");
     for (const auto& gene : genes) {
         geneSet.insert(gene);
     }
+    QStringList geneList = geneSet.values();
+    std::sort(geneList.begin(), geneList.end());
 
     // Process each gene
-    for (const QString& gene : geneSet) {
+    for (const QString& gene : geneList) {
         // Filter for this gene
         DataFrame geneData = merged.filter([gene](const Row& row) {
             return row.value("Gene").toString() == gene;

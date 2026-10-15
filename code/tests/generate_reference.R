@@ -60,6 +60,24 @@ data <- list(
          groups = list(c(1, 2, 3), c(4, 5, 6), c(7, 8, 9)),
          names  = c("A", "B", "C"))
   ),
+  # Tukey HSD（Tukey–Kramer）两两比较：期望值用 R 的 ptukey 生成，并与
+  # TukeyHSD() 的 p adj 在脚本内交叉核对（见下方 tukey 段）。
+  tukey = list(
+    list(id = "three_groups",
+         groups = list(c(1, 2, 3, 4), c(4, 5, 6, 4.5), c(8, 9, 7, 9.5)),
+         names  = c("A", "B", "C")),
+    list(id = "four_groups_unequal",
+         groups = list(c(5, 6, 5.5, 6.5), c(6, 7, 6.5, 7.5, 6.8),
+                       c(4.5, 5, 5.2), c(7, 8, 7.5, 8.5, 8.2, 7.9)),
+         names  = c("CK", "T1", "T2", "T3")),
+    list(id = "close_means",
+         groups = list(c(10, 10.2, 9.8, 10.1), c(10.05, 9.95, 10.15, 10),
+                       c(10.02, 10.08, 9.99, 10.04)),
+         names  = c("A", "B", "C")),
+    list(id = "wide_spread",
+         groups = list(c(1, 1.5, 2, 1.2), c(5, 5.5, 6, 5.2), c(9, 9.5, 10, 9.2)),
+         names  = c("A", "B", "C"))
+  ),
   standard_curve = list(
     list(id = "perfect", conc = c(16, 4, 1, 0.25), cq = c(14, 17, 20, 23), dilution = 4),
     list(id = "noisy",   conc = c(16, 4, 1, 0.25), cq = c(14.2, 16.8, 20.3, 22.7), dilution = 4)
@@ -109,6 +127,48 @@ stat <- list(
     grp  <- factor(rep(c$names, sapply(c$groups, length)))
     tab  <- summary(aov(vals ~ grp))[[1]]   # Df Sum Sq Mean Sq F value Pr(>F)
     list(id = c$id, statistic = unname(tab[1, 4]), pvalue = unname(tab[1, 5]))
+  }),
+  # Tukey HSD（Tukey–Kramer）两两比较。
+  # 统计量与 C++ 的定义一致：Q = |mean_i − mean_j| / sqrt(MSE/2·(1/n_i + 1/n_j))，
+  # p = ptukey(Q, k, dfWithin, lower.tail = FALSE)；脚本内与 TukeyHSD()$`p adj`
+  # 逐对核对（差异打印在末尾的汇总里）。
+  # 说明：这里刻意选用 dfWithin ≥ 6 的数据集 —— R 的 ptukey 在极小自由度处精度有限
+  # （实测 df = 2、k = 2、q = 12 时 R 给 0.0134441，高精度积分给 0.0136061，
+  #  2e7 次蒙特卡洛给 0.013639 ± 0.000051），该极端情形另在 C++ 测试中单独覆盖。
+  tukey = local({
+    out <- list()
+    max_diff <- 0
+    for (c in data$tukey) {
+      vals  <- unlist(c$groups)
+      grp   <- factor(rep(c$names, sapply(c$groups, length)))
+      fit   <- aov(vals ~ grp)
+      tab   <- summary(fit)[[1]]
+      mse   <- tab["Residuals", "Mean Sq"]
+      dfw   <- tab["Residuals", "Df"]
+      k     <- length(c$groups)
+      means <- sapply(c$groups, mean)
+      ns    <- sapply(c$groups, length)
+      ref   <- TukeyHSD(fit)[[1]]              # p adj 交叉核对用
+
+      comps <- list()
+      for (i in seq_len(k - 1)) {
+        for (j in seq.int(i + 1, k)) {
+          qstat <- abs(means[i] - means[j]) / sqrt(mse / 2 * (1 / ns[i] + 1 / ns[j]))
+          pval  <- ptukey(qstat, k, dfw, lower.tail = FALSE)
+          key   <- paste0(c$names[j], "-", c$names[i])   # TukeyHSD 行名顺序
+          if (key %in% rownames(ref)) max_diff <- max(max_diff, abs(ref[key, "p adj"] - pval))
+          comps[[length(comps) + 1]] <- list(
+            g1 = c$names[i], g2 = c$names[j],
+            statistic = qstat, pvalue = pval
+          )
+        }
+      }
+      out[[length(out) + 1]] <- list(
+        id = c$id, dfWithin = unname(dfw), mse = unname(mse), comparisons = comps
+      )
+    }
+    cat(sprintf("Tukey: ptukey 与 TukeyHSD p adj 的最大差异 = %.3e\n", max_diff))
+    out
   })
 )
 J(stat, "expected_stat.json")
@@ -199,6 +259,7 @@ cat("  ttest:", length(stat$ttest),
     " paired:", length(stat$paired),
     " wilcox:", length(stat$wilcox),
     " anova:", length(stat$anova),
+    " tukey:", length(stat$tukey),
     " standard_curve:", length(sc),
     " expression_dct:", if (!is.null(dct)) length(by_gene) else 0,
     " expression_ddct:", if (!is.null(ddct)) length(by_gene_ddct) else 0,

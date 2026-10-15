@@ -117,3 +117,51 @@ TEST(StatisticalTest, AnovaMatchesR) {
         testfix::expect_close(r.pValue,   e.value("pvalue").toDouble());
     }
 }
+
+// Tukey HSD（Tukey–Kramer）：Q 统计量与 p 值对比 R 的 ptukey / TukeyHSD。
+// 期望值由 code/tests/generate_reference.R 用 ptukey(Q, k, dfWithin, lower.tail = FALSE)
+// 生成，并在生成时与 TukeyHSD() 的 p adj 逐对核对（最大差异 1.4e-15）。
+TEST(StatisticalTest, TukeyHSDMatchesR) {
+    auto cases  = testfix::load_json("expected_stat.json").object().value("tukey").toArray();
+    auto inputs = testfix::load_json("data.json").object().value("tukey").toArray();
+    ASSERT_EQ(cases.size(), inputs.size());
+    ASSERT_GT(cases.size(), 0);
+
+    for (int i = 0; i < cases.size(); ++i) {
+        auto e  = cases[i].toObject();
+        auto in = inputs[i].toObject();
+        const QString id = e.value("id").toString();
+
+        QVector<QVector<double>> groups;
+        QStringList names;
+        for (const auto& g : in.value("groups").toArray()) {
+            groups.append(testfix::to_doubles(g.toArray()));
+        }
+        for (const auto& n : in.value("names").toArray()) {
+            names.append(n.toString());
+        }
+
+        const auto results = qpcr::StatisticalTest::tukeyHSD(groups, names, 0.05);
+        const auto comps = e.value("comparisons").toArray();
+        ASSERT_EQ(results.size(), comps.size());
+
+        for (const auto& cv : comps) {
+            auto c = cv.toObject();
+            const QString g1 = c.value("g1").toString();
+            const QString g2 = c.value("g2").toString();
+
+            int found = -1;
+            for (int j = 0; j < results.size(); ++j) {
+                if (results[j].group1Name == g1 && results[j].group2Name == g2) {
+                    found = j;
+                    break;
+                }
+            }
+            SCOPED_TRACE(("tukey id=" + id + " " + g1 + " vs " + g2).toStdString());
+            ASSERT_GE(found, 0) << "缺少该两两比较结果";
+
+            testfix::expect_close(results[found].statistic, c.value("statistic").toDouble());
+            testfix::expect_close(results[found].pValue,    c.value("pvalue").toDouble());
+        }
+    }
+}

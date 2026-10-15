@@ -153,17 +153,16 @@ QVector<StatisticalResult> ExpressionCalculator::performANOVA(
     // 旧实现 pValue 硬编码 0.05。
     QVector<StatisticalResult> results;
 
-    const auto genes = data.getStringColumn(geneCol);
-    const auto groups = data.getStringColumn(groupCol);
-    QSet<QString> geneSet(genes.begin(), genes.end());
-    QSet<QString> groupSet(groups.begin(), groups.end());
+    // 按输入首次出现顺序遍历（QSet 迭代序随进程哈希种子变化 → 统计表行序会飘）
+    const QVector<QString> geneList = getUniqueValuesOrdered(data, geneCol);
+    const QVector<QString> groupList = getUniqueValuesOrdered(data, groupCol);
 
-    for (const QString& gene : geneSet) {
+    for (const QString& gene : geneList) {
         QVector<QVector<double>> groupDataList;
         QStringList groupNames;
         QHash<QString, double> geneGroupMeans;
 
-        for (const QString& group : groupSet) {
+        for (const QString& group : groupList) {
             QVector<double> vals;
             for (int i = 0; i < data.rowCount(); ++i) {
                 if (data.get(i, geneCol).toString() == gene &&
@@ -303,12 +302,24 @@ DataFrame ExpressionCalculator::mergeByPosition(const DataFrame& cqTable, const 
     QStringList cqCols = cqTable.columns();
     QStringList designCols = designTable.columns();
 
-    QSet<QString> allCols;
-    for (const QString& col : cqCols) allCols.insert(col);
-    for (const QString& col : designCols) allCols.insert(col);
-    allCols.remove("Position");
-
-    QStringList finalCols = allCols.values();
+    // 列顺序按「Cq 表 → 设计表」的首次出现顺序去重，Position 置首。
+    // 旧实现用 QSet 迭代决定列序 → 每次进程启动的列序随机，导出的表列序随之飘动。
+    QStringList finalCols;
+    {
+        QSet<QString> seen;
+        for (const QString& col : cqCols) {
+            if (col != "Position" && !seen.contains(col)) {
+                seen.insert(col);
+                finalCols.append(col);
+            }
+        }
+        for (const QString& col : designCols) {
+            if (col != "Position" && !seen.contains(col)) {
+                seen.insert(col);
+                finalCols.append(col);
+            }
+        }
+    }
     finalCols.prepend("Position");
 
     QMap<QString, QVector<QVariant>> columnData;
@@ -340,6 +351,8 @@ DataFrame ExpressionCalculator::mergeByPosition(const DataFrame& cqTable, const 
     return result;
 }
 
+// 注意：返回 QSet，迭代顺序不确定，仅适合「只做包含性判断」的场合；
+// 凡是用到遍历/输出顺序的地方一律用 getUniqueValuesOrdered()（当前已无调用者）。
 QSet<QString> ExpressionCalculator::getUniqueValues(const DataFrame& df, const QString& columnName)
 {
     QSet<QString> uniqueValues;
@@ -347,6 +360,23 @@ QSet<QString> ExpressionCalculator::getUniqueValues(const DataFrame& df, const Q
     for (int i = 0; i < df.rowCount(); ++i)
         uniqueValues.insert(df.get(i, columnName).toString());
     return uniqueValues;
+}
+
+QVector<QString> ExpressionCalculator::getUniqueValuesOrdered(const DataFrame& df, const QString& columnName)
+{
+    QVector<QString> ordered;
+    if (!df.hasColumn(columnName)) return ordered;
+
+    QSet<QString> seen;
+    ordered.reserve(df.rowCount());
+    for (int i = 0; i < df.rowCount(); ++i) {
+        const QString value = df.get(i, columnName).toString();
+        if (!seen.contains(value)) {
+            seen.insert(value);
+            ordered.append(value);
+        }
+    }
+    return ordered;
 }
 
 QVector<double> ExpressionCalculator::getFilteredValues(
@@ -401,19 +431,19 @@ double ExpressionCalculator::calculateStandardDeviation(const QVector<double>& v
 
 QVector<QString> ExpressionCalculator::selectReferenceGenesByGeNorm(const DataFrame& df)
 {
-    QSet<QString> genesSet = getUniqueValues(df, "Gene");
-    QVector<QString> genes = genesSet.values();
+    // 全部按输入首次出现顺序（QSet 迭代序随进程哈希种子变化，会影响并列时的取基因顺序）
+    QVector<QString> genes = getUniqueValuesOrdered(df, "Gene");
     if (genes.size() < 2) return genes;
 
     QMap<QString, QMap<QString, double>> cqMatrix;
-    QSet<QString> treatmentsSet = getUniqueValues(df, "Group");
-    QSet<QString> biorepsSet = getUniqueValues(df, "BioRep");
-    QSet<QString> techrepsSet = getUniqueValues(df, "TechRep");
+    const QVector<QString> treatmentsList = getUniqueValuesOrdered(df, "Group");
+    const QVector<QString> biorepsList = getUniqueValuesOrdered(df, "BioRep");
+    const QVector<QString> techrepsList = getUniqueValuesOrdered(df, "TechRep");
 
     for (const QString& gene : genes) {
-        for (const QString& treatment : treatmentsSet) {
-            for (const QString& biorep : biorepsSet) {
-                for (const QString& techrep : techrepsSet) {
+        for (const QString& treatment : treatmentsList) {
+            for (const QString& biorep : biorepsList) {
+                for (const QString& techrep : techrepsList) {
                     QString key = treatment + biorep + techrep;
                     for (int i = 0; i < df.rowCount(); ++i) {
                         if (df.get(i, "Gene").toString() == gene &&

@@ -107,6 +107,63 @@ TEST(Bugfix, WilcoxonLargeSampleWithTiesMatchesNormalApproximation) {
     EXPECT_NEAR(r.pValue, 0.110165, 1e-6);
 }
 
+//------------------------------------------------------------------------------
+// StatisticalTest：Tukey HSD 必须用学生化极差分布（旧实现是 t + Bonferroni 近似）
+//------------------------------------------------------------------------------
+
+TEST(Bugfix, TukeyUsesStudentizedRangeNotBonferroni) {
+    // 3 组 × 4 重复（dfWithin = 9）：R 的 TukeyHSD 给出 A-B p adj = 0.0331532。
+    // 旧实现（t 分布 + Bonferroni，3 组 → ×3）在同一数据上给出更大的 p，
+    // 两者不是同一个量；这里锁住真 Tukey 的取值。
+    QVector<QVector<double>> groups = {{1, 2, 3, 4}, {4, 5, 6, 4.5}, {8, 9, 7, 9.5}};
+    QStringList names = {"A", "B", "C"};
+    auto results = StatisticalTest::tukeyHSD(groups, names, 0.05);
+    ASSERT_EQ(results.size(), 3);
+
+    auto findPair = [&](const QString& g1, const QString& g2) {
+        for (const auto& r : results) {
+            if (r.group1Name == g1 && r.group2Name == g2) return r;
+        }
+        return qpcr::TestResult{};
+    };
+
+    // 期望值来自 R 4.6.1：ptukey(Q, 3, 9, lower.tail = FALSE)
+    auto ab = findPair("A", "B");
+    EXPECT_NEAR(ab.statistic, 4.32115884839975, 1e-9);
+    EXPECT_NEAR(ab.pValue, 0.0331532285600452, 1e-9);
+
+    auto ac = findPair("A", "C");
+    EXPECT_NEAR(ac.statistic, 10.6891824144625, 1e-9);
+    EXPECT_NEAR(ac.pValue, 9.21185206983477e-05, 1e-9);
+}
+
+TEST(Bugfix, TukeyTinyErrorDegreesOfFreedom) {
+    // dfWithin = 2（2 组 × 2 重复）是 R 的 ptukey 精度最差的区域：R 对
+    // Q = 12、k = 2、df = 2 给 0.0134441。独立核算表明该值偏小：
+    //   · 2×10^7 次蒙特卡洛（Q = |N(0,2)| / sqrt(chi2_2/2)）→ 0.013639 ± 0.000051
+    //   · 自适应高精度二重积分（SciPy quad，epsabs 1e-17）→ 0.0136060761678563
+    // 本实现与后两者一致（相对偏差 < 1e-11），故此处以高精度积分值为期望。
+    // 数据构造：means 2 与 26、组内方差各 8 → MSE = 8、seQ = 2 → Q = 12。
+    QVector<QVector<double>> groups = {{0, 4}, {24, 28}};
+    QStringList names = {"A", "B"};
+    auto results = StatisticalTest::tukeyHSD(groups, names, 0.05);
+    ASSERT_EQ(results.size(), 1);
+
+    EXPECT_NEAR(results[0].statistic, 12.0, 1e-12);
+    EXPECT_NEAR(results[0].pValue, 0.0136060761678563, 1e-9);
+}
+
+TEST(Bugfix, TukeyDegenerateInputs) {
+    // 只有一组 → 无两两比较
+    EXPECT_TRUE(StatisticalTest::tukeyHSD({{1, 2, 3}}, {"A"}).isEmpty());
+    // 每组只有一个观测（dfWithin = 0）→ 无法给出 p 值，返回空
+    EXPECT_TRUE(StatisticalTest::tukeyHSD({{1}, {2}}, {"A", "B"}).isEmpty());
+    // 全部相同的两组 → Q = 0，p = 1
+    auto same = StatisticalTest::tukeyHSD({{1, 1, 1}, {1, 1, 1}}, {"A", "B"});
+    ASSERT_EQ(same.size(), 1);
+    EXPECT_DOUBLE_EQ(same[0].pValue, 1.0);
+}
+
 TEST(Bugfix, AnovaDegenerateGroups) {
     // 各组完全相同 → F=0, p=1
     auto r = StatisticalTest::anova({{1, 2, 3}, {1, 2, 3}, {1, 2, 3}});
@@ -444,6 +501,38 @@ TEST(Bugfix, StandardCurveByMeanDeterministicOrder) {
     EXPECT_LT(results[0].logConcentrations[0], results[0].logConcentrations[1]);
     EXPECT_NEAR(results[0].logConcentrations[0], 1.0, 1e-12);
     EXPECT_NEAR(results[0].logConcentrations[1], 2.0, 1e-12);
+}
+
+TEST(Bugfix, StandardCurveGeneOrderDeterministic) {
+    // 基因在输入里故意乱序（G3 → G1 → G2）：结果行序必须与输入顺序、也与
+    // QSet 的随机迭代序无关（旧实现直接遍历 QSet，同一二进制两次运行的行序不同，
+    // 2026-10-15 实测 validation/results/cpp_standardcurve.csv 两次运行不一致）。
+    qpcr::DataFrame cq, conc;
+    const QStringList genes = {"G3", "G3", "G1", "G1", "G2", "G2"};
+    const QList<double> cqs   = {22.0, 25.0, 20.0, 23.0, 21.0, 24.0};
+    const QList<double> concs = {100.0, 10.0, 100.0, 10.0, 100.0, 10.0};
+    QList<QVariant> cqPositions, concPositions, cqGenes, concGenes, cqValues, concValues;
+    for (int i = 0; i < genes.size(); ++i) {
+        const QString pos = QStringLiteral("%1").arg(i + 1);
+        cqPositions.append(pos);
+        concPositions.append(pos);
+        cqGenes.append(genes[i]);
+        concGenes.append(genes[i]);
+        cqValues.append(cqs[i]);
+        concValues.append(concs[i]);
+    }
+    cq.addColumn("Position", cqPositions);
+    cq.addColumn("Gene", cqGenes);
+    cq.addColumn("Cq", cqValues);
+    conc.addColumn("Position", concPositions);
+    conc.addColumn("Gene", concGenes);
+    conc.addColumn("Conc", concValues);
+
+    auto results = qpcr::StandardCurve::calculate(cq, conc, 1.0, 1000.0, 10.0, /*byMean=*/false);
+    ASSERT_EQ(results.size(), 3);
+    EXPECT_EQ(results[0].gene.toStdString(), "G1");
+    EXPECT_EQ(results[1].gene.toStdString(), "G2");
+    EXPECT_EQ(results[2].gene.toStdString(), "G3");
 }
 
 //------------------------------------------------------------------------------

@@ -27,13 +27,11 @@ ExpressionResult ExpressionCalculator::calculateByStandardCurve(
         merged = mergeByPosition(params.cqTable, params.designTable);
     }
 
-    QSet<QString> genesSet = getUniqueValues(merged, "Gene");
-    QSet<QString> groupsSet = getUniqueValues(merged, "Group");
-    QSet<QString> biorepsSet = getUniqueValues(merged, "BioRep");
-
-    QVector<QString> genes = genesSet.values();
-    QVector<QString> groups = groupsSet.values();
-    QVector<QString> bioreps = biorepsSet.values();
+    // 按输入首次出现顺序去重（QSet 迭代序随进程哈希种子变化 → 结果表行序与
+    // 浮点求和顺序在同一次分析的两次运行之间会不同；2026-10-15 实测）
+    QVector<QString> genes = getUniqueValuesOrdered(merged, "Gene");
+    QVector<QString> groups = getUniqueValuesOrdered(merged, "Group");
+    QVector<QString> bioreps = getUniqueValuesOrdered(merged, "BioRep");
 
     struct QCqData {
         QString biorep, group, gene;

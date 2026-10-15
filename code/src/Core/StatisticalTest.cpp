@@ -157,6 +157,167 @@ static double normalCDF(double z)
 }
 
 //=============================================================================
+// 学生化极差分布（studentized range）：Tukey HSD 的精确 p 值
+//
+//   P(Q > q; k, ν) = ∫_0^∞ f_{χ²_ν}(u) · J(q·√(u/ν)) du
+//   J(t) = ∫_{-∞}^{+∞} φ(z) [1 − k·(Φ(z+t) − Φ(z))^{k−1}] dz
+//
+// 双重积分形式取自 Batista et al. (2017)，与 scipy.stats.studentized_range 的积分核
+// 一致（SciPy 为 BSD-3-Clause；R 的 ptukey 是 GPL，本实现未使用其代码）。
+// 两重积分均用 Gauss–Legendre 求积：
+//   · 内层（z）：6 段 × 16 点覆盖 [-12, 12]（|z| > 12 处 φ < 2e-32，可忽略）；
+//   · 外层：令 y = √(χ²/ν) 换元消去 u^{ν/2−1} 在 0 处的奇性，[0, y_max] 按 0.6 等宽
+//     分段、每段 12 点。
+// 实测（2026-10-15，与自适应高精度积分逐点对照）：p ≥ 1e-6 区间相对误差 ≤ 3e-13；
+// 更小的尾部受双精度相消限制，绝对误差 ~1e-16（即"远小于 α"的结论不受影响）。
+// 注：R 的 ptukey 在极小误差自由度处本身不准——df=2、q=12、k=2 时 R 给 0.0134441，
+// 而 2×10⁷ 次蒙特卡洛得 0.013639 ± 0.000051、高精度积分得 0.0136061；本实现与后两者
+// 一致（详见 code/tests/generate_reference.R 中的说明）。
+//=============================================================================
+
+// n 点 Gauss–Legendre 节点与权重（Newton 迭代求 Legendre 多项式零点）
+static void gaussLegendreRule(int n, QVector<double>& nodes, QVector<double>& weights)
+{
+    const double pi = 3.14159265358979323846;
+    nodes.resize(n);
+    weights.resize(n);
+
+    for (int i = 0; i < n; ++i) {
+        double x = std::cos(pi * (i + 0.75) / (n + 0.5));
+        double derivative = 1.0;
+        for (int iter = 0; iter < 100; ++iter) {
+            double p0 = 1.0;
+            double p1 = x;
+            for (int j = 2; j <= n; ++j) {
+                const double p2 = ((2.0 * j - 1.0) * x * p1 - (j - 1.0) * p0) / j;
+                p0 = p1;
+                p1 = p2;
+            }
+            derivative = n * (x * p1 - p0) / (x * x - 1.0);
+            const double dx = p1 / derivative;
+            x -= dx;
+            if (std::abs(dx) < 1e-15) break;
+        }
+        nodes[i] = x;
+        weights[i] = 2.0 / ((1.0 - x * x) * derivative * derivative);
+    }
+}
+
+// 内层（z 方向）固定求积规则：6 段 × 16 点，只算一次
+static const QVector<QPair<double, double>>& normalRangeQuadrature()
+{
+    static const QVector<QPair<double, double>> rule = [] {
+        static const double panelEdges[] = {-12.0, -5.0, -2.0, 0.0, 2.0, 5.0, 12.0};
+        const int nodesPerPanel = 16;
+        QVector<double> xn, wn;
+        gaussLegendreRule(nodesPerPanel, xn, wn);
+
+        QVector<QPair<double, double>> out;
+        out.reserve(6 * nodesPerPanel);
+        for (int p = 0; p < 6; ++p) {
+            const double a = panelEdges[p];
+            const double b = panelEdges[p + 1];
+            const double half = 0.5 * (b - a);
+            const double mid = 0.5 * (a + b);
+            for (int i = 0; i < nodesPerPanel; ++i) {
+                out.append(qMakePair(mid + half * xn[i], half * wn[i]));
+            }
+        }
+        return out;
+    }();
+    return rule;
+}
+
+// 整数幂（比 std::pow 快，且不引入 libm 的额外误差）
+static double intPower(double base, int exponent)
+{
+    double result = 1.0;
+    double factor = base;
+    int e = exponent;
+    while (e > 0) {
+        if (e & 1) result *= factor;
+        factor *= factor;
+        e >>= 1;
+    }
+    return result;
+}
+
+// P(z < X ≤ z + t)，X ~ N(0,1)。按区间位置分段用 erf/erfc，避免大数相减。
+static double normalIntervalProbability(double z, double t)
+{
+    const double invSqrt2 = 0.7071067811865476;
+    if (z >= 0.0) {
+        // 两端都在右半轴：用上尾 erfc 相减
+        return 0.5 * (std::erfc(z * invSqrt2) - std::erfc((z + t) * invSqrt2));
+    }
+    if (z + t <= 0.0) {
+        // 两端都在左半轴：用左尾 erfc 相减
+        return 0.5 * (std::erfc(-(z + t) * invSqrt2) - std::erfc(-z * invSqrt2));
+    }
+    // 跨过 0：拆成 [z,0] + [0,z+t]，两项都是小量
+    return 0.5 * std::erf(-z * invSqrt2) + 0.5 * std::erf((z + t) * invSqrt2);
+}
+
+// J(t) = ∫φ(z)[1 − k·(Φ(z+t) − Φ(z))^{k−1}]dz（rangeUpperTail 的内层量）
+static double rangeUpperTailInner(double t, int k)
+{
+    const double invSqrt2Pi = 0.3989422804014327;
+    const QVector<QPair<double, double>>& rule = normalRangeQuadrature();
+    const int exponent = k - 1;
+
+    double total = 0.0;
+    for (const auto& node : rule) {
+        const double z = node.first;
+        const double a = normalIntervalProbability(z, t);
+        const double powered = (exponent == 0) ? 1.0 : intPower(a, exponent);
+        total += node.second * (invSqrt2Pi * std::exp(-0.5 * z * z)) * (1.0 - k * powered);
+    }
+    return total;
+}
+
+// 学生化极差分布的上尾 P(Q > q)：k 组、误差自由度 df
+static double studentizedRangeUpperTail(double q, int k, double df)
+{
+    if (k < 2 || !(q > 0.0)) return 1.0;   // P(Q > 0) = 1
+    if (!(df > 0.0)) return qQNaN();
+
+    // 自由度极大时用 df = ∞ 的极限形式（与 R / SciPy 的渐近切换一致）
+    if (df >= 1.0e5) return std::min(1.0, std::max(0.0, rangeUpperTailInner(q, k)));
+
+    const double m = 0.5 * df;
+    const double logNorm = -std::lgamma(m);
+    const double scale = std::sqrt(2.0 / df);           // t = q · scale · y
+    const double yMax = std::sqrt(m + 20.0 * std::sqrt(m) + 60.0);
+
+    const int nodesPerPanel = 12;
+    const double panelWidth = 0.6;
+    QVector<double> xn, wn;
+    gaussLegendreRule(nodesPerPanel, xn, wn);
+
+    const int panelCount = std::max(4, static_cast<int>(std::ceil(yMax / panelWidth)));
+
+    double total = 0.0;
+    for (int p = 0; p < panelCount; ++p) {
+        const double a = yMax * p / panelCount;
+        const double b = yMax * (p + 1) / panelCount;
+        const double half = 0.5 * (b - a);
+        const double mid = 0.5 * (a + b);
+        for (int i = 0; i < nodesPerPanel; ++i) {
+            const double y = mid + half * xn[i];
+            if (!(y > 0.0)) continue;
+            // y = √(χ²/ν) 的密度：2·y^{ν−1}·e^{−νy²/2}·(ν/2)^{ν/2}/Γ(ν/2)
+            const double logDensity = (2.0 * m - 1.0) * std::log(y) - y * y + logNorm;
+            const double density = 2.0 * std::exp(logDensity);
+            if (!(density > 0.0)) continue;
+            total += half * wn[i] * density * rangeUpperTailInner(q * scale * y, k);
+        }
+    }
+
+    if (!(total > 0.0)) return 0.0;     // 尾部极小时可能被数值噪声压成负值
+    return std::min(1.0, total);
+}
+
+//=============================================================================
 // t-Test
 //=============================================================================
 
@@ -714,22 +875,13 @@ QVector<TestResult> StatisticalTest::tukeyHSD(
                                   .arg(nonEmptyNames[i], nonEmptyNames[j]);
             result.group1Name = nonEmptyNames[i];
             result.group2Name = nonEmptyNames[j];
+            result.degreesOfFreedom = dfWithin;
 
-            // 用 t 分布 + Bonferroni 校正近似 Tukey HSD 的 p 值（保守但有效；
-            // 与旧实现一致，但改用真实 t 分布而非数值积分旧版 incompleteBeta）。
-            int numComparisons = k * (k - 1) / 2;
-            double t = std::abs(diff) / std::sqrt(MSE * (1.0 / ni + 1.0 / nj));
-            int df = dfWithin;
-
-            double t_p;
-#ifdef HAS_GSL
-            t_p = 2 * (1 - gsl_cdf_tdist_P(t, df));
-#else
-            t_p = tTwoSidedP(t, df);
-#endif
-
-            // Apply Bonferroni correction
-            double p = std::min(1.0, t_p * numComparisons);
+            // 真 Tukey（Tukey–Kramer）：p = P(学生化极差 > Q)，对应 R 的
+            // ptukey(Q, k, dfWithin, lower.tail = FALSE)。
+            // 旧实现是「t 分布 + Bonferroni」，p 值偏保守且与 Tukey 的
+            // 学生化极差分布不是同一个量（2026-10-15 更正）。
+            const double p = studentizedRangeUpperTail(Q, k, dfWithin);
             result.pValue = p;
             result.significance = formatSignificance(p);
             result.isSignificant = p < alpha;

@@ -54,6 +54,15 @@ cmake -S code -B build-tests -DBUILD_TESTS=ON [同上 Qt/Eigen] && cmake --build
 - `performWilcoxonTest` / `performANOVA`：p 值硬编码 0.05 → 委托真实检验；`performANOVA` 现在输出 Tukey 字母标记
 - `StatisticalTest`：无 GSL 时 ANOVA p 值占位 0.05 → 用正则化不完全 Beta（Lentz 连分数）实现精确 t/F 分布与分位数；`incompleteBeta` 旧梯形积分重写
 - Wilcoxon 秩和/符号秩：并列值用平均秩 + R 一致方差校正；统计量与 R 一致（U1 / V 约定）
+- Wilcoxon 秩和：小样本（n1, n2 ≤ 25）改用**精确分布**（2026-10-15）。原实现只有正态近似，
+  3 vs 3 完全分开时给 p ≈ 0.0495（假阳性），精确检验的最小 p 是 0.1。精确 p 按"秩的多重集合"
+  做背包 DP，含并列值同样精确（对应 R ≥ 4.2 的默认行为）；更大样本仍走正态近似
+  （对齐 R 的 `exact = FALSE, correct = FALSE`）。符号秩（配对）目前仍为正态近似。
+- Tukey HSD：改用**学生化极差分布**的真 Tukey（Tukey–Kramer）（2026-10-15）。原实现是
+  "t 分布 + Bonferroni 校正"，p 值偏保守且与 Tukey 不是同一个量。现按
+  `Q = |Δmean| / sqrt(MSE/2·(1/n_i + 1/n_j))`、`p = P(Q_studentizedRange > Q)` 计算，
+  与 R 的 `ptukey(..., lower.tail = FALSE)` / `TukeyHSD()` 同量；R 的 `ptukey` 在极小
+  误差自由度处本身有偏差（df = 2 时相对偏差 ~1e-2），本实现以高精度积分与蒙特卡洛为准。
 - `tTest`/`pairedTTest`/ANOVA/Tukey 的除零与空组边界（se=0、dfWithin≤0、空组）
 - `generateLetterGroups`：重写字母分配算法（旧实现在非传递性比较下会给显著差异组分配相同字母）；不再解析 `testName` 字符串（改用 `TestResult::group1Name/group2Name`）
 - 标曲表达量法：统计结果的 group1/group2 命名与 PValue 合并循环约定相反 → 结果表 PValue 恒为空，已修复

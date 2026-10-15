@@ -126,7 +126,14 @@ public:
     /**
      * @brief Tukey's HSD 事后检验
      *
-     * 在 ANOVA 显著后进行两两比较
+     * 在 ANOVA 显著后进行两两比较。分组样本量不等时即 Tukey–Kramer 形式：
+     *   Q_ij = |mean_i − mean_j| / sqrt( MSE/2 · (1/n_i + 1/n_j) )
+     *   p_ij = P(学生化极差 > Q_ij)，自由度 k 个组、dfWithin = N − k
+     * p 值由学生化极差分布（studentized range）的上尾直接算出，与 R 的
+     * `ptukey(Q, k, dfWithin, lower.tail = FALSE)` / `TukeyHSD()` 为同一量。
+     *
+     * 注：R 的 `ptukey` 在极小误差自由度处精度有限（实测 df = 2 时偏差 ~1e-2 相对量级），
+     * 本实现与高精度积分及蒙特卡洛结果一致。
      *
      * @param groups 各组数据
      * @param groupNames 组名
