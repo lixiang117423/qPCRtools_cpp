@@ -205,5 +205,26 @@
         }
       ]
     }
+  ],
+  "genorm": [
+    {
+      "id": "discriminating",
+      "selected": ["G1", "G3"],
+      "first_round_M": [3.1674, 3.774814, 3.587038, 5.987556, 3.402653],
+      "variant_relative_one_round": ["G1", "G5"],
+      "variant_raw_stepwise": ["G1", "G5"],
+      "variant_raw_one_round": ["G1", "G5"]
+    }
+  ],
+  "genorm_example": [
+    {
+      "id": "rqpcr_example",
+      "n_genes": 6,
+      "n_samples": 16,
+      "selected": ["OsRBBI2", "OsUBQ"],
+      "variant_relative_one_round": ["OsUBQ", "OsRBBI2"],
+      "variant_raw_stepwise": ["OsRBBI2", "OsUBQ"],
+      "variant_raw_one_round": ["OsUBQ", "OsRBBI2"]
+    }
   ]
 }

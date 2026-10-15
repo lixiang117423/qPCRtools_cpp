@@ -1,5 +1,49 @@
 # CHANGELOG
 
+## 2026-10-15 14:18 — 第③项：geNorm 参考基因筛选改用相对量 + 逐步剔除
+
+导师意见第 7 条（"geNorm 内参筛选的输入用错了，R 包和 C++ 版都有"）。核对 R 包源码后确认
+他说的两点都成立，且比原记录更精确。
+
+### 事实核对（R 包源码 `/Users/lixiang/NutstoreFiles/03.编程相关/qPCRtools/R/CalExpRqPCR.R`）
+
+- R 包 `find_ref_gene()`（第 224-273 行）**有**逐步剔除：`for (i in n.genes:num.ref)` 每轮
+  `which.max(M)` 剔除 M 最大的基因，直到剩 2 个。→ C++ 原实现只算一轮 M 取最小的两个，**漏了这一步**。
+- 但 R 包的稳定性度量是 `A <- log2(data[, j] / data[, -j])`，即**原始 Cq 相除**，不是相对量。
+  → 两个版本在这一点上都与 geNorm 原文（Vandesompele et al. 2002：`Q = 2^(minCq − Cq)`）不符。
+
+### 改动
+
+- `ExpressionCalculator::selectReferenceGenesByGeNorm`（`src/Core/ExpressionCalculator.cpp`）：
+  ① 先换算成相对量的对数 `log2 Q = minCq − Cq`（每个基因相对自身表达最高的样品）；
+  ② M = 与其余基因两两 `log2(Q_a/Q_b)` 的 SD 的平均（效率按 2 时等价于"两个基因 Cq 差值在样品间的波动"）；
+  ③ **逐步剔除**：每轮剔除 M 最大者，重复到只剩 2 个；并列时按输入顺序取第一个，保证结果确定。
+- 缺值样品不参与涉及它的基因对；某基因可用配对样品不足 2 个时 M 记 +∞（最先被剔除）。
+- 函数由 private 改 public（与 `performANOVA` 同样"公开以便测试与第三方调用"），头文件补上算法定义与
+  与 R 包口径差异的说明。
+- `docs/08_status.md`：R 函数映射表里 GeNorm 一行由"⏳ 部分"改为"✅ 已实现（按 geNorm 原文）"，
+  并写明与 R 包的差异；bug 列表补一条。
+
+### 测试与证据
+
+- `generate_reference.R` 新增 `geNormSelect()`（R 侧独立参考实现，四种组合可选）与两套数据：
+  - `tests/fixtures/data_genorm.csv`：**判别数据集**（5 基因 × 5 样品，数值刻意挑成能区分两种错误）。
+    正确做法（相对量 + 逐步）选 **G1/G3**；原始 Cq 相除、或只算一轮 M，都会选成 **G1/G5**。
+  - `expected_stat.json` 新增 `genorm`（判别数据集）与 `genorm_example`（示例数据）。
+- 新增两个用例：`ExpressionCalculator.GeNormSelectsReferenceGenes`（含"若退化成旧行为必失败"的断言）、
+  `ExpressionCalculator.GeNormMatchesReferenceOnExampleData`（96 孔示例数据，6 基因 × 16 样品）。
+- **真实数据结论**：论文示例数据上四种组合选出的内参集合**相同**（`OsRBBI2` / `OsUBQ`，也正是
+  validation 脚本手选的那一对），所以论文里基于示例数据的结果不受本次改正影响。
+- `ctest` **49/49 通过**（47 → +2）；GUI 与等价性 driver 均编译通过；
+  validation 三份输出连跑两次仍逐字节一致，且与上一轮完全相同（driver 显式指定内参，故不受影响）。
+- 上一批次（Tukey + 输出顺序确定化，提交 `4e77e90`）的 CI run **38690903815 成功**（macOS，5m42s）。
+
+### 遗留（下一步）
+
+④ RqPCR 按数值去重 / 配对问题（导师意见第 8 条）；⑤ ΔΔCt 基准决策（需用户拍板）；⑥ SE 公式；
+⑦ 图 2A 重画 + 公式口径。另有：论文 `paper.md` 把 geNorm 自动选内参写成"相对 R 版的扩展"，
+而 R 包其实有 `find_ref_gene()`（口径不同）——属于导师提的"引言竞品描述要改准"一类，待改稿时一并处理。
+
 ## 2026-10-15 14:10 — 第②项：Tukey HSD 换真 Tukey（学生化极差分布）；顺带修复输出顺序不确定
 
 按既定顺序推进到第②项（导师意见第 3 条相关的统计正确性）。本轮同时发现并修掉一个此前

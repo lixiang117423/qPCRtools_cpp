@@ -210,6 +210,20 @@ public:
         const QString& valueCol
     );
 
+    /**
+     * @brief 用 geNorm（Vandesompele et al. 2002）自动选择参考基因（公开以便测试与第三方调用）
+     *
+     * 输入为含 `Gene` / `Group` / `BioRep` / `TechRep` / `Cq` 的 Cq 表：
+     *   ① 先换算成相对量 Q = 2^(min Cq − Cq)（每个基因相对自身表达最高的样品）；
+     *   ② 该基因的 M = 与其余基因两两 log2 相对量之差的 SD 的平均值；
+     *   ③ 逐步剔除：每轮剔除 M 最大的基因，重复到只剩 2 个，返回这 2 个基因（输入顺序）。
+     * 缺值样品不参与涉及它的基因对；某基因可用配对样品不足 2 个时 M 记 +∞（最先被剔除）。
+     *
+     * 注：R 包 `qPCRtools::find_ref_gene()` 有逐步剔除、但稳定性度量用的是原始 Cq 相除
+     * （`log2(Cq_a / Cq_b)`），与 geNorm 定义不符；本实现按 geNorm 原文用相对量。
+     */
+    static QVector<QString> selectReferenceGenesByGeNorm(const DataFrame& df);
+
 private:
 
     /**
@@ -257,10 +271,6 @@ private:
      */
     static double calculateStandardDeviation(const QVector<double>& values);
 
-    /**
-     * @brief 使用geNorm算法选择参考基因
-     */
-    static QVector<QString> selectReferenceGenesByGeNorm(const DataFrame& df);
 };
 
 } // namespace qpcr

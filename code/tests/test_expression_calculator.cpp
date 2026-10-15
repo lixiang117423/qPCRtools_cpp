@@ -5,6 +5,7 @@
 #include <QVector>
 
 #include <algorithm>
+#include <limits>
 
 #include "Core/ExpressionCalculator.h"
 #include "Data/CSVParser.h"
@@ -51,6 +52,89 @@ TEST(ExpressionCalculator, DeltaCtMatchesR) {
             testfix::expect_close(got[i], expected[i]);
         }
     }
+}
+
+// geNorm 参考基因选择（导师 2026-10-14 意见第 7 条）：
+//   ① 稳定性 M 必须建立在相对量 Q = 2^(minCq−Cq) 上，不是 log2(原始 Cq 相除)；
+//   ② 必须逐步剔除最不稳定基因，而不是只算一轮 M 后取最小的两个。
+// 期望值由 generate_reference.R 按 geNorm 原文独立实现（相对量 + 逐步剔除）生成。
+// data_genorm.csv 刻意构造成：用原始 Cq 相除、或只算一轮 M，都会选成 G1/G5。
+TEST(ExpressionCalculator, GeNormSelectsReferenceGenes) {
+    qpcr::CSVParser parser;
+    qpcr::DataFrame df = parser.parse(QString(QPCR_TEST_FIXTURES_DIR) + "/data_genorm.csv");
+    ASSERT_GT(df.rowCount(), 0);
+
+    auto e = testfix::load_json("expected_stat.json").object().value("genorm").toArray()
+                 .first().toObject();
+    QStringList expected;
+    for (const auto& v : e.value("selected").toArray()) expected << v.toString();
+
+    QStringList got;
+    for (const QString& gene : qpcr::ExpressionCalculator::selectReferenceGenesByGeNorm(df)) {
+        got << gene;
+    }
+
+    QStringList wrong;   // 旧行为（原始 Cq + 单轮 M）会选出的基因
+    for (const auto& v : e.value("variant_raw_one_round").toArray()) wrong << v.toString();
+
+    expected.sort();
+    got.sort();
+    wrong.sort();
+
+    EXPECT_EQ(got.size(), 2);
+    EXPECT_EQ(got.join(",").toStdString(), expected.join(",").toStdString());
+    // 若实现退化成「原始 Cq 相除」或「只算一轮 M」，本断言会失败
+    EXPECT_NE(got.join(",").toStdString(), wrong.join(",").toStdString());
+}
+
+// 同一套 geNorm 实现跑在论文示例数据（96 孔，6 个基因 × 16 个样品）上，
+// 与 R 参考实现（generate_reference.R 的 geNormSelect）对齐。
+// 顺带记录：在这份真实数据上四种组合选出的基因集合恰好相同（OsRBBI2 / OsUBQ，
+// 也正是验证脚本手选的那对内参），所以示例数据的结论不受本次改正影响。
+TEST(ExpressionCalculator, GeNormMatchesReferenceOnExampleData) {
+    qpcr::CSVParser parser;
+    auto cq  = parser.parse(QString(QPCR_EXAMPLES_DIR) + "/rqpcr_cq.csv");
+    auto des = parser.parse(QString(QPCR_EXAMPLES_DIR) + "/rqpcr_design.csv");
+    ASSERT_GT(cq.rowCount(), 0);
+    ASSERT_GT(des.rowCount(), 0);
+
+    // 按 Position 合并出 geNorm 需要的五列（Gene/Group/BioRep/TechRep/Cq）
+    QList<QVariant> geneV, groupV, biorepV, techrepV, cqV;
+    for (int i = 0; i < des.rowCount(); ++i) {
+        const QString pos = des.get(i, "Position").toString();
+        double cqValue = std::numeric_limits<double>::quiet_NaN();
+        for (int j = 0; j < cq.rowCount(); ++j) {
+            if (cq.get(j, "Position").toString() == pos) {
+                cqValue = cq.get(j, "Cq").toDouble();
+                break;
+            }
+        }
+        geneV.append(des.get(i, "Gene"));
+        groupV.append(des.get(i, "Group"));
+        biorepV.append(des.get(i, "BioRep"));
+        techrepV.append(des.get(i, "TechRep"));
+        cqV.append(QVariant(cqValue));
+    }
+    qpcr::DataFrame df;
+    df.addColumn("Gene", geneV);
+    df.addColumn("Group", groupV);
+    df.addColumn("BioRep", biorepV);
+    df.addColumn("TechRep", techrepV);
+    df.addColumn("Cq", cqV);
+
+    auto e = testfix::load_json("expected_stat.json").object().value("genorm_example")
+                 .toArray().first().toObject();
+    QStringList expected;
+    for (const auto& v : e.value("selected").toArray()) expected << v.toString();
+
+    QStringList got;
+    for (const QString& gene : qpcr::ExpressionCalculator::selectReferenceGenesByGeNorm(df)) {
+        got << gene;
+    }
+    expected.sort();
+    got.sort();
+
+    EXPECT_EQ(got.join(",").toStdString(), expected.join(",").toStdString());
 }
 
 // performANOVA 的输出行序必须由输入决定。旧实现遍历 QSet，行序随每次进程启动的

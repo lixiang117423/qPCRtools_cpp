@@ -21,9 +21,14 @@ GUI 用 Qt WebEngine，前端是 web 技术（HTML/CSS/JS）；核心算法是 C
 | `CalExp2ddCt()` | `calculateByDeltaDeltaCt` | ✅ 对齐 R（全数据均值归一化，对照≠1）|
 | `CalExpRqPCR()` | `calculateByStandardCurve`（效率法） | ✅ 对齐 R（min.meanCq/参考基因几何均值/最小组均值归一化）|
 | `CalExpCurve()` | —（斜率截距法 `(Cq-Intercept)/Slope`） | ⏳ 未移植 |
-| `CalRTable()` / `CalExpRqPCR` 的 GeNorm 自动选参考基因 | 部分 | ⏳ |
+| `CalRTable()` / `CalExpRqPCR` 的 GeNorm 自动选参考基因 | `ExpressionCalculator::selectReferenceGenesByGeNorm` | ✅ 已实现（2026-10-15 按 geNorm 原文改正：**相对量 + 逐步剔除**；R 包 `find_ref_gene()` 用原始 Cq 相除，两者在部分数据上会选出不同内参——见下方说明）|
 
 > 注意：`calculateByStandardCurve` 注释曾误标为 `CalExpCurve`，实际实现的是效率法 `CalExpRqPCR`（前端 `standardCurveExp` 走 Eff 列，正是此法）。已在 2026-06 纠正。
+>
+> geNorm 口径差异（2026-10-15）：R 包 `find_ref_gene()` 的稳定性度量是 `log2(Cq_a / Cq_b)`（原始 Cq 相除），
+> 而 geNorm 原文（Vandesompele et al. 2002）要求先换算成相对量 `Q = 2^(minCq − Cq)`。C++ 版按原文实现。
+> 在论文示例数据（`examples/rqpcr_*.csv`，6 基因 × 16 样品）上两者选出的内参集合相同（`OsRBBI2` / `OsUBQ`），
+> 但构造的判别数据集上会不同（测试 `ExpressionCalculator.GeNormSelectsReferenceGenes` 锁住了这一点）。
 
 ## 测试
 
@@ -63,6 +68,11 @@ cmake -S code -B build-tests -DBUILD_TESTS=ON [同上 Qt/Eigen] && cmake --build
   `Q = |Δmean| / sqrt(MSE/2·(1/n_i + 1/n_j))`、`p = P(Q_studentizedRange > Q)` 计算，
   与 R 的 `ptukey(..., lower.tail = FALSE)` / `TukeyHSD()` 同量；R 的 `ptukey` 在极小
   误差自由度处本身有偏差（df = 2 时相对偏差 ~1e-2），本实现以高精度积分与蒙特卡洛为准。
+- geNorm 自动选参考基因：改用**相对量 + 逐步剔除**（2026-10-15，导师意见第 7 条）。原实现
+  （与 R 包 `find_ref_gene()` 相同）用 `log2(Cq_a / Cq_b)` 即**原始 Cq 相除**衡量稳定性，
+  且只算一轮 M 就取最小的两个。现按 geNorm 原文：`Q = 2^(minCq − Cq)`、M = 与其余基因两两
+  `log2(Q_a/Q_b)` 的 SD 的平均，**每轮剔除 M 最大者直到剩 2 个**。在论文示例数据上两者
+  选出的内参相同（`OsRBBI2` / `OsUBQ`），判别数据集上不同（有专门用例锁住）。
 - `tTest`/`pairedTTest`/ANOVA/Tukey 的除零与空组边界（se=0、dfWithin≤0、空组）
 - `generateLetterGroups`：重写字母分配算法（旧实现在非传递性比较下会给显著差异组分配相同字母）；不再解析 `testName` 字符串（改用 `TestResult::group1Name/group2Name`）
 - 标曲表达量法：统计结果的 group1/group2 命名与 PValue 合并循环约定相反 → 结果表 PValue 恒为空，已修复

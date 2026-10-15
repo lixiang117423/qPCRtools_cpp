@@ -431,14 +431,38 @@ double ExpressionCalculator::calculateStandardDeviation(const QVector<double>& v
 
 QVector<QString> ExpressionCalculator::selectReferenceGenesByGeNorm(const DataFrame& df)
 {
+    // geNorm（Vandesompele et al. 2002, Genome Biol 3:research0034）。按导师 2026-10-14
+    // 审稿意见改正两处（原实现与 R 包的 find_ref_gene 都有 ①，只有 C++ 有 ②）：
+    //   ① 稳定性 M 必须建立在**相对量**上：Q = 2^(min Cq − Cq)（每个基因相对自身表达
+    //      最高的样品）。效率按 2 计算时 log2(Q_a/Q_b) 等于「两个基因的 Cq 差值」在样本间
+    //      的波动；原实现用 log2(Cq_a/Cq_b)（原始 Cq 相除），两者不是同一个量。
+    //   ② 必须**逐步剔除**：每轮算出各基因 M、剔除 M 最大者，重复到只剩 2 个基因。
+    //      原实现只算一轮 M 就取最小的两个。
+    // 缺数据的处理：某基因在某样品缺值 → 该样品不参与涉及它的基因对；某基因可用的
+    // 配对样本不足 2 个时无法估 SD，其 M 记为 +∞（最先被剔除）。
+    // 并列时按输入顺序取第一个最大者，保证结果确定。
+
     // 全部按输入首次出现顺序（QSet 迭代序随进程哈希种子变化，会影响并列时的取基因顺序）
     QVector<QString> genes = getUniqueValuesOrdered(df, "Gene");
     if (genes.size() < 2) return genes;
 
-    QMap<QString, QMap<QString, double>> cqMatrix;
+    // 样品键按输入首次出现顺序，便于结果可复现
+    QMap<QString, QMap<QString, double>> cqMatrix;   // gene -> sampleKey -> Cq
+    QVector<QString> sampleKeys;
+    QSet<QString> sampleSeen;
     const QVector<QString> treatmentsList = getUniqueValuesOrdered(df, "Group");
     const QVector<QString> biorepsList = getUniqueValuesOrdered(df, "BioRep");
     const QVector<QString> techrepsList = getUniqueValuesOrdered(df, "TechRep");
+
+    for (int i = 0; i < df.rowCount(); ++i) {
+        const QString key = df.get(i, "Group").toString()
+                          + df.get(i, "BioRep").toString()
+                          + df.get(i, "TechRep").toString();
+        if (!sampleSeen.contains(key)) {
+            sampleSeen.insert(key);
+            sampleKeys.append(key);
+        }
+    }
 
     for (const QString& gene : genes) {
         for (const QString& treatment : treatmentsList) {
@@ -461,49 +485,67 @@ QVector<QString> ExpressionCalculator::selectReferenceGenesByGeNorm(const DataFr
         }
     }
 
-    QMap<QString, double> MValues;
+    // 相对量（对数尺）：log2(Q) = minCq_gene − Cq_gene,sample
+    QMap<QString, QMap<QString, double>> log2Q;     // gene -> sampleKey -> log2 Q
     for (const QString& gene : genes) {
-        double totalSD = 0.0;
-        int comparisons = 0;
+        const QMap<QString, double>& cqs = cqMatrix[gene];
+        if (cqs.isEmpty()) continue;
 
-        for (const QString& otherGene : genes) {
-            if (otherGene == gene) continue;
-            QVector<double> log2Ratios;
-            const QMap<QString, double>& geneCqs = cqMatrix[gene];
-            const QMap<QString, double>& otherCqs = cqMatrix[otherGene];
+        double minCq = std::numeric_limits<double>::max();
+        for (auto it = cqs.begin(); it != cqs.end(); ++it)
+            minCq = qMin(minCq, it.value());
 
-            for (auto it = geneCqs.begin(); it != geneCqs.end(); ++it) {
-                if (otherCqs.contains(it.key())) {
-                    double ratio = it.value() / otherCqs[it.key()];
-                    if (ratio > 0) log2Ratios.append(std::log2(ratio));
+        for (auto it = cqs.begin(); it != cqs.end(); ++it)
+            log2Q[gene][it.key()] = minCq - it.value();
+    }
+
+    QVector<QString> remaining = genes;
+    while (remaining.size() > 2) {
+        // 本轮各基因的 M = 与其余基因两两 log2 相对量之差的 SD 的平均
+        QMap<QString, double> mValues;
+        for (const QString& gene : remaining) {
+            double totalSd = 0.0;
+            int comparisons = 0;
+
+            for (const QString& otherGene : remaining) {
+                if (otherGene == gene) continue;
+
+                QVector<double> differences;
+                const QMap<QString, double>& geneQ = log2Q[gene];
+                const QMap<QString, double>& otherQ = log2Q[otherGene];
+                for (const QString& key : sampleKeys) {
+                    if (geneQ.contains(key) && otherQ.contains(key))
+                        differences.append(geneQ[key] - otherQ[key]);
+                }
+
+                if (differences.size() > 1) {
+                    const double mean = computeMean(differences);
+                    double sumSqDiff = 0.0;
+                    for (double value : differences) sumSqDiff += (value - mean) * (value - mean);
+                    totalSd += std::sqrt(sumSqDiff / (differences.size() - 1));
+                    ++comparisons;
                 }
             }
 
-            if (log2Ratios.size() > 1) {
-                double mean = computeMean(log2Ratios);
-                double sumSqDiff = 0.0;
-                for (double val : log2Ratios) sumSqDiff += (val - mean) * (val - mean);
-                totalSD += std::sqrt(sumSqDiff / (log2Ratios.size() - 1));
-                comparisons++;
-            }
+            // 可用配对样本不足：无法估稳定性 → 记为 +∞（最先被剔除）
+            mValues[gene] = (comparisons > 0) ? totalSd / comparisons
+                                              : std::numeric_limits<double>::max();
         }
 
-        MValues[gene] = totalSD / comparisons;
+        // 剔除 M 最大者（并列时按输入顺序取第一个，保证确定）
+        int worstIndex = 0;
+        double worstM = -1.0;
+        for (int i = 0; i < remaining.size(); ++i) {
+            const double m = mValues.value(remaining[i], std::numeric_limits<double>::max());
+            if (m > worstM) {
+                worstM = m;
+                worstIndex = i;
+            }
+        }
+        remaining.removeAt(worstIndex);
     }
 
-    QVector<QPair<QString, double>> geneMList;
-    for (auto it = MValues.begin(); it != MValues.end(); ++it)
-        geneMList.append(qMakePair(it.key(), it.value()));
-
-    std::sort(geneMList.begin(), geneMList.end(),
-        [](const QPair<QString, double>& a, const QPair<QString, double>& b) {
-            return a.second < b.second;
-        });
-
-    QVector<QString> refGenes;
-    int count = qMin(2, geneMList.size());
-    for (int i = 0; i < count; ++i) refGenes.append(geneMList[i].first);
-    return refGenes;
+    return remaining;
 }
 
 } // namespace qpcr

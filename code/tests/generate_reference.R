@@ -27,6 +27,47 @@ J <- function(x, file) write_json(x, file.path(fix_dir, file),
                                   auto_unbox = TRUE, digits = NA, pretty = TRUE)
 
 # -----------------------------------------------------------------------------
+# geNorm 参考基因选择的参考实现（C++ selectReferenceGenesByGeNorm 的对照）
+#   · use_relative = TRUE：按 geNorm 原文，先在**相对量** Q = 2^(minCq − Cq) 上算
+#     （效率按 2；等价于看两个基因 Cq 差值在样品间的波动）；
+#     FALSE：旧实现的 log2(原始 Cq 相除)，用来演示两者差异。
+#   · stepwise = TRUE：逐步剔除 M 最大的基因直到剩 2 个（geNorm 原法）；
+#     FALSE：只算一轮 M 取最小的两个（旧 C++ 行为）。
+# 长表 cq_long 需含 Gene / Group / BioRep / TechRep / Cq 五列。
+# 说明：R 包 qPCRtools::find_ref_gene() 用的是「原始 Cq + 逐步剔除」这一组合。
+# -----------------------------------------------------------------------------
+geNormSelect <- function(cq_long, use_relative = TRUE, stepwise = TRUE) {
+  genes <- unique(cq_long$Gene)
+  keys  <- paste(cq_long$Group, cq_long$BioRep, cq_long$TechRep)
+  skeys <- unique(keys)
+  wide  <- matrix(NA_real_, length(genes), length(skeys),
+                  dimnames = list(genes, skeys))
+  wide[cbind(match(cq_long$Gene, genes), match(keys, skeys))] <- cq_long$Cq
+
+  remaining <- genes
+  first_M   <- NULL
+  repeat {
+    M <- sapply(remaining, function(g) {
+      sds <- sapply(setdiff(remaining, g), function(k) {
+        d <- if (use_relative) {
+          (wide[g, ] - min(wide[g, ], na.rm = TRUE)) -
+            (wide[k, ] - min(wide[k, ], na.rm = TRUE))
+        } else {
+          log2(wide[g, ] / wide[k, ])
+        }
+        stats::sd(d, na.rm = TRUE)
+      })
+      mean(sds, na.rm = TRUE)
+    })
+    if (is.null(first_M)) first_M <- M
+    if (!stepwise || length(remaining) <= 2) break
+    remaining <- setdiff(remaining, remaining[which.max(M)[1]])
+  }
+  list(selected = if (stepwise) remaining else names(sort(M))[1:2],
+       first_M  = first_M)
+}
+
+# -----------------------------------------------------------------------------
 # 输入数据集（单一事实源：R 与 C++ 共用同一份 data.json，避免漂移）
 # -----------------------------------------------------------------------------
 data <- list(
@@ -84,6 +125,30 @@ data <- list(
   )
 )
 J(data, "data.json")
+
+# -----------------------------------------------------------------------------
+# geNorm 参考基因选择的小数据集（5 基因 × 5 样品，长表）
+# 这组数值刻意挑成"能区分两种错误"：正确的 geNorm（相对量 + 逐步剔除）选 G1/G3；
+# 用原始 Cq 相除、或只算一轮 M 取最小的两个，都会选成 G1/G5。写出 CSV 供 R 与 C++ 共用。
+# -----------------------------------------------------------------------------
+genorm_matrix <- matrix(c(
+  26.411, 25.065, 25.609, 25.431, 26.337,   # G1
+  23.339, 26.595, 19.419, 20.290, 22.437,   # G2
+  17.131, 20.124, 20.468, 17.561, 19.897,   # G3
+  21.501, 25.130, 14.908, 28.449, 29.787,   # G4
+  29.003, 28.961, 27.464, 31.109, 27.225    # G5
+), nrow = 5, byrow = TRUE,
+   dimnames = list(paste0("G", 1:5), paste0("S", 1:5)))
+
+genorm_table <- data.frame(
+  Gene    = rep(rownames(genorm_matrix), times = ncol(genorm_matrix)),
+  Group   = "G",
+  BioRep  = rep(colnames(genorm_matrix), each = nrow(genorm_matrix)),
+  TechRep = "1",
+  Cq      = as.numeric(genorm_matrix)
+)
+write.csv(genorm_table, file.path(fix_dir, "data_genorm.csv"),
+          row.names = FALSE, quote = FALSE)
 
 # -----------------------------------------------------------------------------
 # 统计检验期望值
@@ -169,6 +234,33 @@ stat <- list(
     }
     cat(sprintf("Tukey: ptukey 与 TukeyHSD p adj 的最大差异 = %.3e\n", max_diff))
     out
+  }),
+  # geNorm 参考基因选择：读入上面写出的 data_genorm.csv，按 geNorm 原文
+  # （相对量 Q = 2^(minCq − Cq) + 逐步剔除最不稳定基因）独立实现一份参考。
+  # 同时记录另三种组合，便于说明与 R 包 qPCRtools::find_ref_gene()（原始 Cq 相除 + 逐步）
+  # 以及旧 C++ 实现（原始 Cq + 只算一轮 M）的差别。
+  genorm = local({
+    a <- geNormSelect(genorm_table, use_relative = TRUE, stepwise = TRUE)
+    list(list(id                        = "discriminating",
+              selected                  = as.character(a$selected),
+              first_round_M             = as.numeric(round(a$first_M, 6)),
+              variant_relative_one_round = as.character(geNormSelect(genorm_table, TRUE,  FALSE)$selected),
+              variant_raw_stepwise       = as.character(geNormSelect(genorm_table, FALSE, TRUE)$selected),
+              variant_raw_one_round      = as.character(geNormSelect(genorm_table, FALSE, FALSE)$selected)))
+  }),
+  # 同一套算法在论文示例数据（examples/rqpcr_*.csv，96 孔）上的结果 —— 真实数据核对
+  genorm_example = local({
+    ex_cq  <- read.csv("examples/rqpcr_cq.csv",     check.names = FALSE)
+    ex_des <- read.csv("examples/rqpcr_design.csv", check.names = FALSE)
+    ex     <- merge(ex_des, ex_cq, by = "Position")
+    a      <- geNormSelect(ex, use_relative = TRUE, stepwise = TRUE)
+    list(list(id                        = "rqpcr_example",
+              n_genes                   = length(unique(ex$Gene)),
+              n_samples                 = length(unique(paste(ex$Group, ex$BioRep, ex$TechRep))),
+              selected                  = as.character(a$selected),
+              variant_relative_one_round = as.character(geNormSelect(ex, TRUE,  FALSE)$selected),
+              variant_raw_stepwise       = as.character(geNormSelect(ex, FALSE, TRUE)$selected),
+              variant_raw_one_round      = as.character(geNormSelect(ex, FALSE, FALSE)$selected)))
   })
 )
 J(stat, "expected_stat.json")
@@ -260,6 +352,7 @@ cat("  ttest:", length(stat$ttest),
     " wilcox:", length(stat$wilcox),
     " anova:", length(stat$anova),
     " tukey:", length(stat$tukey),
+    " genorm:", length(stat$genorm),
     " standard_curve:", length(sc),
     " expression_dct:", if (!is.null(dct)) length(by_gene) else 0,
     " expression_ddct:", if (!is.null(ddct)) length(by_gene_ddct) else 0,
