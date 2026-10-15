@@ -1,6 +1,6 @@
 # 投稿前清单（Bioinformatics Application Note 主线）
 
-最后更新：2026-10-15 16:00。**官方要求已于 2026-10-15 由用户从 OUP 页面取得**（此前因 Cloudflare 未能核实）。
+最后更新：2026-10-15 18:47。**官方要求以用户 2026-10-15 从 OUP 页面取得的原文为准**（本机再次抓取 `academic.oup.com/bioinformatics/pages/instructions_to_authors` 仍被 Cloudflare 拦成 "Just a moment..." 页面，无法复核当年指南，故不臆造任何新条款；投稿前若页面可访问，请再对一遍）。
 
 ## 一、官方要求 ↔ 本文档设置（2026-10-15 核实）
 
@@ -19,10 +19,11 @@
 | ≤ 4 页；≈2,600 词，或 **2,000 词 + 1 图** | 按更严的"2,000 词 + 1 图"档执行：正文 **1,856 词**（含四段式摘要），主文只留 **1 图 + 1 表** | ✅ 已满足（表格不计入"1 图"，若编辑要求只留 1 个展示项，把 Table 1 移补充材料即可，5 分钟可改）|
 | 摘要按 Summary / Availability and Implementation / Contact / Supplementary Information 分段 | 已改为四段式（2026-10-15） | ✅ |
 | 使用 AI 编程工具需如实说明 | backmatter 新增 `Use of AI-assisted tools`（OpenAI Codex 用于重构、生成单测与语言审校；结论由作者核验） | ✅ 已加，**请确认措辞** |
-| 图 1 建议换成分析结果页截图 | 现仍为英文界面**首页**截图；结果页截图（含图表 + 质控提示 + 导出按钮）需要实机重截 | ⏳ 待做（下一步用 Computer Use 跑一次）|
+| 图 1 建议换成分析结果页截图 | 已换成结果页截图（`figures/fig1_results_page_en_v3.png`，1262×857；上＝汇总表含 p 值与显著性、下＝界面内相对表达量图含**居中的 SD 误差线**）| ✅ 已满足 |
 | 软件/数据对非商业用户免费可用 | MIT license，GitHub 公开仓库 + Windows/macOS 预编译二进制 | ✅ |
 | Availability and Implementation 必须在正文写明 | 专设一节 `\section{Availability and implementation}`，写明实现方式（C++17/Qt6、CMake、可选依赖）与获取方式（仓库地址、二进制、无需注册） | ✅ |
-| 软件须在发表后至少两年可用 | 该节明确写"We will keep the software and its source code available for at least two years after publication" | ✅（建议另做 Zenodo DOI 存档，见待办）|
+| 软件须在发表后至少两年可用 | 该节明确写"We will keep the software and its source code available for at least two years after publication"；v1.2.0 已发布 GitHub Release（含 Windows/macOS 安装包）| ✅（用户 2026-10-15 决定：不做 Zenodo DOI，以 GitHub release 为准）|
+| 等价性报告表应含统计层（p 值 / Tukey 字母）与独立参照 | Table S1 分两块：(a) 与 R 包的数值等价；(b) 统计层（均值±SD、Welch p、ANOVA p、Tukey 字母）对零依赖 base-R 参照；`code/validation/verify_stats.R` → `STATS-VERIFY PASS` | ✅ 已满足 |
 | 补充材料需在摘要中提及 | 摘要末句："Supplementary figures and tables give the full analysis output and the equivalence comparison…" | ✅ |
 | 软件名须出现在题目中 | 题名含 "qPCRtools" | ✅ |
 | 网络服务不得强制注册 | 桌面软件，下载与使用均无需注册 | ✅ 不适用/满足 |
@@ -32,13 +33,14 @@
 
 | 项 | 状态 |
 | --- | --- |
-| 主文 | `main_v6_20261015.pdf`（10 页，`article` 骨架；正文 1,777 词；1 图 + 1 表 + 17 条参考文献）|
-| 补充材料 | `supplementary_v1_20261015.pdf`（2 页）：Figure S1（标准曲线 + ΔΔCt 表达量）、Figure S2（等价性散点）、Table S1（等价性汇总）|
+| 主文 | `main_v10_20261015.pdf`（**7 页**，`article` 骨架＋A4/2.5 cm 页边距；正文 **1,851 词**＝摘要 300＋引言＋实现＋结果，不含 backmatter 与 availability 声明；**1 图 + 1 表** + 17 条参考文献）|
+| 补充材料 | `supplementary_v2_20261015.pdf`（3 页）：Figure S1（标准曲线 + ΔΔCt 表达量）、Figure S2（等价性散点）、Table S1（(a) 数值等价 +(b) 统计层对账）|
 | 作者与单位 | Xiang Li（第一作者 + 通讯，单位 1、2，现地址 Yazhouwan National Laboratory）与 Huichuan Huang（共同通讯，单位 1、2）；邮箱 `lixiang117423@gmail.com` / `absklhhc@gmail.com` |
-| Figure 1 | 英文界面首页截图（`manuscript/figures/fig1_home_en.png`，实机截取）|
-| 软件版本 | 稿件描述 **1.2.0**（较 1.1.0 新增：界面内作图、质控预警、分析记录导出；并修正 ΔΔCt 校准基准、Tukey p 值、geNorm 输入、RqPCR 重复处理等）|
+| Figure 1 | 分析结果页截图（`manuscript/figures/fig1_results_page_en_v3.png`）：上＝汇总表、下＝界面内作图，同窗两个滚动位置拼接；原始首页截图 `fig1_home_en.png` 保留未删 |
+| 软件版本 | 稿件描述 **1.2.0**；已发布 release <https://github.com/lixiang117423/qPCRtools_cpp/releases/tag/v1.2.0>（Windows ZIP 由 CI 构建；macOS DMG 本地构建并实测可启动、界面正常加载）|
+| Cover letter | `cover_letter_20261015.docx`（Word 版，1 页 A4）+ 同名 `.pdf` / `.md`；内容含发表理由、验证方式、公开获取方式与作者声明；Associate Editor 提名处留占位待填 |
 | `main.docx` | 2026-10-13 归档到 `archive/manuscript_2026-06_word_version.docx`，投稿只用 PDF |
-| 历史版本 | `main.pdf`(10-13)、`main_v2/v3/v4/v5_20261015.pdf` 保留不删（v6 为当前定稿）|
+| 历史版本 | `main.pdf`(10-13)、`main_v2..v9_20261015.pdf` 保留不删（**v10 为当前定稿**；v8 为已废弃的中间版）|
 
 ## 三、重新生成 PDF 的命令（本机已实测）
 
@@ -69,11 +71,11 @@ Pabinger et al. 2014、Vandesompele et al. 2002、Rancurel et al. 2019、Wickham
 ## 五、待你确认 / 处理
 
 1. **基金声明确认**：backmatter 保留原基金（2021YFD1000200、31801792、31960554、霍英东基金），与 Frontiers 2022 一致——请确认是否仍适用。
-2. **Associate Editor 提名**：投稿系统通常要求，cover letter 里已留位置。
-3. **Zenodo DOI（建议）**：给 1.2.0 的 release 打 DOI 存档，配合"至少两年可用"的承诺更稳；需要你授权我操作 GitHub release（或你手动建）。
+2. **Associate Editor 提名**：投稿系统通常要求；`cover_letter_20261015.docx` 里已留占位行，确认人选后替换（建议从"生物信息学软件/工具"或"qPCR / MIQE 方法学"方向选，并确认无利益冲突）。
+3. **Zenodo DOI**：用户 2026-10-15 决定**不做**——以 GitHub release（v1.2.0，含安装包）作为存档与引用入口。
 4. **OUP 官方模板**：现用 `article` 骨架；若 OUP 提供 Application Note 专用 `.cls`/`.bst`，投稿前替换（`main.tex` 顶部已标注该步骤）。
-5. **R 包侧同步**：`CRAN/qPCRtools/` 下已修 ΔΔCt 基准、SE、字母分组 level、geNorm 相对量、RqPCR 去重、`CalExpCurve` 反变换与技术重复层级（**工作区未提交**）。需要你决定是否提交/发版；`CalExpCurve` 一修，**2022 年论文图 2 需重跑**看结论是否变化。
-6. **GUI 端到端取证**：作图、分析记录导出、质控面板这三项只做了结构级单测与编译验证，尚未在真实界面里跑一遍截图。
+5. **R 包侧同步**：用户 2026-10-15 决定**先不做**（`CRAN/qPCRtools/` 工作区里的修补保持未提交状态；`CalExpCurve` 反变换一修会牵动 2022 年论文图 2 的重跑，将来要做时再议）。
+6. **GUI 端到端取证**：✅ 已完成——1.2.0 实机跑通"导入示例 → 配置 → 运行 → 结果页（含图表、p 值、导出按钮）"，并据此换了图 1；DMG 打包版另行实测"能启动 + WebEngine 正常加载界面"（未在打包版里重复跑整套分析，核心库与 Web 资源与开发版完全同一份）。
 7. **JOSS 支线**（`paper.md`）：作者已含 Huichuan Huang，1,484 词符合 JOSS 要求；仍待补 Research impact 段的自用/教学证据与 AI 使用披露确认。
 
 ## 六、本轮已解决的历史问题

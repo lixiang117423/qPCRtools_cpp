@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-10-15 18:47 — 投稿包：cover letter（Word 版）+ 按官方要求逐条复核
+
+- **Cover letter**：新增 `manuscript/cover_letter_20261015.{md,docx,pdf}`（Word 版为投稿材料硬要求，A4 一页，Arial 10.5 pt 两端对齐）；生成脚本 `code/scripts/14_make_cover_letter.py`（内容改动后一条命令重出）。内容含：为何适合 Application Note、验证方式（与 R 包数值等价 + 统计层对零依赖 base R 参照）、公开获取方式（MIT、GitHub、v1.2.0 release 含安装包、无需注册、两年可用）、作者声明（**两位作者均已确认**，修正旧草稿里"single author"的错误）、AI 使用披露、AI 辅助工具说明；Associate Editor 提名处留占位。
+- **官方要求复核**（`SUBMISSION_CHECKLIST.md`）：逐条对 v10/v2 稿件核过——摘要四段式 ✅、Availability and implementation 节含两年承诺 ✅、补充材料在摘要中提及 ✅、题名含软件名 ✅、1 图 + 1 表、正文 1,851 词（摘要+引言+实现+结果，不含 backmatter 与声明）✅；图 1 已换结果页截图 ✅；等价性表已含统计层与独立参照 ✅。
+  - 说明：本机再次抓取 OUP 的 Instructions to Authors 仍被 Cloudflare 拦成 "Just a moment" 页面，**未能复核当年指南**，故一律以用户 2026-10-15 提供的官方原文为准，不臆造条款；投稿前如页面可访问请再对一遍。
+- **未决项（需用户定）**：基金声明是否沿用原基金号；Associate Editor 提名人选；投稿时是否替换 OUP Application Note 的官方 `.cls`。
+
 ## 2026-10-15 18:22 — 第②步：统计层（p 值 / Tukey 字母）进等价性报告 + 独立参照对账；发布 v1.2.0
 
 - **统计层验证**（对应导师意见一-3「等价性报告表要含 p 值与 Tukey 字母」与四「要有独立参照」）：
