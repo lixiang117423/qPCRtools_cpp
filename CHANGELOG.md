@@ -1,5 +1,55 @@
 # CHANGELOG
 
+## 2026-10-15 15:09 — 引言竞品描述改正 + 工具功能对比表（Table 1）；成品 PDF 改版本号命名
+
+按导师意见「二」的第 2 条（引言对现有工具的描述不准确）与第 1 条（要一张功能对比表）改稿；
+同时按用户要求把成品 PDF 改为版本号命名，不再覆盖旧文件。
+
+### 1. 引言重写（`manuscript/sections/introduction.tex`）
+
+- 原来把 REST 与 QuantStudio/CFX Maestro 一起说成"costly, closed-source, restricted to a single
+  OS or instrument"——不准确。现按四类分别描述并逐条给引用：
+  ① 脚本实现（`qPCRtools`、`pcr`）；② 仪器自带软件（QuantStudio Design & Analysis、CFX Maestro）；
+  ③ 免费独立程序（REST；LinRegPCR 估效率/基线；qBase + geNorm 选内参）；
+  ④ 免费网页工具（SATQPCR、DAG Expression、Auto-qPCR；需上传数据到远端或本地部署 web 栈）。
+- 结尾的"gap"改为：缺的不是算法，而是**交付方式**——把"已验证的数值等价"与"原生、跨平台、零依赖的
+  图形流程"合在一起。
+- 贡献列表由四条压成三条（架构 / 等价验证 + 随软件发布的验证包 / 统计与功能扩展），并如实写明移植中
+  发现的聚合缺陷归属：RqPCR 生物学重复处理、geNorm 稳定性输入、ΔΔCt 校准基准**两版共有**；
+  多重比较 p 值 **C++ 独有**（不把修 bug 当创新点，但要说清改了什么）。
+
+### 2. 新增 Table 1：工具功能对比
+
+- 7 行（R 包 / 本软件 / REST / LinRegPCR / qBase / 仪器软件 / 网页工具）× 6 列
+  （免费、免编程、离线、效率校正、统计、内参筛选）；符号 ●/○/○-●，表注写明信息来源、
+  "统计在后续 qBase+ 才有"、以及"vendor 软件随仪器与版本而异"。
+- 表格宽度经一次返工（首版溢出 182 pt，改为 `\footnotesize` + 缩短行标签后通过编译）。
+- 因新表插在引言，等价性表自动成为 **Table 2**（正文用 `\ref`，无需改字）。
+
+### 3. 新增并核验 6 条文献（Crossref 逐条核验 ✅）
+
+Pfaffl 2002 REST（NAR 30:e36, DOI 10.1093/nar/30.9.e36）；Ramakers 2003（Neurosci Lett 339:62-66,
+DOI 10.1016/S0304-3940(02)01423-4）与 Ruijter 2009（NAR 37:e45, DOI 10.1093/nar/gkp045）LinRegPCR；
+Hellemans 2007 qBase（Genome Biol 8:R19, DOI 10.1186/gb-2007-8-2-r19）；Ballester 2013 DAG Expression
+（PLoS ONE 8:e80385, DOI 10.1371/journal.pone.0080385）；Maussion 2021 Auto-qPCR
+（Sci Rep 11:21293, DOI 10.1038/s41598-021-99727-6）。
+
+### 4. 成品 PDF 改用版本号命名（用户要求）
+
+- `manuscript/main_v2_20261015.pdf`（图 2 修正后）、`manuscript/main_v3_20261015.pdf`（含本轮引言/表格改动）；
+  原始 `main.pdf` **保持不动**，后续每轮编译都出新版本号，不再覆盖。
+- 沙箱编译（`/tmp/qpcr_manu`，tectonic）exit 0、12 页；Table 1 渲染与全部引用解析正常；
+  正文合计 1,909 词（不含表与图注）。
+
+### 5. 待核验 / 待办
+
+- **Bioinformatics Application Note 的篇幅与展示项上限仍未核实**：官网作者指南页被 Cloudflare
+  人机验证挡住（curl 403；应用内浏览器停在"正在进行安全验证"，未绕过）。导师口径为
+  "≤4 排版页、约 2600 词或 2000 词 + 1 图"。当前 main 为 3 图 + 2 表，若按该口径需把
+  Figure 3 / Table 2 移入补充材料（导师此前也建议 Figure 3 挪补充材料）——待用户打开官网核对后再定。
+- 下一步（导师意见「二」其余各条）：作图功能是否恢复、质控提示（Cq 过高/技术重复离散度/效率越界）、
+  统计尺度与多重校正的写法、以及"分析过程可核查/可重跑"的证据（可能需要给软件加一份分析记录导出）。
+
 ## 2026-10-15 15:00 — 第⑦项：图 2A 横轴/斜率错位修正、图 2B 按新数值重画、公式（1）口径统一
 
 导师意见第 4 条（图 2A 的回归线与数据点对不上、公式（1）写法有歧义）。查清后确认有**两个**原因，

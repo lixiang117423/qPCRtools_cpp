@@ -14,19 +14,63 @@ with the need for rigorous statistics and clear visualization, make qPCR
 data analysis demanding for many laboratory researchers.
 
 A range of tools address qPCR analysis \cite{pabinger2014survey}, yet each
-carries trade-offs. R packages---including our own \textit{qPCRtools}
-\cite{li2022qpcrtools} and \textit{pcr} \cite{ahmed2018pcr}---implement sound
-algorithms but demand R programming skill and a configured software
-environment, which hampers reproducibility across collaborators. Commercial
-packages such as QuantStudio, CFX Maestro, REST, and qbase+ offer graphical
-interfaces but are costly, closed-source, and frequently restricted to a
-single operating system or instrument. Free web-based tools exist but are
-often discontinued and require uploading experimental data to remote
-servers, raising reproducibility and privacy concerns. The gap, therefore,
-is for a tool that combines \emph{validated algorithmic equivalence} to a
-trusted implementation with a \emph{native, cross-platform, zero-dependency}
-delivery, together with statistical options broader than those of the
-original R package.
+covers a different part of the workflow (Table~\ref{tab:tools}).
+Scripting-based implementations---our own \textit{qPCRtools}
+\cite{li2022qpcrtools} and \textit{pcr} \cite{ahmed2018pcr}---implement the
+calculation chain transparently, but require programming skill and a
+configured software environment. Software distributed with real-time
+instruments (for example QuantStudio Design \& Analysis and CFX Maestro)
+offers a graphical workflow but is tied to that instrument platform. Free
+stand-alone programs cover individual steps: REST \cite{pfaffl2002rest}
+computes efficiency-based relative expression for two-group comparisons with
+a randomisation test, LinRegPCR
+\cite{ramakers2003linregpcr,ruijter2009linregpcr} estimates baseline and
+amplification efficiency from raw fluorescence, and qBase
+\cite{hellemans2007qbase} implements relative quantification together with
+the geNorm stability measure \cite{vandesompele2002accurate} for selecting
+reference genes. Free web applications integrate several of these
+steps---SATQPCR \cite{rancurel2019satqpcr}, DAG Expression
+\cite{ballester2013dag} and Auto-qPCR \cite{maussion2021autoqpcr}---but they
+require uploading the data to a remote server (or deploying the web stack
+locally), which constrains offline use and the handling of unpublished data.
+The gap we address is therefore not a missing algorithm but a missing
+delivery mode: a tool that combines \emph{validated numerical equivalence} to
+a published implementation with a \emph{native, cross-platform,
+zero-dependency} graphical workflow.
+
+\begin{table}[h]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\caption{Delivery mode and functionality of representative qPCR analysis
+tools. $\bullet$~provided, $\circ$~not provided, $\circ$/$\bullet$~partial or
+version-dependent (statistics, for example, were added in the later qBase+
+release, and vendor software differs between instruments and versions).
+Feature sets were compiled from the cited papers, the vendors' documentation
+and the survey of Pabinger \textit{et al.} \cite{pabinger2014survey}.
+\textsuperscript{a}~\textit{qPCRtools} \cite{li2022qpcrtools},
+\textit{pcr} \cite{ahmed2018pcr}.
+\textsuperscript{b}~e.g.\ QuantStudio Design \& Analysis, CFX Maestro.
+\textsuperscript{c}~SATQPCR \cite{rancurel2019satqpcr}, DAG Expression
+\cite{ballester2013dag}, Auto-qPCR \cite{maussion2021autoqpcr}.
+REST \cite{pfaffl2002rest}, LinRegPCR
+\cite{ramakers2003linregpcr,ruijter2009linregpcr}, qBase
+\cite{hellemans2007qbase}, geNorm \cite{vandesompele2002accurate}.}
+\label{tab:tools}
+\begin{tabular}{lcccccc}
+\toprule
+Tool & Free & No coding & Offline & Efficiency & Statistics & Ref.\ genes \\
+\midrule
+R packages\textsuperscript{a} & $\bullet$ & $\circ$ & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ \\
+This application & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ \\
+REST & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\circ$ \\
+LinRegPCR & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\circ$ & $\circ$ \\
+qBase & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\circ$/$\bullet$ & $\bullet$ \\
+Instrument software\textsuperscript{b} & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\circ$/$\bullet$ & $\circ$ \\
+Web apps\textsuperscript{c} & $\bullet$ & $\bullet$ & $\circ$ & $\bullet$ & $\bullet$ & $\bullet$ \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection*{Statement of need}
 
@@ -51,10 +95,16 @@ double-click. % 目标读者与设计目标：不是替代 R 版，而是让"没
 We introduce \textit{qPCRtools}, a C++/Qt6 desktop application that
 reimplements the analytical core of our R package behind a point-and-click
 interface distributed as a single executable. This Application Note makes
-four contributions: (i)~a C++/Qt architecture in which a tested core
-algorithm library is decoupled from a web-based user interface; (ii)~a
-validation demonstrating numerical equivalence to the R package across all
-shared quantification methods; (iii)~statistical and functional extensions
-beyond the original R version, including non-parametric tests, effect sizes,
-outlier removal, and automatic reference-gene selection; and (iv)~a fully
-reproducible validation package that ships with the software.
+three contributions: (i)~a C++/Qt architecture in which a tested core
+algorithm library is decoupled from a web-based user interface;
+(ii)~a validation demonstrating numerical equivalence to the R package
+across all shared quantification methods, shipped as a reproducible
+validation package that a reader can re-run; and (iii)~statistical and
+functional extensions beyond the original R version, including
+non-parametric tests, effect sizes, outlier removal, and automatic
+reference-gene selection. Preparing the port also revealed defects in result
+aggregation that are shared with the R package---the input of the
+reference-gene stability measure, replicate handling in the efficiency
+method, and the $\Delta\Delta C_t$ calibrator---as well as one specific to
+the C++ implementation (multiple-comparison $p$-values); all were corrected
+and are covered by regression tests.
