@@ -4,12 +4,18 @@ A cross-platform desktop application for qPCR data analysis, rewritten in C++ fr
 
 ## Download
 
-**Pre-built binaries are available for download from [GitHub Releases](https://github.com/lixiang117423/qPCRtools_cpp/releases)**
+**Pre-built binaries are available from [GitHub Releases](https://github.com/lixiang117423/qPCRtools_cpp/releases/latest)**
 
-- **Windows**: `qPCRtools-windows.zip` - Extract and run `qPCRtools.exe`
-- **macOS**: `qPCRtools-macos.dmg` - Open DMG and drag qPCRtools.app to Applications
+- **Windows**: `qPCRtools-windows.zip` — extract and run `qPCRtools.exe` (no installation)
+- **macOS**: `qPCRtools-<version>-macOS.dmg` — open the DMG and drag `qPCRtools.app` to Applications.
+  The macOS bundle is ad-hoc signed but **not notarized** by Apple, so the first launch needs
+  right-click → Open; if macOS reports the app as damaged, run once:
 
-No installation required! Just download and run.
+  ```bash
+  xattr -dr com.apple.quarantine /Applications/qPCRtools.app
+  ```
+
+  The release DMG is built for Apple Silicon (arm64) and needs macOS 12 or newer.
 
 ## Features
 
