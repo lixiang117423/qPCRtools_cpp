@@ -19,7 +19,8 @@ quoted here are reproduced without any dependency on the application or on
 the R package by \texttt{validation/check\_example\_stats.R}.
 Applied to a four-fold dilution
 series of four genes, the standard-curve module recovered slopes between
-$-2.07$ and $-2.24$ with $R^2 > 0.99$ for three of the four primers
+$-2.07$ and $-2.24$ $C_q$ per four-fold dilution step ($\log_4$ scale) with
+$R^2 > 0.99$ for three of the four primers
 (efficiencies 0.85--0.95), illustrating amplification-efficiency estimation
 that, per MIQE guidance, determines which quantification method is
 appropriate. The complete workflow---import, configuration, analysis, and
@@ -27,11 +28,15 @@ export---is performed through the graphical interface without writing code.
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=\linewidth]{figures/fig2_results.pdf}
+\includegraphics[width=\linewidth]{figures/fig2_results_v2.pdf}
 \caption{Analysis output on real data. (A)~Standard curves for four genes
-over a four-fold dilution series, with fitted regressions and $R^2$.
+over a four-fold dilution series, with fitted regressions and $R^2$; the
+abscissa is $\log_4$ concentration (dilution steps), matching the regression,
+and hollow symbols mark wells outside the calibrated range (4--4096)
+that are excluded from the fit.
 (B)~Relative expression of \textit{fos-glo-myc} across treatment groups
-($\Delta\Delta C_t$ method), with significance labels. Both panels were drawn
+($\Delta\Delta C_t$ method, calibrated to the control group), with significance
+labels. Both panels were drawn
 from the numerical output of the application (the standard-curve parameters
 and the per-group means exported by the results table) by the plotting script
 shipped in the repository; version~1.1.0 exports result tables rather than

@@ -1,5 +1,49 @@
 # CHANGELOG
 
+## 2026-10-15 15:00 — 第⑦项：图 2A 横轴/斜率错位修正、图 2B 按新数值重画、公式（1）口径统一
+
+导师意见第 4 条（图 2A 的回归线与数据点对不上、公式（1）写法有歧义）。查清后确认有**两个**原因，
+都已修正，并重画了两张面板。
+
+### 1. 图 2A 错位的两个来源
+
+- **轴与斜率不同尺度**：C++ `StandardCurve` 的横轴是 `log_d(Conc)`（d = 稀释倍数 4，即"稀释步数"），
+  而旧脚本把点画在 `log10(Conc)` 上（斜率却是 log4 尺度的）——正是导师看到的高浓度端线点分离。
+  现统一为 `log4(Conc)`，标签写 `log4(concentration)`。
+- **标定范围外的点未区分**：数据含 1 与 16384 两档浓度，而回归只用 4–4096（`run_cpp.cpp` 的
+  lowestConcen/highestConcen）。旧脚本把它们与标定点混画，也会造成"线点对不上"。
+  现范围内实心、范围外空心并标注 `hollow = outside calibration range (4-4096)`。
+- **程序化自检**（脚本内置打印，避免目视判断）：范围内**均值点**的残差 RMS
+  Gene1/2/3/4 = 2.04 / 0.110 / 0.156 / 0.098 Cq（Gene1 本身 R² 仅 0.751）；
+  若误用 log10 横轴则为 3.80 / 3.25 / 3.48 / 3.43 Cq —— 修复效果有数可依。
+- 配色改为规范内色板（A 图用紫色系 `five` 前 4 色；B 图用红色系 `hundred` 第 1/3/5 色），
+  不再用 matplotlib 默认色。
+
+### 2. 图 2B 与稿件数字
+
+- 图 2B 改由**当前** `cpp_deltadeltaCt.csv`（对照组校准口径）绘制：0 组 1.01 ± 0.21、
+  0.5 组 1.92 ± 0.21、1 组 2.74 ± 0.56，显著性 `**` / `*`。
+- `manuscript/sections/implementation.tex`：公式（1）上方文字由"对 log10(浓度) 回归"改为
+  "对 log_d(浓度)（稀释步数）回归，斜率 s 以 log_d 为单位"，与 `E = d^{-1/s} − 1` 一致。
+- `manuscript/sections/results.tex`：斜率注明"per four-fold dilution step（log4 scale）"；
+  图注补上 log4 横轴与空心点说明。
+
+### 3. 产物与验证
+
+- 新图：`manuscript/figures/fig2_results_v2.pdf`（**新文件**；旧 `fig2_results.pdf` 未覆盖，
+  已由 LaTeX 改为引用 v2）。
+- 稿件在沙箱（`/tmp/qpcr_manu`）用 tectonic 编译成功（10 页、exit 0）；`pdftotext` 核对正文已含
+  1.92 / 2.74 / 1.01 ± 0.21 / "log4 (concentration)" / "calibrated to the control group"；
+  `pdfimages -list` 显示图 2 以矢量形式嵌入（唯一位图是图 1 的界面截图）。
+- 绘图脚本运行方式不变（`cd code && python3 validation/plot_examples.py`），输出文件名改为 v2、
+  并内置残差自检输出。
+
+### 4. 待用户处理
+
+- `manuscript/main.pdf`（旧 10 页 PDF）与 `manuscript/main.docx` 仍是旧数值/旧图，需要重新生成
+  （命令见 `manuscript/SUBMISSION_CHECKLIST.md`；本轮未覆盖生成产物）。
+- 旧图 `manuscript/figures/fig2_results.pdf` 已废弃（2A 错位、2B 旧口径）；删除命令见本轮汇报。
+
 ## 2026-10-15 14:46 — 第⑤⑥项：ΔΔCt 校准基准改为对照组；SE 公式核查；R 包同步修补（未提交）
 
 用户指示「按照文献的公式来；其余的按你的建议」。本轮把 ΔΔCt 的基准改成文献定义（Livak & Schmittgen 2001：

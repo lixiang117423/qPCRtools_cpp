@@ -33,12 +33,14 @@ English language is shown here.}
 
 The core reimplements the analytical methods of the R package. From a
 dilution series, amplification efficiency is obtained by ordinary least
-squares of $C_q$ on $\log_{10}(\text{concentration})$, yielding slope $s$,
-intercept, $R^2$, and a regression $p$-value; efficiency is
+squares of $C_q$ on $\log_{d}(\text{concentration})$, i.e.\ on the number of
+$d$-fold dilution steps ($d$ = dilution factor, 4 in the bundled example),
+yielding slope $s$, intercept, $R^2$, and a regression $p$-value; efficiency is
 \begin{equation}
 E = d^{-1/s} - 1,
 \end{equation}
-where $d$ is the dilution factor. Relative expression is computed by the
+with $s$ expressed per $\log_d$ unit (equivalently, per dilution step).
+Relative expression is computed by the
 $\Delta C_t$ and $\Delta\Delta C_t$ methods \cite{livak2001analysis},
 \begin{equation}
 \mathrm{RE} = 2^{-\big[(C_{q,\mathrm{target}}-C_{q,\mathrm{ref}})_{\mathrm{treated}}
