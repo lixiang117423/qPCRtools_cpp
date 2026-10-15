@@ -19,6 +19,10 @@
 
 \usepackage[utf8]{inputenc}
 \usepackage{graphicx}
+% 本地预览用 A4 + 2.5 cm 页边距。article 默认版心只有约 12 cm 宽，会把正文与
+% 参考文献拉成很多页、并把图挤到文末单独一页，不能反映期刊实际排版。这一行
+% 只服务于本地页数自查；投稿时整体替换为 Bioinformatics 官方 cls 后可删掉。
+\usepackage[a4paper,margin=2.5cm]{geometry}
 % hidelinks：链接保持可点击，但不画彩色边框、不变色（hyperref 默认会给引用画绿框、
 % 给 URL 画品红/青框，投稿时应当关掉——2026-10-13 用户指出参考文献处出现绿框）
 \usepackage[hidelinks]{hyperref}

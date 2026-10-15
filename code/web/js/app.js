@@ -1454,6 +1454,14 @@ function buildExpressionChartOption(results, palette) {
     const series = [];
     const errorBars = [];
 
+    // 柱宽固定成 band 的固定百分比，误差线才有确定的水平偏移。
+    // ECharts 里 barWidth:'P%' 的百分比基准 = 类目带宽，而自定义 series 里
+    // 能拿到同一个带宽的通道就是 api.size([1, 0])[0]（2026-10-15 用 5.4.4 的
+    // SSR 渲染实测：band=905.2、barWidth '22%' → 柱宽 199.1 = 905.2×0.22）。
+    // 不显式指定时由 ECharts 自行分配 barGap/barCategoryGap，算出来的偏移
+    // 与真实柱心对不上——曾出现"第 1、3 根柱子的误差线明显偏右"。
+    const barWidthPct = 100 / groups.length * 0.7;
+
     groups.forEach(function (group, groupIndex) {
         const data = genes.map(function (gene) {
             const cell = cells[gene + '\u001f' + group];
@@ -1472,6 +1480,8 @@ function buildExpressionChartOption(results, palette) {
         series.push({
             name: group,
             type: 'bar',
+            barGap: 0,
+            barWidth: barWidthPct + '%',
             data: data,
             itemStyle: { color: colors[groupIndex % colors.length] },
             label: {
@@ -1486,47 +1496,50 @@ function buildExpressionChartOption(results, palette) {
         });
     });
 
-    // SD 误差线（ECharts 官方 error-bar 写法：一个 custom series，只在首项渲染一次）
+    // SD 误差线（custom series，逐项渲染：每项返回竖线 + 上下两条端帽）。
+    //
+    // 两个坑（2026-10-15 用 ECharts 5.4.4 的 SSR 渲染实测确认）：
+    //   ① renderItem 的 params.data 在该版本里是 undefined，取当前项必须用
+    //      api.value(dim)；用 params.data.forEach(...) 会直接抛 TypeError，
+    //      异常被渲染循环吞掉，界面上**一根误差线都画不出来**（图注与结果一节
+    //      却都写了 SD 误差线）。
+    //   ② 早先照"官方 error-bar 示例"用 params.context.rendered 在首项一次性渲染
+    //      整张表的写法同样不成立：ECharts 是按每个数据项调用 renderItem 的。
     series.push({
         name: 'SD',
         type: 'custom',
         silent: true,
         z: 10,
         renderItem: function (params, api) {
-            if (params.context.rendered) {
-                return;
-            }
-            params.context.rendered = true;
-
-            const band = api.size([1, 0])[0];
-            const barBand = band / groups.length;
-            const points = [];
-            params.data.forEach(function (item) {
-                const offset = (item[2] - (groups.length - 1) / 2) * barBand;
-                const x = api.coord([item[0], 0])[0] + offset;
-                points.push([x, api.coord([0, item[1]])[1], api.coord([0, item[3]])[1]]);
-            });
-
-            const children = [];
-            points.forEach(function (point) {
-                const x = point[0];
-                children.push({
+            // 当前项的 4 个维度：[geneIndex, lower, groupIndex, upper]
+            const geneIndex = api.value(0);
+            const lower = api.value(1);
+            const groupIndex = api.value(2);
+            const upper = api.value(3);
+            // 与 bar 系列的 barWidth:'<barWidthPct>%' 用同一个基准（类目带宽），
+            // 保证误差线落在各自柱子的正中间。
+            const barWidth = api.size([1, 0])[0] * barWidthPct / 100;
+            const offset = (groupIndex - (groups.length - 1) / 2) * barWidth;
+            const x = api.coord([geneIndex, 0])[0] + offset;
+            const capHalf = Math.max(3, barWidth * 0.18);
+            const yLow = api.coord([geneIndex, lower])[1];
+            const yHigh = api.coord([geneIndex, upper])[1];
+            return {
+                type: 'group',
+                children: [{
                     type: 'line',
-                    shape: { x1: x, y1: point[1], x2: x, y2: point[2] },
+                    shape: { x1: x, y1: yLow, x2: x, y2: yHigh },
                     style: { stroke: '#555555', lineWidth: 1 }
-                });
-                children.push({
+                }, {
                     type: 'line',
-                    shape: { x1: x - 4, y1: point[1], x2: x + 4, y2: point[1] },
+                    shape: { x1: x - capHalf, y1: yLow, x2: x + capHalf, y2: yLow },
                     style: { stroke: '#555555', lineWidth: 1 }
-                });
-                children.push({
+                }, {
                     type: 'line',
-                    shape: { x1: x - 4, y1: point[2], x2: x + 4, y2: point[2] },
+                    shape: { x1: x - capHalf, y1: yHigh, x2: x + capHalf, y2: yHigh },
                     style: { stroke: '#555555', lineWidth: 1 }
-                });
-            });
-            return { type: 'group', children: children };
+                }]
+            };
         },
         data: errorBars
     });

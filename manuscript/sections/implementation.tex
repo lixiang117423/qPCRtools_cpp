@@ -2,7 +2,7 @@
 
 \subsection{Architecture}
 
-\textit{qPCRtools} is written in C++17 and built on Qt6 \cite{qt}. The user
+{\sloppy\textit{qPCRtools} is written in C++17 and built on Qt6 \cite{qt}. The user
 interface is rendered with web technologies---Bootstrap~5.3 for layout and
 Apache ECharts \cite{echarts} for figures---inside a
 \texttt{QWebEngineView}, and exchanges data with the native backend through
@@ -12,18 +12,26 @@ analytical core is a standalone static library, \texttt{qpcr\_core}, that
 depends only on Qt~Core (plus optional Eigen and GSL) and is independent of
 the GUI, so it is exercised directly by the unit tests and by the
 command-line equivalence driver. Figure~\ref{fig:overview} shows the
-interface.
+interface at the end of a complete analysis.\par}
 
-\begin{figure}[h]
+\begin{figure}[tbp]
 \centering
-\includegraphics[width=0.92\linewidth]{figures/fig1_home_en.png}
-\caption{The \textit{qPCRtools} desktop interface (screen captured from
-version~1.1.0; version~1.2.0 adds the in-interface figures,
-quality-control warnings and analysis-record export described below). A
-single cross-platform window hosts the web-based UI, giving access to the
-four analysis areas (standard curve, $\Delta C_t$/$\Delta\Delta C_t$,
-statistical tests and data-entry templates). The interface is bilingual
-(Chinese/English); the English language is shown here.}
+\includegraphics[width=0.85\linewidth]{figures/fig1_results_page_en_v3.png}
+\caption{The \textit{qPCRtools} desktop interface (screen capture of
+version~1.2.0). A single cross-platform window hosts the web-based UI,
+giving access to the four analysis areas (standard curve,
+$\Delta C_t$/$\Delta\Delta C_t$, statistical tests and data-entry
+templates). Both parts are the results page of the bundled example---the
+target gene \textit{fos-glo-myc} normalised to \textit{Beta Actin},
+three dose groups with three biological replicates each---analysed by the
+$\Delta\Delta C_t$ method with Welch tests against the control, the two
+parts being cropped from one window scrolled to two positions (upper
+part: summary table; lower part: the in-interface figure). The summary
+table reports the mean relative expression, its standard deviation, the
+$p$-value and the significance symbol for each group; the figure redraws
+the same means with standard-deviation error bars and the significance
+symbols. The interface is bilingual (Chinese/English); the English
+language is shown here.}
 \label{fig:overview}
 \end{figure}
 

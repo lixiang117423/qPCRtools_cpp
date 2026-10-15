@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-10-15 17:32 — 图 1 换成真实"分析结果页"截图；修复误差线"画不出/不居中"两个 bug
+
+- **图 1 换图**（导师一-3 要求）：用 1.2.0 实机跑一遍捆绑示例（ΔΔCt + Welch + 对照组 0）后截图，替换原来的首页截图。成品 `manuscript/figures/fig1_results_page_en_v3.png`（1262×857），上下两段拼自同一窗口的两个滚动位置：上段＝汇总表（Mean/StdDev/PValue/Significance），下段＝界面内的相对表达量图（三条 SD 误差线 + 显著性星号）。成品 PDF：`manuscript/main_v9_20261015.pdf`（7 页，图在第 3 页、236 ppi）。改图同时在 `main.tex` 加 A4/2.5 cm 页边距（本地预览用），并给 abstract/introduction 加 `\sloppy` 消掉超版心。
+- **修 bug 1：SD 误差线一根都画不出来**（`code/web/js/app.js`）。ECharts 5.4.4 的 custom series 里 `params.data` 是 `undefined`——实测 SSR 渲染抛 `TypeError: Cannot read properties of undefined (reading '2')`，异常被渲染循环吞掉（2026-10-15 用 `echarts.init(null,null,{renderer:'svg',ssr:true})` 复现并定位）；旧代码还用 `params.context.rendered` 在首项一次性渲染整表，等于只处理了第一项。改为逐项渲染 + `api.value(dim)` 取维度值，每项返回竖线 + 上下端帽共 3 条线。
+- **修 bug 2：误差线不居中**（用户 2026-10-15 当面指出"第一个和第三个柱子的误差线没有在中间位置"）。实测：`api.size([1,0])[0]` 返回的是整个类目带宽（905.2px），而 ECharts 自行分配的 `barGap`/`barCategoryGap` 让真实柱心间距只有 246px（不是 301.7px），于是三根误差线落在 205.7/507.4/809.1、柱心却在 261.4/507.4/753.4。修法：给 bar 系列显式设 `barGap: 0` 与 `barWidth: '<100/组数×0.7>%'`（实测 `barWidth` 百分比基准正好是 `api.size([1,0])[0]`），custom series 用同一基准算水平偏移。修复后实机复核（读像素）：柱心 386.5 / 641 / 895，误差线 387 / 641 / 895 —— 三根全部居中。
+- **回归测试**：`code/tests/js/smoke.test.js` 新增两项断言——"每项误差线真的渲染出 3 条线（竖线 + 上下端帽）"与"误差线落在自己柱子的正中间"（逐值校验 x 与三条线的对称关系）。`node code/tests/js/smoke.test.js` → SMOKE PASS（10 项图表检查全过）；`ctest` 52/52 通过。
+- **过程记录**：本轮为出这张图，用 Computer Use 驱动 1.2.0 实机（`/private/tmp/qpcr_verify_app/qPCRTools.app`，Resources/web 软链到仓库 `code/web`）跑完整流程并截图；中途踩到"窗口绑定被 macOS 覆盖层窗口干扰导致点击落到菜单栏"，重启 App 后恢复。截图与中间产物留在 `/tmp/qpcr_shot/`。
+
 ## 2026-10-15 16:09 — 逐条核对导师意见的落实状态；补做仓库/格式类遗留项
 
 用户问"导师提的意见都改完了吗"，把 `qPCRtools GUI 审稿意见-黄老师-20261014.docx` 全文重新取出一一对照

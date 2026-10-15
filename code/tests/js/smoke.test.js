@@ -158,6 +158,35 @@ setTimeout(() => {
     ],
   };
   const chartOption = w.buildExpressionChartOption(chartResults, ['#111111', '#222222']);
+  // 误差线必须真的画出来：ECharts 5.4.4 按"每项"调用 renderItem，且
+  // renderItem 里的 params.data 是 undefined（必须用 api.value(dim)），
+  // 每项应产出 3 条线（竖线 + 上下端帽）。2026-10-15 用 SSR 渲染实测确认：
+  // 用 params.data 或 context.rendered 短路都会导致界面图里一根误差线都没有。
+  const sdSeries = chartOption ? chartOption.series.find(s => s.type === 'custom') : null;
+  const fakeApiFor = item => ({
+    value: dim => item[dim],
+    size: () => [100, 0],
+    coord: v => [v[0] * 100, 1000 - v[1] * 100],
+  });
+  const sdRendered = sdSeries
+    ? sdSeries.data.map((d, i) => sdSeries.renderItem({ dataIndex: i }, fakeApiFor(d)))
+    : [];
+  const sdChildren = sdRendered
+    .reduce((n, item) => n + (item && Array.isArray(item.children) ? item.children.length : 0), 0);
+  // 误差线必须落在自己那根柱子的正中间：三条线共用一个 x，且相邻柱心间距 =
+  // 柱宽 = band × (100 / 组数 × 0.7) / 100（band = api.size([1,0])[0]）。
+  const band = 100;
+  const nGroups = chartOption ? chartOption.series.filter(s => s.type === 'bar').length : 0;
+  const barW = band * (100 / nGroups * 0.7) / 100;
+  const sdCentered = !!sdSeries && sdSeries.data.length > 0 && sdSeries.data.every((d, i) => {
+    const item = sdRendered[i];
+    if (!item) return false;
+    const expectedX = (d[0] * 100) + (d[2] - (nGroups - 1) / 2) * barW;
+    const xs = item.children.map(c => c.shape.x1);
+    return Math.abs(xs[0] - expectedX) < 1e-9
+      && xs[1] === xs[2]
+      && xs[0] > xs[1];
+  });
   const chartChecks = [
     ['option built', !!chartOption],
     ['genes as categories',
@@ -170,6 +199,10 @@ setTimeout(() => {
       chartOption && JSON.stringify(chartOption.series[1].data) === JSON.stringify([2.5, 0.4])],
     ['SD error bars (custom series, one per cell)',
       chartOption && chartOption.series.some(s => s.type === 'custom' && s.data.length === 4)],
+    ['SD error bars actually rendered (3 lines per cell)',
+      sdChildren === 12],
+    ['SD error bars centred on their own bar',
+      sdCentered],
     ['significance labels',
       chartOption && chartOption.series[1].label.formatter({ dataIndex: 0 }) === '**'],
     ['palette applied',
