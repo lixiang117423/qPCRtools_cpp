@@ -6,7 +6,19 @@
 # 输出： tests/fixtures/{data.json, expected_stat.json, expected_standard_curve.json}
 # =============================================================================
 suppressPackageStartupMessages(library(jsonlite))
-suppressPackageStartupMessages(library(qPCRtools))  # CalExp2dCt 等表达量参考
+
+# qPCRtools 是可选的：只有表达量部分（CalExp2dCt/CalExp2ddCt/CalExpRqPCR）需要它。
+# 未安装时仍可重新生成统计类 fixture（data.json / expected_stat.json /
+# expected_standard_curve.json），表达量部分会打印 Skipped 并跳过。
+has_qpcr <- requireNamespace("qPCRtools", quietly = TRUE)
+if (has_qpcr) {
+  suppressPackageStartupMessages(library(qPCRtools))
+} else {
+  message("qPCRtools not installed -> 表达量类 fixture 将跳过（其余仍会生成）")
+}
+
+# 期望值来自本机 base R，须记录版本以便复现（2026-10-15 实测 R 4.6.1）
+cat("R version:", R.version.string, "\n")
 
 fix_dir <- file.path("tests", "fixtures")
 dir.create(fix_dir, showWarnings = FALSE, recursive = TRUE)
@@ -27,7 +39,21 @@ data <- list(
     list(id = "shift", before = c(1, 2, 3, 4, 5), after = c(3, 5, 4, 7, 6))
   ),
   wilcox = list(
-    list(id = "shifted", g1 = c(1, 2, 3, 4, 5), g2 = c(6, 7, 8, 9, 10))
+    list(id = "shifted",   g1 = c(1, 2, 3, 4, 5), g2 = c(6, 7, 8, 9, 10)),
+    list(id = "ties1",     g1 = c(1, 2, 2, 3, 4), g2 = c(2, 2, 3, 3, 5)),
+    list(id = "ties2",     g1 = c(1, 1, 2, 2, 3), g2 = c(2, 2, 3, 3, 4)),
+    list(id = "ties3",     g1 = c(1, 2, 2, 3, 3, 4, 4, 5),
+                           g2 = c(2, 3, 3, 4, 4, 5, 5, 6)),
+    list(id = "identical", g1 = c(2, 2, 3, 3, 4), g2 = c(2, 2, 3, 3, 4))
+  ),
+  # 2026-10-15：以下 9 个用例此前只存在于 fixture 里（生成脚本无对应条目，属两套口径），
+  # 现全部补回脚本，使 fixture 可由本脚本一键重生成。
+  wilcox_signed = list(
+    list(id = "signed1", before = c(1, 2, 3, 4, 5, 6), after = c(2, 3, 2, 6, 5, 8)),
+    list(id = "signed2", before = c(1, 2, 3, 4, 5, 6), after = c(2, 3, 3, 6, 4, 8)),
+    list(id = "signed3", before = c(1, 2, 3, 4, 5, 6, 7, 8),
+                         after  = c(3, 4, 5, 6, 7, 8, 9, 10)),
+    list(id = "signed4", before = c(5, 6, 7, 8, 9, 10), after = c(5, 6, 7, 8, 9, 10))
   ),
   anova = list(
     list(id = "3groups",
@@ -58,9 +84,25 @@ stat <- list(
     list(id = c$id, statistic = unname(tt$statistic), pvalue = tt$p.value)
   }),
   wilcox = lapply(data$wilcox, function(c) {
-    # C++ 用正态近似、无连续性校正；令 R 采用相同方法以验证算术正确性
-    w <- wilcox.test(c$g1, c$g2, exact = FALSE, correct = FALSE)
-    list(id = c$id, pvalue = w$p.value)  # 统计量定义不同(min(U) vs W)，仅对比 p
+    # 2026-10-15：C++ 已改为与 R 默认一致 —— 小样本（n1,n2 ≤ 25）走精确分布、
+    # 含并列值同样给精确 p（对应新版 R），更大样本才用正态近似。因此这里直接用
+    # R 的默认调用（exact = NULL），期望值即 R 的默认输出。
+    w <- suppressWarnings(wilcox.test(c$g1, c$g2))
+    # statistic 与 C++ 的 U1 定义一致（R 的 W = group1 秩和 − n1(n1+1)/2）
+    list(id = c$id, statistic = unname(w$statistic), pvalue = w$p.value)
+  }),
+  wilcox_signed = lapply(data$wilcox_signed, function(c) {
+    # 符号秩检验（配对）：C++ 侧目前仍为正态近似（并列方差校正、无连续性校正），
+    # 故用 exact = FALSE, correct = FALSE 生成期望值以与实现一致；
+    # 全零差值（signed4）R 给 p = NaN、C++ 返回 NaN，fixture 统一写成字符串 "NaN"
+    # （测试见到字符串即断言双方均为 NaN）。
+    w <- suppressWarnings(wilcox.test(c$before, c$after, paired = TRUE,
+                                      exact = FALSE, correct = FALSE))
+    if (is.nan(w$p.value) || is.na(w$p.value)) {
+      list(id = c$id, statistic = "NaN", pvalue = "NaN")
+    } else {
+      list(id = c$id, statistic = unname(w$statistic), pvalue = w$p.value)
+    }
   }),
   anova = lapply(data$anova, function(c) {
     vals <- unlist(c$groups)

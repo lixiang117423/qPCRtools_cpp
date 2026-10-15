@@ -34,6 +34,79 @@ TEST(Bugfix, TTestDegenerateGroups) {
     EXPECT_DOUBLE_EQ(r2.pValue, 0.0);
 }
 
+//------------------------------------------------------------------------------
+// StatisticalTest：Wilcoxon 小样本精确检验（2026-10-15 修复）
+//
+// 背景：原实现只有正态近似，3 vs 3 完全分开时给 p ≈ 0.0495 —— 在 α=0.05 下
+// 判为显著，而精确检验的最小 p 是 0.1（假阳性）。现对 n1,n2 ≤ 25 走精确分布。
+//
+// 所有期望值均取自 R 4.6.1（/opt/homebrew/bin/Rscript）：
+//   wilcox.test(group1, group2, exact = TRUE)$p.value           ← 精确
+//   wilcox.test(group1, group2, exact = FALSE, correct = FALSE)$p.value  ← 正态近似
+//------------------------------------------------------------------------------
+
+TEST(Bugfix, WilcoxonExactSeparatedSamples) {
+    // 3 个重复、两组完全分开：精确 p = 0.1（不是正态近似的 0.0495）
+    auto r = StatisticalTest::wilcoxonTest({1, 2, 3}, {4, 5, 6});
+    EXPECT_NEAR(r.pValue, 0.1, 1e-9);
+    EXPECT_FALSE(r.isSignificant);   // α = 0.05 下不应判为显著
+}
+
+TEST(Bugfix, WilcoxonExactPartiallyOverlapping) {
+    // 3 vs 3 部分重叠：R exact = 0.2（正态近似 0.0765）
+    auto r = StatisticalTest::wilcoxonTest({1, 2, 3}, {3, 4, 5});
+    EXPECT_NEAR(r.pValue, 0.2, 1e-9);
+}
+
+TEST(Bugfix, WilcoxonExact4v4) {
+    // 4 vs 4 完全分开：R exact = 0.0285714…（= 2/70）
+    auto r = StatisticalTest::wilcoxonTest({1, 2, 3, 4}, {5, 6, 7, 8});
+    EXPECT_NEAR(r.pValue, 0.028571428571, 1e-9);
+    EXPECT_TRUE(r.isSignificant);
+}
+
+TEST(Bugfix, WilcoxonExact10v10) {
+    // 10 vs 10 完全分开：精确值 = 2 / C(20,10) = 1.082508822446903e-05
+    // （R 4.6.1 wilcox.test 默认输出同值；正态近似给 1.57e-04，差一个量级）
+    QVector<double> a, b;
+    for (int i = 5; i <= 14; ++i) a.append(i);
+    for (int i = 20; i <= 29; ++i) b.append(i);
+    auto r = StatisticalTest::wilcoxonTest(a, b);
+    EXPECT_NEAR(r.pValue, 1.082508822446903e-05, 1e-12);
+}
+
+TEST(Bugfix, WilcoxonExactWithTies) {
+    // 含并列值：新版 R 也会给精确 p（R 4.6.1 exact = 0.3），不再退回正态近似
+    auto r = StatisticalTest::wilcoxonTest({1, 2, 3}, {3, 3, 4});
+    EXPECT_NEAR(r.pValue, 0.3, 1e-9);
+}
+
+TEST(Bugfix, WilcoxonExactWithTies5v5) {
+    // 含并列值的 5 vs 5：R exact = 0.174603（正态近似 0.110492）
+    auto r = StatisticalTest::wilcoxonTest({1, 2, 2, 3, 4}, {2, 3, 4, 5, 6});
+    EXPECT_NEAR(r.pValue, 0.174603174603, 1e-9);
+}
+
+TEST(Bugfix, WilcoxonLargeSampleMatchesNormalApproximation) {
+    // 30 vs 30（超过精确检验阈值 N ≤ 50 之外的每侧 25）→ 走正态近似，
+    // 与 R wilcox.test(exact = FALSE, correct = FALSE) = 0.002097 一致
+    QVector<double> a, b;
+    for (int i = 5; i <= 34; ++i) { a.append(i); b.append(i + 8); }
+    auto r = StatisticalTest::wilcoxonTest(a, b);
+    EXPECT_NEAR(r.pValue, 0.002097, 1e-6);
+}
+
+TEST(Bugfix, WilcoxonLargeSampleWithTiesMatchesNormalApproximation) {
+    // 30 vs 30 含并列 → 正态近似（R 参考值 0.110165，方差含并列校正）
+    QVector<double> a, b;
+    const double av[] = {1,1,2,2,3,4,5,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27};
+    const double bv[] = {2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31};
+    for (double v : av) a.append(v);
+    for (double v : bv) b.append(v);
+    auto r = StatisticalTest::wilcoxonTest(a, b);
+    EXPECT_NEAR(r.pValue, 0.110165, 1e-6);
+}
+
 TEST(Bugfix, AnovaDegenerateGroups) {
     // 各组完全相同 → F=0, p=1
     auto r = StatisticalTest::anova({{1, 2, 3}, {1, 2, 3}, {1, 2, 3}});

@@ -56,8 +56,9 @@ TEST(StatisticalTest, PairedTTestMatchesR) {
     }
 }
 
-// Wilcoxon 秩和（Mann-Whitney）：C++ 用平均秩 + 并列方差校正、无连续性校正，
-// 故 R 亦用 exact=FALSE, correct=FALSE 对比；统计量按 R 报告 group1 的秩和 W。
+// Wilcoxon 秩和（Mann-Whitney）：C++ 已与 R 默认行为一致 —— 小样本（n1,n2 ≤ 25）
+// 用精确分布（含并列值亦然），更大样本用平均秩 + 并列方差校正的正态近似；
+// 故 fixture 直接取 R 的默认 wilcox.test() 输出；统计量按 R 报告 group1 的秩和 W。
 TEST(StatisticalTest, WilcoxonMatchesR) {
     auto cases  = testfix::load_json("expected_stat.json").object().value("wilcox").toArray();
     auto inputs = testfix::load_json("data.json").object().value("wilcox").toArray();

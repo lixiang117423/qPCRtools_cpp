@@ -312,9 +312,9 @@ TestResult StatisticalTest::pairedTTest(
 
 namespace {
 
-// 对 combined = a + b 计算平均秩（并列取平均秩），返回 a 部分的秩和与全体秩的平局校正项。
-// tieCorrection = Σ (t³ - t)，供 R 一致的正态近似方差校正使用。
-double rankSumWithTies(const QVector<double>& combined, int n1, double& tieCorrection)
+// 平均秩（并列取平均）→ 返回每个观测的秩；同时给出 Σ(t³-t)。
+// 与 rankSumWithTies 用同一套排名规则，供精确分布与正态近似共用。
+QVector<double> averageRanks(const QVector<double>& combined, double& tieCorrection)
 {
     const int n = combined.size();
     QVector<std::pair<double, int>> indexed;
@@ -335,9 +335,93 @@ double rankSumWithTies(const QVector<double>& combined, int n1, double& tieCorre
         tieCorrection += t * t * t - t;
         i = j + 1;
     }
+    return ranks;
+}
 
+// 精确秩和检验（双侧），用于小样本——正态近似在 n 很小时会明显高估显著性：
+// 例如 3 vs 3 完全分开时，正态近似给 p ≈ 0.0495（假阳性），精确值为 0.1。
+//
+// 做法：把观测按「秩的多重集合」分组（并列值共享同一个平均秩、各带重数），
+// 用背包式 DP 数出「任取 n1 个观测」时秩和等于 w 的组合数，再按 R 的规则
+// （|w − 均值| ≥ |观测值 − 均值|）累加双侧概率。因为用的是秩的多重集合，
+// 有并列值时同样给出精确 p（对应新版 R wilcox.test(exact = TRUE) 的行为；
+// 本项目 3 vs 3 含并列的算例已用 R 4.6.1 核对）。
+//
+// 返回 NaN 表示无法计算（空样本），调用方应回退到正态近似。
+// 秩一律折半成整数（平均秩只可能是整数或半整数）以做数组索引。
+double exactWilcoxonTwoSided(const QVector<double>& combined, int n1, double observedSumRanks)
+{
+    const int n = combined.size();
+    if (n == 0 || n1 <= 0 || n1 >= n) return qQNaN();
+
+    double tieCorrection = 0.0;
+    const QVector<double> ranks = averageRanks(combined, tieCorrection);
+
+    // rank2 = 2 × 秩（整数），并按取值聚合重数
+    QVector<int> rank2Values;
+    QVector<int> rank2Counts;
+    int total2 = 0;
+    for (double r : ranks) {
+        const int r2 = static_cast<int>(std::lround(2.0 * r));
+        total2 += r2;
+        int pos = rank2Values.indexOf(r2);
+        if (pos < 0) {
+            rank2Values.append(r2);
+            rank2Counts.append(1);
+        } else {
+            rank2Counts[pos] += 1;
+        }
+    }
+
+    // dp[j][w] = 选 j 个观测、秩和（半秩单位）= w 的组合数
+    const int maxW = total2;
+    QVector<QVector<double>> dp(n1 + 1, QVector<double>(maxW + 1, 0.0));
+    dp[0][0] = 1.0;
+    for (int g = 0; g < rank2Values.size(); ++g) {
+        const int r2 = rank2Values[g];
+        const int m = rank2Counts[g];
+        for (int j = qMin(n1, n); j >= 1; --j) {
+            for (int w = maxW; w >= 0; --w) {
+                double acc = 0.0;
+                double binom = 1.0;   // C(m, k)
+                for (int k = 1; k <= qMin(m, j); ++k) {
+                    binom = binom * (m - k + 1) / k;
+                    const int prevW = w - k * r2;
+                    if (prevW < 0) break;
+                    const double prev = dp[j - k][prevW];
+                    if (prev > 0.0) acc += prev * binom;
+                }
+                dp[j][w] += acc;
+            }
+        }
+    }
+
+    // 双侧：累加与观测值同样极端或更极端的秩和（R 的判定规则）
+    double total = 0.0;
+    for (int w = 0; w <= maxW; ++w) total += dp[n1][w];
+    if (!(total > 0.0)) return qQNaN();
+
+    const double meanSum = n1 * (n + 1) / 2.0;
+    const double observed2 = 2.0 * observedSumRanks;
+    const double deviation2 = std::fabs(observed2 - 2.0 * meanSum);
+    const double tol = 1e-9;
+
+    double extreme = 0.0;
+    for (int w = 0; w <= maxW; ++w) {
+        if (dp[n1][w] <= 0.0) continue;
+        const double dev = std::fabs(static_cast<double>(w) - 2.0 * meanSum);
+        if (dev >= deviation2 - tol) extreme += dp[n1][w];
+    }
+    return extreme / total;
+}
+
+// 对 combined = a + b 计算平均秩（并列取平均秩），返回 a 部分的秩和与全体秩的平局校正项。
+// tieCorrection = Σ (t³ - t)，供 R 一致的正态近似方差校正使用。
+double rankSumWithTies(const QVector<double>& combined, int n1, double& tieCorrection)
+{
+    const QVector<double> ranks = averageRanks(combined, tieCorrection);
     double sumRanks1 = 0.0;
-    for (int k = 0; k < n1; ++k) sumRanks1 += ranks[k];
+    for (int k = 0; k < n1 && k < ranks.size(); ++k) sumRanks1 += ranks[k];
     return sumRanks1;
 }
 
@@ -379,6 +463,16 @@ TestResult StatisticalTest::wilcoxonTest(
     double z = (U - meanU) / std::sqrt(varU);
 
     double p = 2 * (1 - normalCDF(std::abs(z)));
+
+    // 小样本改用精确检验（R wilcox.test 默认同样在小样本走精确分布，且新版 R
+    // 在存在并列值时也能给精确 p；见 exactWilcoxonTwoSided 的说明）。
+    // 阈值取 n1,n2 ≤ 25（N ≤ 50）：覆盖面已包含 qPCR 常见的 3–10 个生物学重复，
+    // 而更大样本下正态近似与精确值差异已可忽略。
+    if (n1 <= 25 && n2 <= 25) {
+        const double exactP = exactWilcoxonTwoSided(combined, n1, sumRanks1);
+        if (!qIsNaN(exactP) && exactP >= 0.0) p = exactP;
+    }
+
     result.pValue = p;
     result.significance = formatSignificance(p);
     result.isSignificant = p < alpha;
