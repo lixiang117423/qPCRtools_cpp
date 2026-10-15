@@ -80,16 +80,27 @@ implicit.
 
 All results are presented as tables that can be exported as CSV or Excel for
 further plotting, and groups that differ significantly are labelled with
-Tukey letters directly in the result table. Version~1.1.0 does not render
-figures: the ECharts-based figure view is present in the code base but
-disabled, and the figures of this paper were therefore produced from the
-application's numerical output by the plotting script shipped in the
-repository (\texttt{validation/plot\_examples.py}), not by the graphical
-interface. Each analysis can also be exported as a plain-text \emph{analysis
+Tukey letters directly in the result table. The application also renders the
+figures in the interface: group means with standard-deviation error bars and
+significance labels for the expression methods, and the fitted standard
+curves over the measured dilution series, both of which can be exported as
+PNG images (the figures of this paper were produced from the same numerical
+output by the plotting script shipped in the repository,
+\texttt{validation/plot\_examples.py}, which gives finer control over the
+layout). Each analysis can also be exported as a plain-text \emph{analysis
 record} that lists the input files and their row counts, the reference
 gene(s), the control group, the statistical test, the outlier-removal setting,
 the software version and a timestamp, so that a reader can re-run the same
-analysis without inspecting the session. \textit{qPCRtools} is managed with CMake and ships with a
+analysis without inspecting the session. Quality control is reported as
+warnings rather than as decisions: wells with
+$C_q$ above a configurable upper limit (default 35), samples whose technical
+replicates differ by more than a configurable standard deviation (default
+0.5~$C_q$), and primers whose efficiency falls outside 90--110\% are listed on
+the results page and repeated in the analysis record, while no data are
+removed automatically. MIQE requires these quantities to be reported rather
+than to satisfy fixed cut-offs \cite{bustin2009miqe}, so the defaults are
+intended to be adjusted to the instrument and assay; the measurements
+themselves are unchanged. \textit{qPCRtools} is managed with CMake and ships with a
 unit-test suite; the interface
 is bilingual (Chinese/English) and reads CSV input as well as Excel
 (\texttt{.xlsx}) workbooks when built against the optional OpenXLSX

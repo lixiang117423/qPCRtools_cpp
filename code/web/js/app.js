@@ -1164,6 +1164,7 @@ async function runAnalysis() {
 
             analysisResults = JSON.parse(result);
 
+            runQcChecks();
             // 冻结本次分析的真实参数，供导出"分析记录"（导师 2026-10-14：分析过程要可核查）
             captureAnalysisParameters({
                 method: method,
@@ -1191,6 +1192,7 @@ async function runAnalysis() {
     } else {
         // Demo mode: generate mock results
         analysisResults = generateMockResults();
+        runQcChecks();
         captureAnalysisParameters({
             method: method,
             referenceGene: referenceGene,
@@ -1224,7 +1226,7 @@ function displayResults(results) {
     } else {
         displayResultsTable(results);
         displayRawData(results);
-        // displayCharts(results);  // Charts feature temporarily disabled
+        displayCharts(results);   // 2026-10-15 重新启用：由真实结果表绘制（bar + SD 误差线 + 显著性标注）
         // Statistics are now integrated into the main table
     }
 }
@@ -1378,84 +1380,211 @@ function displayRawData(results) {
 /**
  * Display charts using ECharts
  */
+/**
+ * 从分析结果构建 ECharts 配置（纯函数，便于 jsdom 测试）
+ *
+ * 兼容两种结果表：
+ *   ① 汇总表：每行一个 (Gene, Group)，带 Mean / StdDev / Significance —— C++ 主流程输出；
+ *   ② 逐重复表：带 Expression（演示模式或原始表），先按 (Gene, Group) 求 mean/SD。
+ *
+ * 图中每个基因一组柱（每组一色），柱顶误差线 = SD，柱顶标注显著性字母/星号。
+ *
+ * @param {Object} results 分析结果对象（需含 table 数组）
+ * @param {Array<string>} palette 颜色数组（取自界面上选定的配色方案）
+ * @returns {Object|null} ECharts option；无可用数据时返回 null
+ */
+function buildExpressionChartOption(results, palette) {
+    if (!results || !Array.isArray(results.table) || results.table.length === 0) {
+        return null;
+    }
+
+    const rows = results.table;
+    const hasSummary = rows[0].Mean !== undefined;
+    const genes = [];
+    const groups = [];
+    const cells = {};
+
+    rows.forEach(function (row) {
+        const gene = row.Gene === undefined ? '' : String(row.Gene);
+        const group = row.Group === undefined ? '' : String(row.Group);
+        if (!gene || !group) {
+            return;
+        }
+        if (genes.indexOf(gene) < 0) {
+            genes.push(gene);
+        }
+        if (groups.indexOf(group) < 0) {
+            groups.push(group);
+        }
+        const key = gene + '\u001f' + group;
+        if (hasSummary) {
+            const mean = parseFloat(row.Mean);
+            const sd = row.StdDev === undefined ? 0 : parseFloat(row.StdDev);
+            if (!isNaN(mean)) {
+                cells[key] = { mean: mean, sd: isNaN(sd) ? 0 : sd, sig: row.Significance || '', values: null };
+            }
+        } else {
+            const value = parseFloat(row.Expression);
+            if (!isNaN(value)) {
+                if (!cells[key]) {
+                    cells[key] = { mean: 0, sd: 0, sig: row.Significance || '', values: [] };
+                }
+                cells[key].values.push(value);
+            }
+        }
+    });
+
+    if (genes.length === 0 || groups.length === 0) {
+        return null;
+    }
+
+    if (!hasSummary) {
+        Object.keys(cells).forEach(function (key) {
+            const values = cells[key].values;
+            const mean = values.reduce(function (a, b) { return a + b; }, 0) / values.length;
+            const variance = values.length > 1
+                ? values.reduce(function (a, b) { return a + (b - mean) * (b - mean); }, 0) / (values.length - 1)
+                : 0;
+            cells[key].mean = mean;
+            cells[key].sd = Math.sqrt(variance);
+        });
+    }
+
+    const colors = Array.isArray(palette) && palette.length > 0 ? palette : ['#3C5488'];
+    const series = [];
+    const errorBars = [];
+
+    groups.forEach(function (group, groupIndex) {
+        const data = genes.map(function (gene) {
+            const cell = cells[gene + '\u001f' + group];
+            return cell ? Number(cell.mean.toPrecision(12)) : null;
+        });
+
+        genes.forEach(function (gene, geneIndex) {
+            const cell = cells[gene + '\u001f' + group];
+            if (!cell) {
+                return;
+            }
+            // [类目序号, 下限, 水平偏移(渲染时填), 上限]
+            errorBars.push([geneIndex, cell.mean - cell.sd, groupIndex, cell.mean + cell.sd]);
+        });
+
+        series.push({
+            name: group,
+            type: 'bar',
+            data: data,
+            itemStyle: { color: colors[groupIndex % colors.length] },
+            label: {
+                show: true,
+                position: 'top',
+                fontSize: 12,
+                formatter: function (params) {
+                    const cell = cells[genes[params.dataIndex] + '\u001f' + group];
+                    return cell && cell.sig ? cell.sig : '';
+                }
+            }
+        });
+    });
+
+    // SD 误差线（ECharts 官方 error-bar 写法：一个 custom series，只在首项渲染一次）
+    series.push({
+        name: 'SD',
+        type: 'custom',
+        silent: true,
+        z: 10,
+        renderItem: function (params, api) {
+            if (params.context.rendered) {
+                return;
+            }
+            params.context.rendered = true;
+
+            const band = api.size([1, 0])[0];
+            const barBand = band / groups.length;
+            const points = [];
+            params.data.forEach(function (item) {
+                const offset = (item[2] - (groups.length - 1) / 2) * barBand;
+                const x = api.coord([item[0], 0])[0] + offset;
+                points.push([x, api.coord([0, item[1]])[1], api.coord([0, item[3]])[1]]);
+            });
+
+            const children = [];
+            points.forEach(function (point) {
+                const x = point[0];
+                children.push({
+                    type: 'line',
+                    shape: { x1: x, y1: point[1], x2: x, y2: point[2] },
+                    style: { stroke: '#555555', lineWidth: 1 }
+                });
+                children.push({
+                    type: 'line',
+                    shape: { x1: x - 4, y1: point[1], x2: x + 4, y2: point[1] },
+                    style: { stroke: '#555555', lineWidth: 1 }
+                });
+                children.push({
+                    type: 'line',
+                    shape: { x1: x - 4, y1: point[2], x2: x + 4, y2: point[2] },
+                    style: { stroke: '#555555', lineWidth: 1 }
+                });
+            });
+            return { type: 'group', children: children };
+        },
+        data: errorBars
+    });
+
+    return {
+        title: {
+            text: 'Relative expression',
+            left: 'center',
+            textStyle: { fontSize: 15, fontWeight: 'bold' }
+        },
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        legend: { top: 26, left: 'center' },
+        grid: { left: '3%', right: '4%', bottom: '12%', top: '18%', containLabel: true },
+        xAxis: {
+            type: 'category',
+            data: genes,
+            axisLabel: { rotate: genes.length > 4 ? 45 : 0, fontSize: 12 }
+        },
+        yAxis: { type: 'value', name: 'Relative expression', axisLabel: { fontSize: 12 } },
+        series: series
+    };
+}
+
+/**
+ * 渲染表达量柱状图（真实数据；图在结果页的 #mainChart 容器内）
+ *
+ * @param {Object} results 分析结果对象
+ * @returns {boolean} 是否成功渲染
+ */
 function displayCharts(results) {
     const chartDom = document.getElementById('mainChart');
+    if (!chartDom || typeof echarts === 'undefined') {
+        return false;
+    }
+
+    const paletteSelect = document.getElementById('colorPalette');
+    const palette = colorPalettes[paletteSelect ? paletteSelect.value : 'nature'] || colorPalettes.nature;
+    const option = buildExpressionChartOption(results, palette);
+    if (!option) {
+        return false;
+    }
 
     if (mainChart) {
         mainChart.dispose();
     }
-
     mainChart = echarts.init(chartDom);
-
-    const palette = colorPalettes[document.getElementById('colorPalette').value] || colorPalettes.nature;
-
-    const option = {
-        title: {
-            text: 'Gene Expression Analysis',
-            left: 'center',
-            textStyle: {
-                fontSize: 18,
-                fontWeight: 'bold'
-            }
-        },
-        tooltip: {
-            trigger: 'axis',
-            axisPointer: {
-                type: 'shadow'
-            }
-        },
-        legend: {
-            top: 30,
-            left: 'center'
-        },
-        grid: {
-            left: '3%',
-            right: '4%',
-            bottom: '15%',
-            top: '20%',
-            containLabel: true
-        },
-        xAxis: {
-            type: 'category',
-            data: ['Gene1', 'Gene2', 'Gene3'],
-            axisLabel: {
-                rotate: 45,
-                fontSize: 12
-            }
-        },
-        yAxis: {
-            type: 'value',
-            name: 'Relative Expression',
-            axisLabel: {
-                fontSize: 12
-            }
-        },
-        series: [
-            {
-                name: 'Control',
-                type: 'bar',
-                data: [1.0, 1.0, 1.0],
-                itemStyle: {
-                    color: palette[0]
-                }
-            },
-            {
-                name: 'Treatment',
-                type: 'bar',
-                data: [2.5, 1.8, 3.2],
-                itemStyle: {
-                    color: palette[1]
-                }
-            }
-        ]
-    };
-
     mainChart.setOption(option);
 
-    // Responsive
-    window.addEventListener('resize', function() {
-        mainChart.resize();
-    });
+    // 只在第一次挂 resize 监听，避免每次分析都叠加一个监听器
+    if (!displayCharts.resizeBound) {
+        displayCharts.resizeBound = true;
+        window.addEventListener('resize', function () {
+            if (mainChart) {
+                mainChart.resize();
+            }
+        });
+    }
+    return true;
 }
 
 /**
@@ -1488,10 +1617,179 @@ function setupResultsPage() {
         });
     }
 
-    // Chart export feature temporarily disabled
-    // document.getElementById('exportChart').addEventListener('click', function() {
-    //     exportChart();
-    // });
+    // 图表导出（2026-10-15 随作图功能一起恢复）
+    const chartExportBtn = document.getElementById('exportChart');
+    if (chartExportBtn) {
+        chartExportBtn.addEventListener('click', function() {
+            exportChart();
+        });
+    }
+}
+
+/**
+ * 质控预警的默认阈值
+ *
+ * 说明（避免误导）：MIQE 要求**报告**效率、技术重复离散度、检测限附近的数据，
+ * 但并没有规定统一的判废阈值；下面这些只是本软件给出的**预警**默认值，
+ * 可以按仪器与实验体系调整，且软件只提示、从不自动删除数据。
+ *  - cqUpper        35      ：高于此值接近常见检测上限，应结合 LOD/扩增曲线核查
+ *  - techRepSd      0.5 Cq  ：同一生物学样本的技术重复标准差
+ *  - efficiencyLow/High 0.90/1.10：效率 90–110%（对应斜率约 −3.1 到 −3.6）
+ */
+const QC_THRESHOLDS = {
+    cqUpper: 35,
+    techRepSd: 0.5,
+    efficiencyLow: 0.90,
+    efficiencyHigh: 1.10
+};
+
+let lastQcReport = null;
+
+/**
+ * 计算质控预警（纯函数，便于 jsdom 测试）
+ *
+ * @param {Object} input {cqData, designData, concenData, scResults, thresholds}
+ * @returns {Object} {thresholds, items: [{code, count, message}]}
+ */
+function buildQcReport(input) {
+    const thresholds = Object.assign({}, QC_THRESHOLDS, (input && input.thresholds) || {});
+    const items = [];
+    const cqData = input && Array.isArray(input.cqData) ? input.cqData : [];
+    const designData = input && Array.isArray(input.designData) ? input.designData : [];
+    const scTable = (input && input.scResults && Array.isArray(input.scResults.table))
+        ? input.scResults.table : [];
+
+    if (cqData.length === 0) {
+        return { thresholds: thresholds, items: items };
+    }
+
+    // ① Cq 偏高（接近检测上限）
+    const highCq = cqData.filter(function (row) {
+        const cq = parseFloat(row.Cq);
+        return !isNaN(cq) && cq > thresholds.cqUpper;
+    });
+    if (highCq.length > 0) {
+        items.push({
+            code: 'cqHigh',
+            count: highCq.length,
+            message: highCq.length + ' well(s) have Cq > ' + thresholds.cqUpper
+                + '; check the amplification curves, negative controls and the limit of detection'
+        });
+    }
+
+    // ② 技术重复离散度（按 Gene × Group × BioRep 分组，用孔级 Cq 求 SD）
+    if (designData.length > 0) {
+        const designByPosition = {};
+        designData.forEach(function (row) {
+            if (row.Position !== undefined) {
+                designByPosition[String(row.Position)] = row;
+            }
+        });
+
+        const cqBySample = {};
+        cqData.forEach(function (row) {
+            const position = row.Position === undefined ? '' : String(row.Position);
+            const meta = designByPosition[position];
+            if (!meta) {
+                return;
+            }
+            const cq = parseFloat(row.Cq);
+            if (isNaN(cq)) {
+                return;
+            }
+            const key = [row.Gene === undefined ? '' : String(row.Gene),
+                         meta.Group === undefined ? '' : String(meta.Group),
+                         meta.BioRep === undefined ? '' : String(meta.BioRep)].join('|');
+            if (!cqBySample[key]) {
+                cqBySample[key] = [];
+            }
+            cqBySample[key].push(cq);
+        });
+
+        const noisy = [];
+        Object.keys(cqBySample).forEach(function (key) {
+            const values = cqBySample[key];
+            if (values.length < 2) {
+                return;
+            }
+            const mean = values.reduce(function (a, b) { return a + b; }, 0) / values.length;
+            const variance = values.reduce(function (a, b) { return a + (b - mean) * (b - mean); }, 0)
+                / (values.length - 1);
+            const sd = Math.sqrt(variance);
+            if (sd > thresholds.techRepSd) {
+                noisy.push({ key: key, sd: sd });
+            }
+        });
+        if (noisy.length > 0) {
+            items.push({
+                code: 'techRepSd',
+                count: noisy.length,
+                message: noisy.length + ' sample(s) have a technical-replicate SD > '
+                    + thresholds.techRepSd + ' Cq (worst: ' + noisy[0].key + ', SD = '
+                    + noisy[0].sd.toFixed(2) + ')'
+            });
+        }
+    }
+
+    // ③ 扩增效率超出常用区间（只对标准曲线结果）
+    const lowEff = 100 * thresholds.efficiencyLow;
+    const highEff = 100 * thresholds.efficiencyHigh;
+    const badEfficiency = scTable.filter(function (row) {
+        const efficiency = parseFloat(row.Efficiency);
+        return !isNaN(efficiency) && (efficiency < thresholds.efficiencyLow || efficiency > thresholds.efficiencyHigh);
+    });
+    if (badEfficiency.length > 0) {
+        items.push({
+            code: 'efficiency',
+            count: badEfficiency.length,
+            message: badEfficiency.length + ' primer(s) outside ' + lowEff + '-' + highEff + '% efficiency: '
+                + badEfficiency.map(function (row) { return row.Gene; }).join(', ')
+        });
+    }
+
+    return { thresholds: thresholds, items: items };
+}
+
+/**
+ * 用当前会话的数据跑质控预警，并把结果渲染到结果页（只提示，不改数据）
+ *
+ * @returns {Object} buildQcReport() 的结果
+ */
+function runQcChecks() {
+    lastQcReport = buildQcReport({
+        cqData: currentCqData || scCqData,
+        designData: currentDesignData,
+        concenData: currentConcenData || scConcenData,
+        scResults: scResults
+    });
+    displayQcReport(lastQcReport);
+    return lastQcReport;
+}
+
+/**
+ * 渲染质控预警列表
+ *
+ * @param {Object} report buildQcReport() 的结果
+ */
+function displayQcReport(report) {
+    const section = document.getElementById('qcSection');
+    const list = document.getElementById('qcList');
+    if (!section || !list) {
+        return;
+    }
+
+    if (!report || report.items.length === 0) {
+        section.style.display = 'none';
+        list.innerHTML = '';
+        return;
+    }
+
+    const heading = '<strong>' + i18n.t('qc.title') + '</strong>';
+    const body = report.items.map(function (item) {
+        return '<li>' + item.message + '</li>';
+    }).join('');
+    list.innerHTML = heading + '<ul class="mb-0 mt-1">' + body + '</ul>';
+    section.style.display = 'block';
 }
 
 /**
@@ -1532,7 +1830,8 @@ function captureAnalysisParameters(ctx) {
         summaryRows: (analysisResults && analysisResults.table) ? analysisResults.table.length : 0,
         rawRows: (analysisResults && analysisResults.rawData) ? analysisResults.rawData.length : 0,
         statisticCount: (analysisResults && Array.isArray(analysisResults.statistics))
-            ? analysisResults.statistics.length : 0
+            ? analysisResults.statistics.length : 0,
+        qcItems: (lastQcReport && Array.isArray(lastQcReport.items)) ? lastQcReport.items : []
     };
 }
 
@@ -1593,6 +1892,17 @@ function buildAnalysisRecord(snapshot, appVersion, timestamp) {
     field('Summary rows', snapshot.summaryRows);
     field('Raw rows', snapshot.rawRows);
     field('Statistical results', snapshot.statisticCount);
+    lines.push('');
+    const qcItems = Array.isArray(snapshot.qcItems) ? snapshot.qcItems : [];
+    lines.push('[Quality control warnings]');
+    if (qcItems.length === 0) {
+        lines.push('- none (no well exceeded the default warning thresholds)');
+    } else {
+        qcItems.forEach(function (item) {
+            lines.push('- ' + item.message);
+        });
+    }
+    lines.push('  (warnings only; no data were removed)');
     lines.push('');
     lines.push('[Notes]');
     lines.push('- Group comparisons are performed on the linear relative-expression scale');
@@ -1698,20 +2008,20 @@ function exportResults(format, dataType) {
  * Export chart as image
  */
 function exportChart() {
-    if (!mainChart) {
+    if (!mainChart || typeof mainChart.getDataURL !== 'function') {
         showNotification(i18n.t('msg.noData'), 'warning');
         return;
     }
 
     const url = mainChart.getDataURL({
         type: 'png',
-        pixelRatio: 2,
+        pixelRatio: 3,
         backgroundColor: '#fff'
     });
 
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'chart.png';
+    link.download = 'qpcrtools_figure.png';
     link.click();
 }
 

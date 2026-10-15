@@ -99,8 +99,11 @@ const translations = {
         'results.data': '数据',
         'results.charts': '图表',
         'results.summaryData': '汇总数据',
+        'results.figure': '图',
+        'qc.title': '质控提示（仅预警，不删除数据）',
         'results.rawData': '原始数据（生物学重复）',
         'results.standardCurve': '标准曲线参数',
+        'results.standardCurveFigure': '标准曲线图',
         'results.plots': '图表展示',
 
         // Table
@@ -234,8 +237,11 @@ const translations = {
         'results.data': 'Data',
         'results.charts': 'Charts',
         'results.summaryData': 'Summary Data',
+        'results.figure': 'Figure',
+        'qc.title': 'Quality-control warnings (warnings only; no data are removed)',
         'results.rawData': 'Raw Data (Biological Replicates)',
         'results.standardCurve': 'Standard Curve Parameters',
+        'results.standardCurveFigure': 'Standard Curves',
         'results.plots': 'Plots',
 
         // Table

@@ -18,8 +18,17 @@ const appSrc = fs.readFileSync(path.join(WEB_DIR, 'js', 'app.js'), 'utf8');
 // app.js 在 setupFeatureCards 里 new bootstrap.Modal，故 mock 掉 echarts/bootstrap。
 // （localStorage 用 http origin 由 jsdom 原生提供，无需 mock。）
 const MOCKS = `
+window.__echartsCalls = { init: 0, options: [], lastElement: null };
 window.echarts = {
-  init: function() { return { setOption(){}, resize(){}, clear(){}, dispose(){}, on(){} }; },
+  init: function(el) {
+    window.__echartsCalls.init += 1;
+    window.__echartsCalls.lastElement = el;
+    return {
+      setOption: function(o) { window.__echartsCalls.options.push(o); },
+      resize: function(){}, clear: function(){}, dispose: function(){}, on: function(){},
+      getDataURL: function() { return 'data:image/png;base64,AAAA'; }
+    };
+  },
   registerTheme: function(){},
   connect: function(){}
 };
@@ -61,6 +70,8 @@ const EXPECTED_FNS = [
   'navigateToPage', 'displayResults', 'displayCharts', 'parseCSV', 'convertToCSV', 'downloadFile',
   'exportResults', 'exportChart',
   'buildAnalysisRecord', 'exportAnalysisRecord', 'captureAnalysisParameters',
+  'buildStandardCurveChartOption', 'displayStandardCurveChart', 'exportScChart',
+  'buildQcReport', 'runQcChecks', 'displayQcReport',
   'downloadCqTemplate', 'downloadDesignTemplate', 'downloadExampleDataFiles',
   'downloadDesignWithEffTemplate', 'downloadDesignWithSlopeTemplate', 'downloadStandardCurveExpExample',
 ];
@@ -135,6 +146,177 @@ setTimeout(() => {
     console.log('✗ Standard-curve record must list dilution/concentration parameters only');
   } else {
     console.log('✓ Standard-curve analysis record lists the standard-curve parameters only');
+  }
+
+  // 作图：buildExpressionChartOption() 必须用真实结果表建 option，displayCharts() 必须真的交给 echarts
+  const chartResults = {
+    table: [
+      { Group: 'CK', Gene: 'G1', Mean: 1.0, StdDev: 0.10, Significance: '' },
+      { Group: 'CK', Gene: 'G2', Mean: 1.0, StdDev: 0.20, Significance: '' },
+      { Group: 'T',  Gene: 'G1', Mean: 2.5, StdDev: 0.30, Significance: '**' },
+      { Group: 'T',  Gene: 'G2', Mean: 0.4, StdDev: 0.05, Significance: '*' },
+    ],
+  };
+  const chartOption = w.buildExpressionChartOption(chartResults, ['#111111', '#222222']);
+  const chartChecks = [
+    ['option built', !!chartOption],
+    ['genes as categories',
+      chartOption && JSON.stringify(chartOption.xAxis.data) === JSON.stringify(['G1', 'G2'])],
+    ['one bar series per group',
+      chartOption && chartOption.series.filter(s => s.type === 'bar').length === 2],
+    ['control means from table',
+      chartOption && JSON.stringify(chartOption.series[0].data) === JSON.stringify([1, 1])],
+    ['treatment means from table',
+      chartOption && JSON.stringify(chartOption.series[1].data) === JSON.stringify([2.5, 0.4])],
+    ['SD error bars (custom series, one per cell)',
+      chartOption && chartOption.series.some(s => s.type === 'custom' && s.data.length === 4)],
+    ['significance labels',
+      chartOption && chartOption.series[1].label.formatter({ dataIndex: 0 }) === '**'],
+    ['palette applied',
+      chartOption && chartOption.series[0].itemStyle.color === '#111111'],
+  ];
+  const chartFailures = chartChecks.filter(c => !c[1]).map(c => c[0]);
+  if (chartFailures.length) {
+    ok = false;
+    console.log('✗ Chart option invalid:', chartFailures.join(', '));
+  } else {
+    console.log(`✓ Chart option contains all ${chartChecks.length} expected elements`);
+  }
+
+  const optionsBefore = w.__echartsCalls.options.length;
+  const rendered = w.displayCharts(chartResults);
+  if (rendered !== true || w.__echartsCalls.options.length !== optionsBefore + 1) {
+    ok = false;
+    console.log('✗ displayCharts() must hand one option to echarts.init().setOption()');
+  } else {
+    console.log('✓ displayCharts() passes the built option to ECharts');
+  }
+
+  // 逐重复表（无 Mean 列）也要能作图：先按 gene×group 汇总
+  const perRepResults = {
+    table: [
+      { Group: 'CK', Gene: 'G1', Expression: 1.0 },
+      { Group: 'CK', Gene: 'G1', Expression: 1.2 },
+      { Group: 'T', Gene: 'G1', Expression: 3.0 },
+      { Group: 'T', Gene: 'G1', Expression: 2.0 },
+    ],
+  };
+  const perRepOption = w.buildExpressionChartOption(perRepResults, ['#333333']);
+  const perRepMean = perRepOption && perRepOption.series[0].data[0];
+  if (!(Math.abs(perRepMean - 1.1) < 1e-9)) {
+    ok = false;
+    console.log('✗ Per-replicate table must be aggregated before plotting (mean =', perRepMean, ')');
+  } else {
+    console.log('✓ Per-replicate tables are aggregated (mean and SD) before plotting');
+  }
+
+  // 标准曲线图：log_d(Conc) 横轴 + 由 slope/intercept 画的回归线 + 范围外空心点
+  const scChartResults = { table: [{ Gene: 'G1', Slope: -2.0, Intercept: 30, R2: 0.99 }] };
+  const scCq = [{ Position: 'A1', Cq: 26 }, { Position: 'A2', Cq: 28 }, { Position: 'A3', Cq: 38 }];
+  const scConcen = [
+    { Position: 'A1', Gene: 'G1', Conc: 256 },
+    { Position: 'A2', Gene: 'G1', Conc: 64 },
+    { Position: 'A3', Gene: 'G1', Conc: 1 },
+  ];
+  const scOption = w.buildStandardCurveChartOption(scChartResults, scCq, scConcen, 4, 4, 4096, ['#444444']);
+  const scLine = scOption && scOption.series.find(s => s.type === 'line');
+  const scScatters = scOption ? scOption.series.filter(s => s.type === 'scatter') : [];
+  const scLineData = scLine ? scLine.data : [];
+  const scChecks = [
+    ['option built', !!scOption],
+    ['x axis on log4 scale', scOption && scOption.xAxis.name === 'log4(concentration)'],
+    ['y axis is Cq', scOption && scOption.yAxis.name === 'Cq'],
+    ['in-range scatter has 2 points', scScatters[0] && scScatters[0].data.length === 2],
+    ['out-of-range scatter has 1 point', scScatters[1] && scScatters[1].data.length === 1],
+    ['regression line from slope/intercept',
+      scLineData.length === 2 && Math.abs(scLineData[0][0] - 0) < 1e-9
+      && Math.abs(scLineData[0][1] - 30) < 1e-9 && Math.abs(scLineData[1][1] - 22) < 1e-9],
+  ];
+  const scFailures = scChecks.filter(c => !c[1]).map(c => c[0]);
+  if (scFailures.length) {
+    ok = false;
+    console.log('✗ Standard-curve chart option invalid:', scFailures.join(', '));
+  } else {
+    console.log(`✓ Standard-curve chart option contains all ${scChecks.length} expected elements`);
+  }
+
+  // displayStandardCurveChart() 从页面状态（scResults/scCqData/scConcenData）取数并交给 ECharts
+  try {
+    const scOptionsBefore = w.__echartsCalls.options.length;
+    w.eval('scResults = ' + JSON.stringify(scChartResults) + ';'
+      + 'scCqData = ' + JSON.stringify(scCq) + ';'
+      + 'scConcenData = ' + JSON.stringify(scConcen) + ';');
+    const scRendered = w.displayStandardCurveChart();
+    if (scRendered !== true || w.__echartsCalls.options.length !== scOptionsBefore + 1) {
+      ok = false;
+      console.log('✗ displayStandardCurveChart() must hand one option to ECharts');
+    } else {
+      console.log('✓ displayStandardCurveChart() passes the built option to ECharts');
+    }
+  } catch (e) {
+    ok = false;
+    console.log('✗ displayStandardCurveChart() threw:', e.message);
+  }
+
+  // 质控预警：三类检查必须各按阈值触发，且"干净数据"不得误报
+  const qcInput = {
+    cqData: [
+      { Position: 'A1', Gene: 'G1', Cq: 20.0 },
+      { Position: 'A2', Gene: 'G1', Cq: 20.1 },
+      { Position: 'B1', Gene: 'G2', Cq: 40.0 },   // > 35 → 触发 Cq 上限；同时与 B2 同属一个样本
+      { Position: 'B2', Gene: 'G2', Cq: 20.0 },   // 技术重复 SD ≈ 14 → 触发离散度预警
+    ],
+    designData: [
+      { Position: 'A1', Group: 'CK', BioRep: '1' },
+      { Position: 'A2', Group: 'CK', BioRep: '1' },
+      { Position: 'B1', Group: 'T', BioRep: '1' },
+      { Position: 'B2', Group: 'T', BioRep: '1' },
+    ],
+    scResults: { table: [{ Gene: 'G3', Slope: -2.0, Intercept: 30, Efficiency: 0.80 }] },
+  };
+  const qcReport = w.buildQcReport(qcInput);
+  const codes = qcReport.items.map(i => i.code).sort().join(',');
+  const qcChecks = [
+    ['three warnings', qcReport.items.length === 3],
+    ['codes', codes === 'cqHigh,efficiency,techRepSd'],
+    ['efficiency names the primer', /G3/.test(qcReport.items.find(i => i.code === 'efficiency').message)],
+    ['thresholds echoed', qcReport.thresholds.cqUpper === 35 && qcReport.thresholds.techRepSd === 0.5],
+  ];
+  const qcFailures = qcChecks.filter(c => !c[1]).map(c => c[0]);
+  if (qcFailures.length) {
+    ok = false;
+    console.log('✗ QC report invalid:', qcFailures.join(', '));
+  } else {
+    console.log(`✓ QC report raises the ${qcReport.items.length} expected warnings at the default thresholds`);
+  }
+
+  const cleanReport = w.buildQcReport({
+    cqData: [
+      { Position: 'A1', Gene: 'G1', Cq: 20.0 },
+      { Position: 'A2', Gene: 'G1', Cq: 20.1 },
+    ],
+    designData: [
+      { Position: 'A1', Group: 'CK', BioRep: '1' },
+      { Position: 'A2', Group: 'CK', BioRep: '1' },
+    ],
+    scResults: { table: [{ Gene: 'G3', Efficiency: 0.95 }] },
+  });
+  if (cleanReport.items.length !== 0) {
+    ok = false;
+    console.log('✗ Clean data must not raise QC warnings (got', cleanReport.items.length, ')');
+  } else {
+    console.log('✓ Clean data raise no QC warnings (no false positives)');
+  }
+
+  // 分析记录必须带上质控段
+  const recordWithQc = w.buildAnalysisRecord(
+    Object.assign({}, recordSnapshot, { qcItems: qcReport.items }), '1.2.0', 't');
+  if (!recordWithQc.includes('[Quality control warnings]')
+      || !recordWithQc.includes('well(s) have Cq > 35')) {
+    ok = false;
+    console.log('✗ Analysis record must include the QC warnings');
+  } else {
+    console.log('✓ Analysis record carries the QC warnings');
   }
 
   console.log(ok ? '\nSMOKE PASS' : '\nSMOKE FAIL');

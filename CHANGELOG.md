@@ -1,5 +1,55 @@
 # CHANGELOG
 
+## 2026-10-15 15:37 — 恢复作图功能（表达量图 + 标准曲线图）与质控预警；版本升到 1.2.0
+
+导师意见「二」第 3 条（作图功能关掉了，与文章自己说的需求对不上）与第 5 条（没有质控，示例数据里
+Cq=40、R²=0.75 都不提示）。用户要求：作图尽量加回来；质控阈值由我查文献决定。
+
+### 1. 作图功能（原来只是桩函数，结果页连容器都没有）
+
+- **先查清事实**：`displayCharts()` 是写死假数据的桩（Gene1/2/3、Control/Treatment 与 2.5/1.8/3.2 等编造值），
+  调用被注释、`web/index.html` 里也没有 `#mainChart` 容器 —— 即"图表视图"从未真正可用。
+- **表达量图**：新增纯函数 `buildExpressionChartOption(results, palette)`——从**真实结果表**取
+  (Gene, Group, Mean, StdDev, Significance)，每个基因一组柱、柱顶 SD 误差线（ECharts 官方 custom series 写法）、
+  柱顶标注显著性字母；兼容"逐重复表"（无 Mean 列时先按 gene×group 汇总 mean/SD）。结果页新增 Figure 卡片
+  （`#mainChart`，420 px 高）+ PNG 导出（`exportChart()`，pixelRatio 3）。
+- **标准曲线图**：新增 `buildStandardCurveChartOption(...)`——横轴与 C++ 一致为 `log_d(Conc)`（d = 稀释倍数），
+  每个基因散点 + 由 slope/intercept 画出的回归线，标定范围外的点用空心标记单列（与论文图 2A 口径一致）；
+  标准曲线页新增"标准曲线图"卡片 + PNG 导出。
+- 修正原有的 resize 监听泄漏（每次分析都叠加一个监听器）→ 每个图只绑定一次。
+- `docs/08_status.md` 的版本行与稿件 Implementation 段同步改为"界面内出图"。
+
+### 2. 质控预警（只提示、不删数据；阈值可调）
+
+- **阈值来源与口径**：MIQE 要求**报告**效率、技术重复离散度与检测限附近的数据，但**没有**规定统一判废阈值
+  （Bustin et al. 2009, *Clin. Chem.* 55:611–622, DOI 10.1373/clinchem.2008.112797，稿件已引 `bustin2009miqe`）。
+  因此把三项都实现成**可配置的预警默认值**，UI 与文档都写明"仅预警、不删除数据"：
+  - `cqUpper = 35`：高于此值接近常见检测上限，需结合扩增曲线、阴性对照与 LOD 核查；
+  - `techRepSd = 0.5` Cq：同一生物学样本技术重复的标准差；
+  - `efficiencyLow/High = 0.90/1.10`：效率 90–110%（约对应斜率 −3.1 到 −3.6）。
+- **实现**：纯函数 `buildQcReport({cqData, designData, concenData, scResults, thresholds})` → 预警列表；
+  `runQcChecks()` 在每次分析成功后运行，`displayQcReport()` 渲染到结果页顶部的黄色警告区（`#qcSection`）；
+  预警同时写进"分析记录"的 `[Quality control warnings]` 段（导师"可核查"要求）。
+- 示例数据上的实证：`Gene1` 的 Cq=40 会触发 Cq 上限、技术重复 1 vs 5 的大离散会触发离散度预警，
+  `Gene1` 效率 0.954（在 90–110% 内）不误报。
+
+### 3. 验证与版本
+
+- `code/tests/js/smoke.test.js`：期望函数 43 个；新增/扩充断言共 12 项检查——分析记录（11 字段 + 空快照 + 标曲口径）、
+  表达量图（8 项结构断言 + `displayCharts` 真的把 option 交给 ECharts + 逐重复表汇总）、
+  标准曲线图（6 项结构断言 + `displayStandardCurveChart` 交接）、质控（三类各触发一次 + 干净数据零误报 +
+  分析记录带质控段）。**SMOKE PASS**。
+- C++ 测试 **52/52**；GUI 重新构建通过（版本号已升到 **1.2.0**，二进制内 `1.2.0` 已核对）。
+- 稿件沙箱编译 exit 0、12 页 → `manuscript/main_v5_20261015.pdf`。
+- **未验证的部分（如实说明）**：图在真实 GUI 里的**渲染外观**（误差线对齐、标签是否被裁、配色是否协调）
+  本轮没有目视确认，只做了结构级单测与编译验证；建议下一步用 Computer Use 打开应用跑一次并截图确认。
+
+### 4. 待办
+
+- 官方篇幅/展示项上限仍未核实（官网 Cloudflare）；当前正文 2,113+ 词、3 图 2 表，需按上限裁剪。
+- GUI 端到端取证（作图 + 分析记录导出 + 质控面板）。
+- R 包侧仍未做的：GSL 缺失路径、`CalExpCurve` 技术重复层级、以及把本轮 C++ 修正在 R 包同步。
+
 ## 2026-10-15 15:19 — CI 纳入前端 jsdom 冒烟测试
 
 - `.github/workflows/ci.yml` 在 `ctest` 之后新增一步：`code/tests/js` 下 `npm ci`（jsdom）→ `node smoke.test.js`。

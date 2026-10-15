@@ -161,6 +161,13 @@ function setupStandardCurvePage() {
         exportStandardCurveResults('excel');
     });
 
+    const scChartBtn = document.getElementById('exportScChart');
+    if (scChartBtn) {
+        scChartBtn.addEventListener('click', function() {
+            exportScChart();
+        });
+    }
+
     console.log('Standard Curve page setup complete');
 }
 
@@ -412,6 +419,187 @@ function displayStandardCurveResults(results) {
         });
         tbody.appendChild(tr);
     });
+
+    // 画图：真实数据点 + 由 slope/intercept 得到的回归线（2026-10-15 恢复作图功能）
+    displayStandardCurveChart();
+}
+
+/**
+ * 从标准曲线结果与原始点构建 ECharts 配置（纯函数，便于 jsdom 测试）
+ *
+ * 横轴与 C++ StandardCurve 一致：log_d(Conc)（d = 稀释倍数，即"稀释步数"）；
+ * 每个基因一条散点（标定范围内的点）+ 一条由 slope/intercept 画出的回归线；
+ * 范围外的点用空心标记单独成列（与论文图 2A 的口径一致）。
+ *
+ * @param {Object} scResultsParam 标准曲线结果对象（table: Gene/Slope/Intercept/R2/...）
+ * @param {Array} cqData Cq 表（Position, Cq）
+ * @param {Array} concenData 浓度表（Position, Gene, Conc）
+ * @param {number} dilution 稀释倍数
+ * @param {number} lowestConcen 标定下限（未提供则不区分范围）
+ * @param {number} highestConcen 标定上限
+ * @param {Array<string>} palette 颜色数组
+ * @returns {Object|null} ECharts option；无可画点时返回 null
+ */
+function buildStandardCurveChartOption(scResultsParam, cqData, concenData, dilution,
+                                       lowestConcen, highestConcen, palette) {
+    if (!scResultsParam || !Array.isArray(scResultsParam.table) || scResultsParam.table.length === 0) {
+        return null;
+    }
+    if (!Array.isArray(cqData) || !Array.isArray(concenData) || !(dilution > 1)) {
+        return null;
+    }
+
+    const cqByPosition = {};
+    cqData.forEach(function (row) {
+        const position = row.Position === undefined ? '' : String(row.Position);
+        const cq = parseFloat(row.Cq);
+        if (position && !isNaN(cq)) {
+            cqByPosition[position] = cq;
+        }
+    });
+
+    const pointsByGene = {};
+    concenData.forEach(function (row) {
+        const position = row.Position === undefined ? '' : String(row.Position);
+        const gene = row.Gene === undefined ? '' : String(row.Gene);
+        const conc = parseFloat(row.Conc);
+        if (!position || !gene || !(conc > 0) || cqByPosition[position] === undefined) {
+            return;
+        }
+        if (!pointsByGene[gene]) {
+            pointsByGene[gene] = [];
+        }
+        pointsByGene[gene].push({ conc: conc, cq: cqByPosition[position] });
+    });
+
+    const colors = Array.isArray(palette) && palette.length > 0 ? palette : ['#3C5488'];
+    const toX = function (conc) { return Math.log(conc) / Math.log(dilution); };
+    const inRange = function (conc) {
+        return (lowestConcen === undefined || conc >= lowestConcen)
+            && (highestConcen === undefined || conc <= highestConcen);
+    };
+    const series = [];
+
+    scResultsParam.table.forEach(function (row, index) {
+        const gene = String(row.Gene === undefined ? '' : row.Gene);
+        const points = pointsByGene[gene];
+        if (!gene || !points || points.length === 0) {
+            return;
+        }
+
+        const slope = parseFloat(row.Slope);
+        const intercept = parseFloat(row.Intercept);
+        const color = colors[index % colors.length];
+        const inside = points.filter(function (p) { return inRange(p.conc); })
+                             .map(function (p) { return [toX(p.conc), p.cq]; });
+        const outside = points.filter(function (p) { return !inRange(p.conc); })
+                             .map(function (p) { return [toX(p.conc), p.cq]; });
+
+        series.push({
+            name: gene,
+            type: 'scatter',
+            symbolSize: 7,
+            data: inside,
+            itemStyle: { color: color }
+        });
+        if (outside.length > 0) {
+            series.push({
+                name: gene + ' (outside calibration range)',
+                type: 'scatter',
+                symbolSize: 7,
+                data: outside,
+                itemStyle: { color: 'rgba(0,0,0,0)', borderColor: '#6b7280', borderWidth: 1 }
+            });
+        }
+        if (!isNaN(slope) && !isNaN(intercept)) {
+            const allX = inside.concat(outside).map(function (p) { return p[0]; });
+            const xMin = Math.min.apply(null, allX);
+            const xMax = Math.max.apply(null, allX);
+            series.push({
+                name: gene,
+                type: 'line',
+                showSymbol: false,
+                data: [[xMin, slope * xMin + intercept], [xMax, slope * xMax + intercept]],
+                lineStyle: { color: color, width: 1.5 }
+            });
+        }
+    });
+
+    if (series.length === 0) {
+        return null;
+    }
+
+    return {
+        title: { text: 'Standard curves', left: 'center', textStyle: { fontSize: 15, fontWeight: 'bold' } },
+        tooltip: { trigger: 'item' },
+        legend: { top: 26, left: 'center', type: 'scroll' },
+        grid: { left: '4%', right: '4%', bottom: '12%', top: '18%', containLabel: true },
+        xAxis: { type: 'value', name: 'log' + dilution + '(concentration)', axisLabel: { fontSize: 12 } },
+        yAxis: { type: 'value', name: 'Cq', axisLabel: { fontSize: 12 } },
+        series: series
+    };
+}
+
+let scChart = null;
+
+/**
+ * 渲染标准曲线图（真实数据点 + 由 slope/intercept 画出的回归线）
+ *
+ * @returns {boolean} 是否成功渲染
+ */
+function displayStandardCurveChart() {
+    const dom = document.getElementById('scChart');
+    if (!dom || typeof echarts === 'undefined') {
+        return false;
+    }
+
+    const readNumber = function (id, fallback) {
+        const element = document.getElementById(id);
+        const value = element ? parseFloat(element.value) : NaN;
+        return isNaN(value) ? fallback : value;
+    };
+    const paletteSelect = document.getElementById('colorPalette');
+    const palette = colorPalettes[paletteSelect ? paletteSelect.value : 'nature'] || colorPalettes.nature;
+
+    const option = buildStandardCurveChartOption(
+        scResults, scCqData, scConcenData,
+        readNumber('scDilution', 4),
+        readNumber('scLowestConcen', undefined),
+        readNumber('scHighestConcen', undefined),
+        palette);
+    if (!option) {
+        return false;
+    }
+
+    if (scChart) {
+        scChart.dispose();
+    }
+    scChart = echarts.init(dom);
+    scChart.setOption(option);
+
+    if (!displayStandardCurveChart.resizeBound) {
+        displayStandardCurveChart.resizeBound = true;
+        window.addEventListener('resize', function () {
+            if (scChart) {
+                scChart.resize();
+            }
+        });
+    }
+    return true;
+}
+
+/**
+ * 导出标准曲线图（PNG）
+ */
+function exportScChart() {
+    if (!scChart || typeof scChart.getDataURL !== 'function') {
+        showNotification(i18n.t('msg.noData'), 'warning');
+        return;
+    }
+    const link = document.createElement('a');
+    link.href = scChart.getDataURL({ type: 'png', pixelRatio: 3, backgroundColor: '#fff' });
+    link.download = 'qpcrtools_standard_curve.png';
+    link.click();
 }
 
 /**
