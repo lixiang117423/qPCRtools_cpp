@@ -9,9 +9,16 @@ To illustrate a typical analysis, we analyzed the bundled example dataset
 target gene \textit{fos-glo-myc} normalized against the reference gene
 \textit{Beta Actin} across three treatment groups (0, 0.5, 1) with three
 biological replicates each. Using the $\Delta\Delta C_t$ method with a
-two-sample $t$-test against the control group~(0), relative expression rose
-monotonically to 1.11 at dose~0.5 and 1.59 at dose~1, both significant at
-$p < 10^{-3}$ (Figure~\ref{fig:results}). Applied to a four-fold dilution
+Welch two-sample $t$-test against the control group~(0), relative expression
+rose monotonically to 1.11 at dose~0.5 and 1.59 at dose~1, both significantly
+different from the control ($p = 0.006$ and $p = 0.022$;
+Figure~\ref{fig:results}). Following the R implementation, expression values
+are normalized to the mean $\Delta C_t$ over all samples rather than to the
+control group, so the control group is not forced to exactly~1
+(here $0.59 \pm 0.12$). The group means, standard deviations and $p$-values
+quoted here are reproduced without any dependency on the application or on
+the R package by \texttt{validation/check\_example\_stats.R}.
+Applied to a four-fold dilution
 series of four genes, the standard-curve module recovered slopes between
 $-2.07$ and $-2.24$ with $R^2 > 0.99$ for three of the four primers
 (efficiencies 0.85--0.95), illustrating amplification-efficiency estimation
@@ -25,13 +32,17 @@ export---is performed through the graphical interface without writing code.
 \caption{Analysis output on real data. (A)~Standard curves for four genes
 over a four-fold dilution series, with fitted regressions and $R^2$.
 (B)~Relative expression of \textit{fos-glo-myc} across treatment groups
-($\Delta\Delta C_t$ method), with significance labels.}
+($\Delta\Delta C_t$ method), with significance labels. Both panels were drawn
+from the numerical output of the application (the standard-curve parameters
+and the per-group means exported by the results table) by the plotting script
+shipped in the repository; version~1.1.0 exports result tables rather than
+rendering figures.}
 \label{fig:results}
 \end{figure}
 
 \subsection{Equivalence to the R package}
 
-We validated the C++ implementation against the original R package
+{\sloppy We validated the C++ implementation against the original R package
 \cite{li2022qpcrtools} by running both on identical inputs for every shared
 method---$\Delta\Delta C_t$ (\texttt{CalExp2ddCt}), the standard curve
 (\texttt{CalCurve}), and the efficiency-based RqPCR method
@@ -39,7 +50,7 @@ method---$\Delta\Delta C_t$ (\texttt{CalExp2ddCt}), the standard curve
 (Table~\ref{tab:equivalence}, Figure~\ref{fig:equivalence}). Inputs were
 drawn from the repository's example data and from a dilution series used in
 the original R package; both implementations read the same on-disk files, so
-any difference reflects the implementations alone.
+any difference reflects the implementations alone.\par}
 
 \begin{table}[h]
 \centering

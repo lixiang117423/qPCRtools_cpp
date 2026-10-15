@@ -3,21 +3,39 @@
 % NOTE: 投稿前将 \documentclass 替换为 Bioinformatics 官方 Application Note
 %       模板 (cls)，并按官方要求调整 bst 与排版参数。当前用 article 骨架，
 %       便于在 Overleaf 上编辑预览。
+%
+% 投稿要点（2026-10-13 整理）：
+%  1) 官方 Instructions to Authors 由 Cloudflare 保护，本机未能直接读取，
+%     因此字数上限与"图表数量上限"仍需在投稿系统内核对后再定稿；
+%     本稿按 Application Note 的保守篇幅撰写（正文约 1,100 词，3 个展示项）。
+%  2) 投稿时需在系统内提名一位 Associate Editor。
+%  3) 作者与单位（2026-10-13 用户确认）：Xiang Li（第一作者 + 通讯）、Huichuan Huang（共同通讯）；
+%     两人单位均为 1、2；Xiang Li 现地址为 Yazhouwan National Laboratory（present address）。
 \documentclass[11pt]{article}
 
 \usepackage[utf8]{inputenc}
 \usepackage{graphicx}
-\usepackage{hyperref}
+% hidelinks：链接保持可点击，但不画彩色边框、不变色（hyperref 默认会给引用画绿框、
+% 给 URL 画品红/青框，投稿时应当关掉——2026-10-13 用户指出参考文献处出现绿框）
+\usepackage[hidelinks]{hyperref}
 \usepackage{booktabs}
 \usepackage{amsmath}
 
 \title{qPCRtools: a cross-platform C++ desktop application for qPCR data
 analysis with validated equivalence to its R implementation}
 
-\author{Xiang Li\\
-State Key Laboratory for Conservation and Utilization of Bio-Resources in Yunnan,\\
+\author{%
+\parbox{\textwidth}{\centering\sloppy
+Xiang Li\textsuperscript{1,2,*} \quad Huichuan Huang\textsuperscript{1,2,*}\\[6pt]
+\textsuperscript{1}~State Key Laboratory for Conservation and Utilization of Bio-Resources in Yunnan,
 Yunnan Agricultural University, Kunming, China\\
-\texttt{lixiang117423@gmail.com}}
+\textsuperscript{2}~Key Laboratory for Agro-Biodiversity and Pest Control of Ministry of Education,
+Yunnan Agricultural University, Kunming, China\\[6pt]
+\textsuperscript{*}~Corresponding authors: \texttt{lixiang117423@gmail.com} (X.L.),
+\texttt{absklhhc@gmail.com} (H.H.)\\
+Present address (X.L.): Yazhouwan National Laboratory, Sanya, Hainan, China
+}%
+}
 
 \date{}  % Application Note 通常不显示日期
 

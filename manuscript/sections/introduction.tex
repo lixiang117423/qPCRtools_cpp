@@ -28,6 +28,26 @@ trusted implementation with a \emph{native, cross-platform, zero-dependency}
 delivery, together with statistical options broader than those of the
 original R package.
 
+\subsection*{Statement of need}
+
+The programming requirement is not a marginal obstacle. In our own teaching
+and collaborative work, the users who most need a defensible qPCR analysis
+are frequently the ones least able to install an R environment, resolve
+package dependencies, and write the few lines of code that the analysis
+requires: newly enrolled students, visiting researchers, and wet-lab staff
+whose projects run for a single season. They currently fall back either on
+manual spreadsheet calculations---which are difficult to audit and easy to
+get wrong---or on whichever commercial instrument software happens to be
+installed. Our R package \cite{li2022qpcrtools} already provides the
+algorithms, and its adoption since 2022 (more than 30 citations) shows that
+the analytical choices it implements are accepted in published work, but
+that adoption is bounded by the R environment itself.
+
+We therefore reimplemented the analytical core as a native desktop
+application. The design goal is deliberately narrow: keep the validated
+behaviour of the R implementation, and remove every prerequisite except a
+double-click. % 目标读者与设计目标：不是替代 R 版，而是让"没有 R 环境"的用户也能得到同一套结果
+
 We introduce \textit{qPCRtools}, a C++/Qt6 desktop application that
 reimplements the analytical core of our R package behind a point-and-click
 interface distributed as a single executable. This Application Note makes
@@ -35,6 +55,6 @@ four contributions: (i)~a C++/Qt architecture in which a tested core
 algorithm library is decoupled from a web-based user interface; (ii)~a
 validation demonstrating numerical equivalence to the R package across all
 shared quantification methods; (iii)~statistical and functional extensions
-beyond the original R version, including non-parametric tests, normality
-testing, effect sizes, and reference-gene selection; and (iv)~a fully
-reproducible validation package.
+beyond the original R version, including non-parametric tests, effect sizes,
+outlier removal, and automatic reference-gene selection; and (iv)~a fully
+reproducible validation package that ships with the software.

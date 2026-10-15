@@ -4,9 +4,9 @@
 
 \textit{qPCRtools} is written in C++17 and built on Qt6 \cite{qt}, which
 provides cross-platform abstractions and the native application shell. The
-user interface is rendered with web technologies---Bootstrap~5.3 for layout
-and Apache ECharts \cite{echarts} for interactive charts---hosted inside a
-\texttt{QWebEngineView}, and exchanges data with the native backend through
+user interface is rendered with web technologies---Bootstrap~5.3 for layout,
+with Apache ECharts \cite{echarts} bundled for the figure view---hosted inside
+a \texttt{QWebEngineView}, and exchanges data with the native backend through
 Qt~WebChannel via a registered bridge object. This separation lets the
 presentation layer iterate rapidly as HTML, CSS, and JavaScript while all
 numerical computation stays in compiled native code. The analytical core is
@@ -19,13 +19,13 @@ is shown in Figure~\ref{fig:overview}.
 
 \begin{figure}[h]
 \centering
-% TODO(用户): 运行 qPCRtools 截取界面后，将下一行注释替换为:
-% \includegraphics[width=\linewidth]{figures/fig1_overview.pdf}
-\fbox{\parbox{0.9\linewidth}{\centering\vspace{3em}\textit{[Figure 1 placeholder:
-qPCRtools interface overview --- capture from the running application]}\vspace{3em}}}
-\caption{The qPCRtools desktop interface. A single cross-platform window hosts
-the web-based UI for data import, method and statistics configuration, and
-interactive results; no programming or runtime dependencies are required.}
+\includegraphics[width=0.92\linewidth]{figures/fig1_home_en.png}
+\caption{The \textit{qPCRtools} desktop interface (version~1.1.0; screen
+captured from the running application). A single cross-platform window hosts
+the web-based UI: the home screen gives access to the four analysis areas
+(standard curve, $\Delta C_t$/$\Delta\Delta C_t$, statistical tests, and
+templates for data entry). The interface is bilingual (Chinese/English); the
+English language is shown here.}
 \label{fig:overview}
 \end{figure}
 
@@ -50,24 +50,37 @@ geometric mean of one or more reference genes \cite{pfaffl2001new}.
 
 \subsection{Statistical analysis}
 
-For each target gene the application compares groups with independent,
-paired, or Welch two-sample $t$-tests, the Wilcoxon rank-sum or signed-rank
-test, or one-way ANOVA followed by Tukey's HSD post-hoc letter grouping. It
-additionally reports Cohen's $d$ effect sizes, Shapiro--Wilk normality
-testing, and IQR-based outlier removal, and can select reference genes
-automatically by the geNorm algorithm \cite{vandesompele2002accurate}. These
-options extend the original R package, which provided $t$-test and
-ANOVA/Tukey testing only.
+For each target gene the application compares groups statistically. The core
+library implements two-sample $t$-tests with and without the Welch
+variance correction, the paired $t$-test, the Wilcoxon rank-sum and
+signed-rank tests, and one-way ANOVA followed by Tukey's HSD post-hoc letter
+grouping, and it reports Cohen's $d$ effect sizes alongside the $t$-test
+results; it also supports IQR-based outlier removal and automatic
+reference-gene selection by the geNorm algorithm
+\cite{vandesompele2002accurate}. These options extend the original R package,
+which provided $t$-test and ANOVA/Tukey testing only. The graphical interface
+currently exposes the Welch two-sample $t$-test, the Wilcoxon rank-sum test
+and one-way ANOVA with Tukey's HSD; the paired $t$-test and the Wilcoxon
+signed-rank test are exercised by the test suite but are not yet offered as
+interface options.
 
 \subsection{Software engineering and scope}
 
-\textit{qPCRtools} is managed with CMake and ships with a unit-test suite.
-Visualization follows a ggplot2-inspired aesthetic \cite{wickham2016ggplot2}
-with configurable color palettes and significance annotations; the interface
-is bilingual (Chinese/English) and accepts both CSV and Excel input. The
-application is distributed as a single self-contained executable for Windows
-and macOS, requiring no R, Python, or runtime installation, and the source
-compiles on Linux. It is released under the MIT license. Two R functions are
-not yet ported---the standard-curve slope--intercept quantification
-(\texttt{CalExpCurve}) and the reverse-transcription reagent volume
-calculation (\texttt{CalRTable})---and are planned for a future release.
+All results are presented as tables that can be exported as CSV or Excel for
+further plotting, and groups that differ significantly are labelled with
+Tukey letters directly in the result table. Version~1.1.0 does not render
+figures: the ECharts-based figure view is present in the code base but
+disabled, and the figures of this paper were therefore produced from the
+application's numerical output by the plotting script shipped in the
+repository (\texttt{validation/plot\_examples.py}), not by the graphical
+interface. \textit{qPCRtools} is managed with CMake and ships with a
+unit-test suite; the interface
+is bilingual (Chinese/English) and reads CSV input as well as Excel
+(\texttt{.xlsx}) workbooks when built against the optional OpenXLSX
+dependency. The application is distributed as a single self-contained
+executable for Windows and macOS, requiring no R, Python, or runtime
+installation, and the source compiles on Linux. It is released under the MIT
+license. Two R functions are not yet ported---the standard-curve
+slope--intercept quantification (\texttt{CalExpCurve}) and the
+reverse-transcription reagent volume calculation (\texttt{CalRTable})---and
+are planned for a future release.
