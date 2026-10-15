@@ -1,31 +1,26 @@
 \begin{abstract}
 Quantitative real-time PCR (qPCR) is a standard technique for measuring gene
 expression, yet turning instrument-exported $C_q$ values into
-publication-ready results requires a chain of non-trivial steps:
-amplification-efficiency estimation, choice of quantification method,
-statistical comparison of groups, and figure preparation. The established
-tools for this chain are predominantly programming-based---including our own
-R package \textit{qPCRtools}---and therefore remain out of reach for part of
-the laboratory community, notably students and wet-lab researchers without
-programming experience; instrument-vendor packages and free stand-alone or
-web-based tools cover individual steps, but tie the analysis to one
-instrument platform, to one step, or to uploading the data to a remote
-server. Here we present \textit{qPCRtools}, a
-cross-platform desktop application written in C++17 with Qt6 that exposes the
-analytical core of the R package through a point-and-click interface and
-ships as a single executable requiring no R, Python, or other runtime
-environment. The application implements standard-curve construction and
-amplification-efficiency estimation, the $\Delta C_t$, $\Delta\Delta C_t$ and
-efficiency-based (RqPCR) relative quantification methods, group comparison by
-two-sample $t$-test, Wilcoxon rank-sum test, or one-way ANOVA with Tukey's HSD
-letter grouping, and one-click export of the summary table, the per-replicate
-raw data and a plain-text analysis record of the inputs and parameters used.
-We validated the C++ implementation against
-the R package on identical inputs: across every shared quantification method
-the compared quantities agree to floating-point precision, and the validation
-is reproducible from the open scripts shipped with the software. Preparing
-the port also revealed and corrected several defects in result aggregation,
-each covered by a regression test.
-\textit{qPCRtools} is freely available under the MIT license for Windows and
-macOS, and its source code compiles on Linux.
+publication-ready results requires several non-trivial steps: estimating
+amplification efficiency, choosing a quantification method, testing groups
+statistically, and preparing figures. Established tools for this chain are
+predominantly programming-based---including our own R package
+\textit{qPCRtools}---and remain out of reach for students and wet-lab
+researchers without programming experience, whereas instrument software, free
+stand-alone programs and web applications each cover only part of the
+workflow or tie the analysis to one platform. We present \textit{qPCRtools},
+a cross-platform desktop application written in C++17 with Qt6 that exposes
+the analytical core of the R package through a point-and-click interface and
+ships as a single executable requiring no R, Python or other runtime. It
+implements standard-curve construction and efficiency estimation, the
+$\Delta C_t$, $\Delta\Delta C_t$ and efficiency-based (RqPCR) quantification
+methods, group comparison by Welch $t$-test, Wilcoxon rank-sum test or
+one-way ANOVA with Tukey HSD letters, quality-control warnings,
+in-interface figures, and a plain-text record of the inputs and parameters of
+each analysis. On identical inputs the C++ implementation agrees with the R
+package to floating-point precision for every shared method; preparing the
+port also revealed and corrected several defects in result aggregation, each
+covered by a regression test. Supplementary figures and tables give the full
+analysis output and the equivalence comparison, and the availability and
+implementation statement appears at the end of the article.
 \end{abstract}

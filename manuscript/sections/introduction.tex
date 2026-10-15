@@ -2,60 +2,51 @@
 
 Quantitative real-time PCR (qPCR) is among the most widely used techniques
 in molecular biology for quantifying nucleic acids and measuring gene
-expression \cite{bustin2009miqe}. A sound qPCR analysis involves several
-interdependent steps: estimating primer amplification efficiency, choosing an
-appropriate quantification strategy, performing statistical testing, and
-producing publication-quality figures \cite{bustin2010miqe}. When the
-amplification efficiencies of target and reference genes are comparable, the
-$2^{-\Delta\Delta C_T}$ method \cite{livak2001analysis} is convenient; when
-they differ, an efficiency-corrected or standard-curve-based approach is
-required instead \cite{pfaffl2001new}. These analytical choices, combined
-with the need for rigorous statistics and clear visualization, make qPCR
-data analysis demanding for many laboratory researchers.
+expression \cite{bustin2009miqe}. A sound analysis involves several
+interdependent steps: estimating primer amplification efficiency, choosing a
+quantification strategy, testing groups statistically, and preparing figures
+\cite{bustin2010miqe}. When target and reference efficiencies are comparable,
+the $2^{-\Delta\Delta C_T}$ method \cite{livak2001analysis} is convenient;
+when they differ, an efficiency-corrected or standard-curve-based approach is
+required \cite{pfaffl2001new}. These choices, combined with the need for
+rigorous statistics, make qPCR analysis demanding for many laboratory
+researchers.
 
-A range of tools address qPCR analysis \cite{pabinger2014survey}, yet each
-covers a different part of the workflow (Table~\ref{tab:tools}).
-Scripting-based implementations---our own \textit{qPCRtools}
-\cite{li2022qpcrtools} and \textit{pcr} \cite{ahmed2018pcr}---implement the
-calculation chain transparently, but require programming skill and a
-configured software environment. Software distributed with real-time
-instruments (for example QuantStudio Design \& Analysis and CFX Maestro)
-offers a graphical workflow but is tied to that instrument platform. Free
-stand-alone programs cover individual steps: REST \cite{pfaffl2002rest}
+A range of tools cover different parts of this workflow
+(Table~\ref{tab:tools}). Scripting-based implementations---our own
+\textit{qPCRtools} \cite{li2022qpcrtools} and \textit{pcr}
+\cite{ahmed2018pcr}---implement the calculation chain transparently but
+require programming skill and a configured environment. Software distributed
+with real-time instruments (for example QuantStudio Design \& Analysis and
+CFX Maestro) offers a graphical workflow but is tied to that instrument.
+Free stand-alone programs cover single steps: REST \cite{pfaffl2002rest}
 computes efficiency-based relative expression for two-group comparisons with
 a randomisation test, LinRegPCR
 \cite{ramakers2003linregpcr,ruijter2009linregpcr} estimates baseline and
-amplification efficiency from raw fluorescence, and qBase
-\cite{hellemans2007qbase} implements relative quantification together with
-the geNorm stability measure \cite{vandesompele2002accurate} for selecting
-reference genes. Free web applications integrate several of these
-steps---SATQPCR \cite{rancurel2019satqpcr}, DAG Expression
-\cite{ballester2013dag} and Auto-qPCR \cite{maussion2021autoqpcr}---but they
-require uploading the data to a remote server (or deploying the web stack
-locally), which constrains offline use and the handling of unpublished data.
-The gap we address is therefore not a missing algorithm but a missing
-delivery mode: a tool that combines \emph{validated numerical equivalence} to
-a published implementation with a \emph{native, cross-platform,
-zero-dependency} graphical workflow.
+efficiency from raw fluorescence, and qBase \cite{hellemans2007qbase}
+implements relative quantification with the geNorm stability measure
+\cite{vandesompele2002accurate}. Free web applications---SATQPCR
+\cite{rancurel2019satqpcr}, DAG Expression \cite{ballester2013dag} and
+Auto-qPCR \cite{maussion2021autoqpcr}---integrate several steps but require
+uploading the data to a remote server or deploying the web stack locally. The
+gap is therefore not a missing algorithm but a missing delivery mode:
+\emph{validated numerical equivalence} to a published implementation combined
+with a \emph{native, cross-platform, zero-dependency} graphical workflow.
 
 \begin{table}[h]
 \centering
 \footnotesize
-\setlength{\tabcolsep}{4pt}
+\setlength{\tabcolsep}{3pt}
 \caption{Delivery mode and functionality of representative qPCR analysis
 tools. $\bullet$~provided, $\circ$~not provided, $\circ$/$\bullet$~partial or
-version-dependent (statistics, for example, were added in the later qBase+
-release, and vendor software differs between instruments and versions).
-Feature sets were compiled from the cited papers, the vendors' documentation
-and the survey of Pabinger \textit{et al.} \cite{pabinger2014survey}.
-\textsuperscript{a}~\textit{qPCRtools} \cite{li2022qpcrtools},
-\textit{pcr} \cite{ahmed2018pcr}.
-\textsuperscript{b}~e.g.\ QuantStudio Design \& Analysis, CFX Maestro.
+version-dependent (statistics were added in the later qBase+ release; vendor
+software differs between instruments and versions). Compiled from the cited
+papers, the vendors' documentation and the survey of Pabinger \textit{et al.}
+\cite{pabinger2014survey}. \textsuperscript{a}~\textit{qPCRtools}
+\cite{li2022qpcrtools}, \textit{pcr} \cite{ahmed2018pcr}.
+\textsuperscript{b}~QuantStudio Design \& Analysis, CFX Maestro.
 \textsuperscript{c}~SATQPCR \cite{rancurel2019satqpcr}, DAG Expression
-\cite{ballester2013dag}, Auto-qPCR \cite{maussion2021autoqpcr}.
-REST \cite{pfaffl2002rest}, LinRegPCR
-\cite{ramakers2003linregpcr,ruijter2009linregpcr}, qBase
-\cite{hellemans2007qbase}, geNorm \cite{vandesompele2002accurate}.}
+\cite{ballester2013dag}, Auto-qPCR \cite{maussion2021autoqpcr}.}
 \label{tab:tools}
 \begin{tabular}{lcccccc}
 \toprule
@@ -76,35 +67,28 @@ Web apps\textsuperscript{c} & $\bullet$ & $\bullet$ & $\circ$ & $\bullet$ & $\bu
 
 The programming requirement is not a marginal obstacle. In our own teaching
 and collaborative work, the users who most need a defensible qPCR analysis
-are frequently the ones least able to install an R environment, resolve
-package dependencies, and write the few lines of code that the analysis
-requires: newly enrolled students, visiting researchers, and wet-lab staff
-whose projects run for a single season. They currently fall back either on
-manual spreadsheet calculations---which are difficult to audit and easy to
-get wrong---or on whichever commercial instrument software happens to be
-installed. Our R package \cite{li2022qpcrtools} already provides the
-algorithms, and its adoption since 2022 (more than 30 citations) shows that
-the analytical choices it implements are accepted in published work, but
-that adoption is bounded by the R environment itself.
+are frequently those least able to install an R environment and write the
+few lines of code the analysis requires: newly enrolled students, visiting
+researchers, and wet-lab staff whose projects run for a single season. They
+fall back either on manual spreadsheet calculations---difficult to audit and
+easy to get wrong---or on whichever instrument software happens to be
+installed. Our R package \cite{li2022qpcrtools} provides the algorithms, and
+its adoption since 2022 shows that the analytical choices it implements are
+accepted in published work, but that adoption is bounded by the R environment
+itself.
 
 We therefore reimplemented the analytical core as a native desktop
-application. The design goal is deliberately narrow: keep the validated
-behaviour of the R implementation, and remove every prerequisite except a
-double-click. % 目标读者与设计目标：不是替代 R 版，而是让"没有 R 环境"的用户也能得到同一套结果
-
-We introduce \textit{qPCRtools}, a C++/Qt6 desktop application that
-reimplements the analytical core of our R package behind a point-and-click
-interface distributed as a single executable. This Application Note makes
+application, keeping the validated behaviour of the R implementation while
+removing every prerequisite except a double-click. \textit{qPCRtools} makes
 three contributions: (i)~a C++/Qt architecture in which a tested core
-algorithm library is decoupled from a web-based user interface;
-(ii)~a validation demonstrating numerical equivalence to the R package
-across all shared quantification methods, shipped as a reproducible
-validation package that a reader can re-run; and (iii)~statistical and
-functional extensions beyond the original R version, including
-non-parametric tests, effect sizes, outlier removal, and automatic
-reference-gene selection. Preparing the port also revealed defects in result
-aggregation that are shared with the R package---the input of the
-reference-gene stability measure, replicate handling in the efficiency
-method, and the $\Delta\Delta C_t$ calibrator---as well as one specific to
-the C++ implementation (multiple-comparison $p$-values); all were corrected
-and are covered by regression tests.
+algorithm library is decoupled from a web-based user interface; (ii)~a
+validation demonstrating numerical equivalence to the R package across all
+shared methods, shipped as a reproducible validation package; and
+(iii)~statistical and functional extensions beyond the R version
+(non-parametric tests, effect sizes, outlier removal, quality-control
+warnings, automatic reference-gene selection). Preparing the port also
+revealed defects in result aggregation shared with the R package---the input
+of the reference-gene stability measure, replicate handling in the efficiency
+method, and the $\Delta\Delta C_t$ calibrator---as well as one specific to the
+C++ code (multiple-comparison $p$-values); all were corrected and are covered
+by regression tests.

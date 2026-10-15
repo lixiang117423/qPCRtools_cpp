@@ -533,7 +533,9 @@
                                 <div class="mb-3">
                                     <label class="form-label" data-i18n="param.statisticalTest">Statistical Test</label>
                                     <select class="form-select" id="statisticalTest">
-                                        <option value="t.test">Student's t-test</option>
+                                        <!-- 2026-10-15：核心库对该选项调用的是 Welch t 检验（equalVariance=false），
+                                             原标签写成 Student's t-test 与结果表显示不一致，故改为如实标注。 -->
+                                        <option value="t.test">t-test (Welch)</option>
                                         <option value="wilcox.test">Wilcoxon rank-sum test</option>
                                         <option value="anova">ANOVA</option>
                                     </select>

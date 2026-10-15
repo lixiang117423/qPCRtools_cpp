@@ -1,0 +1,112 @@
+% Supplementary material for the Bioinformatics Application Note
+%   "qPCRtools: a cross-platform C++ desktop application for qPCR data
+%    analysis with validated equivalence to its R implementation"
+%
+% 单独编译（与 main.tex 同级，图形路径相同）：
+%   TECTONIC_CACHE_DIR="$HOME/Library/Caches/TectonicProject.Tectonic" tectonic supplementary.tex
+%
+% 组成（Application Note 主文只保留 1 图 1 表，其余在此）：
+%   Figure S1  标准曲线 + ΔΔCt 表达量（真实数据，由仓库内脚本从同一批数值输出绘制）
+%   Figure S2  C++ 与 R 的数值等价性散点（y = x）
+%   Table S1   各共有方法的等价性汇总
+
+\documentclass[11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+
+\title{Supplementary material\\[4pt]
+\large qPCRtools: a cross-platform C++ desktop application for qPCR data
+analysis with validated equivalence to its R implementation}
+\author{%
+\parbox{\textwidth}{\centering\sloppy
+Xiang Li\textsuperscript{1,2,*} \quad Huichuan Huang\textsuperscript{1,2,*}\\[6pt]
+\textsuperscript{1}~State Key Laboratory for Conservation and Utilization of Bio-Resources in Yunnan,
+Yunnan Agricultural University, Kunming, China\\
+\textsuperscript{2}~Key Laboratory for Agro-Biodiversity and Pest Control of Ministry of Education,
+Yunnan Agricultural University, Kunming, China%
+}%
+}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Contents}
+
+\begin{itemize}
+  \item Figure~S1 --- Analysis output on the bundled example data
+        (standard curves and $\Delta\Delta C_t$ expression).
+  \item Figure~S2 --- Numerical equivalence of the C++ implementation and the
+        R package.
+  \item Table~S1 --- Equivalence summary across all shared methods.
+\end{itemize}
+
+\section{Analysis output on the bundled example data}
+
+Figure~S1 shows the two analyses discussed in the main text, produced from the
+application's numerical output by the plotting script shipped in the
+repository (\texttt{code/validation/plot\_examples.py}, matplotlib), which
+gives finer control over the layout than the in-interface figure export. The
+per-group means, standard deviations and $p$-values were independently
+reproduced without the application or the R package by
+\texttt{code/validation/check\_example\_stats.R}.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\linewidth]{figures/fig2_results_v2.pdf}
+\caption{\textbf{Figure S1.} Analysis output on real data.
+(A)~Standard curves for four genes over a four-fold dilution series, with
+fitted regressions and $R^2$. The abscissa is $\log_4$ concentration
+(dilution steps), matching the regression, and hollow symbols mark wells
+outside the calibrated range (4--4096) that are excluded from the fit.
+(B)~Relative expression of \textit{fos-glo-myc} across treatment groups
+($\Delta\Delta C_t$ method, calibrated to the control group), with
+significance labels. Reproduced from \texttt{figures/fig2\_results\_v2.pdf}.}
+\label{fig:s1}
+\end{figure}
+
+\section{Numerical equivalence to the R package}
+
+Both implementations were run on identical input files for every shared
+method---$\Delta\Delta C_t$ (\texttt{CalExp2ddCt}), the standard curve
+(\texttt{CalCurve}) and the efficiency-based RqPCR method
+(\texttt{CalExpRqPCR})---and every resulting quantity was compared pairwise
+(Figure~S2, Table~S1).
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.62\linewidth]{figures/fig3_equivalence.pdf}
+\caption{\textbf{Figure S2.} Numerical equivalence of the C++ implementation
+and the R package. Each C++ result is plotted against the corresponding R
+result across all shared methods; all points fall on the line $y = x$.}
+\label{fig:s2}
+\end{figure}
+
+\begin{table}[h]
+\centering
+\caption{\textbf{Table S1.} Equivalence of C++ and R results across all
+shared methods on identical inputs. Relative difference is
+$|R - \mathrm{C{+}{+}}|/|R|$.}
+\label{tab:s1}
+\begin{tabular}{llcc}
+\toprule
+Method & Compared quantities & Pairs & Max.\ rel.\ diff.\ \\
+\midrule
+$\Delta\Delta C_t$  & expression, SD                          & 6  & $3.8 \times 10^{-15}$ \\
+Standard curve      & slope, intercept, $R^2$, efficiency     & 16 & $2.5 \times 10^{-3}$  \\
+RqPCR               & expression, SE                          & 16 & $2.1 \times 10^{-15}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The residual $2.5 \times 10^{-3}$ for the standard curve is attributable to
+the R package rounding its tabulated output to two to four decimal places,
+since the underlying $C_q$ inputs are identical.
+
+\end{document}

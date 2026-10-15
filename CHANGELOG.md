@@ -1,5 +1,59 @@
 # CHANGELOG
 
+## 2026-10-15 16:03 — 拿到官方 Application Note 要求；正文压到 1,777 词、主文只留 1 图 1 表 + 补充材料分册
+
+用户 2026-10-15 从 OUP 页面取得官方原文（此前两次尝试都被 Cloudflare 挡住，未核实）：
+
+> Application Notes — **Up to 4 pages; this is approx. 2,600 words or 2,000 words plus one figure** …
+> Software or data must be freely available to non-commercial users. **Availability and Implementation must be
+> clearly stated in the article.** Authors must also ensure that the software is **available for a full two years**
+> following publication. … Additional supplementary data can be published online-only by the journal.
+> **This supplementary material should be referred to in the abstract** … **The name of the application should be
+> included in the title.**
+
+### 1. 按最严的一档（2,000 词 + 1 图）重排
+
+- 正文由 2,222 词压到 **1,777 词**（摘要 231 + 引言 465 + 实现 595 + 结果 336 + 可用性 150），逐节精简但保留
+  全部关键数值与出处；两处超出版心的段落用 `\sloppy` 收掉（实现段与结果段）。
+- **主文只留 1 图 + 1 表**：Figure 1（界面截图）与 Table 1（工具功能对比，导师要求的那张）；
+  **Figure 2（标准曲线 + 表达量）、Figure 3（等价性散点）、Table 2（等价性汇总）移入新增的
+  `manuscript/supplementary.tex`**，成为 Figure S1、S2 与 Table S1，并在摘要与正文中引用。
+- 结果节的数字全部保留（1.92 / 2.74、p = 0.006 / 0.022、对照组 1.01 ± 0.21、斜率 −2.07…−2.24、
+  最大相对差 3.8e-15 / 2.5e-3 / 2.1e-15），只是把图表的细节描述挪到补充材料图注。
+
+### 2. 官方另外几条硬要求的落实
+
+- `Availability` 段改名为 **`Availability and implementation`**，先写实现方式（C++17/Qt6、CMake、依赖），
+  再写获取方式（MIT、GitHub 仓库、预编译二进制、**无需注册**），并明确承诺
+  "**available for at least two years after publication**"。
+- 摘要末句加入 **Supplementary figures and tables…**（官方要求"补充材料必须在摘要中提到"）。
+- 题目含软件名 `qPCRtools` ✓（原本已满足）。
+- 稿件描述的版本更新为 **1.2.0**（1.1.0 为上一版），Figure 1 图注注明截图来自 1.1.0、1.2.0 新增了
+  界面内作图 / 质控预警 / 分析记录导出。
+
+### 3. 投稿清单重写（`manuscript/SUBMISSION_CHECKLIST.md`）
+
+- 新增**「官方要求 ↔ 本稿设置」逐项对照表**（字数与展示项、免费可用、Availability and Implementation、
+  两年可用、补充材料在摘要中提及、软件名入题、无需注册、安装成本），按硬性要求逐条标注 ✅；
+  并记录"若编辑要求只留 1 个展示项，把 Table 1 移补充材料即可"。
+- 更新稿件状态（`main_v6_20261015.pdf` 10 页 / `supplementary_v1_20261015.pdf` 2 页）、
+  参考文献核验表（17 条，新增 6 条 REST/LinRegPCR×2/qBase/DAG Expression/Auto-qPCR 的 DOI）、
+  待办（Zenodo DOI、OUP 模板、R 包提交、2022 图 2 重跑、GUI 端到端取证、JOSS 支线）。
+
+### 4. 顺手修掉界面上的一处标签不一致
+
+- 分析页"统计检验方法"下拉原本写 **Student's t-test**，而代码对该选项调用的是 **Welch** 校正
+  （`equalVariance=false`，结果表里也显示 Welch）→ 改为 **t-test (Welch)**，与实现一致。
+
+### 5. 产物与验证
+
+- 沙箱 tectonic 编译：`main.pdf`（10 页，exit 0）、`supplementary.pdf`（2 页，exit 0）；
+  产物已按版本号存入 `manuscript/main_v6_20261015.pdf` 与 `manuscript/supplementary_v1_20261015.pdf`
+  （旧版本一律保留不删）。
+- 参考文献核对：编译出的列表为 **[1]–[17] 连续完整**（含被分页断行、grep 容易漏掉的 [13]）。
+- 遗留的排版提示：Table 1 在 `article` 骨架下有 2–9 pt 的 overfull（极小、肉眼不可见）；投稿换用 OUP
+  模板后会重排，故不再为它调整字号。
+
 ## 2026-10-15 15:49 — 无 GSL 路径的标准曲线 p 值改精确 t 分布；CI 增加无 GSL 与前端两个作业
 
 ### 1. C++：标准曲线回归 p 值不再依赖 GSL

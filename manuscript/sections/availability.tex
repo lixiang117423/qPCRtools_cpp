@@ -1,13 +1,21 @@
-\section{Availability}
+\section{Availability and implementation}
 
-Version~1.1.0 of \textit{qPCRtools} is described here. The source code and
-pre-built binaries for Windows and macOS are available at
-\url{https://github.com/lixiang117423/qPCRtools_cpp} under the MIT license;
-no registration is required to download or run the software. The repository
-includes documentation, a unit-test suite, example datasets, and a fully
-reproducible equivalence-validation package (\texttt{validation/}) comprising
-the R script, a C++ command-line driver linked against \texttt{qpcr\_core},
-and a comparison script that regenerates all validation outputs and figures.
-The project builds with CMake ($\geq$~3.20), requires a C++17 compiler and
-Qt~6 ($\geq$~6.5) with the WebEngine and WebChannel modules, and optionally
-links Eigen3, GSL, and OpenXLSX.
+Implementation: \textit{qPCRtools} is a C++17/Qt6 desktop application built
+with CMake ($\geq$~3.20); the core algorithm library requires only Qt~Core and
+optionally links Eigen3, GSL and OpenXLSX, while the interface requires
+Qt~WebEngine and WebChannel. It is distributed as a single self-contained
+executable for Windows and macOS---no R, Python or other runtime, and no
+registration, are needed to download or run it---and the source compiles on
+Linux.
+
+Availability: version~1.2.0 (the version described here; version~1.1.0 is the
+previous release) is freely available under the MIT license at
+\url{https://github.com/lixiang117423/qPCRtools_cpp}, with pre-built binaries
+in the repository releases. The repository includes documentation, a
+unit-test suite, example datasets and a fully reproducible
+equivalence-validation package (\texttt{validation/}) comprising the R script,
+a C++ command-line driver linked against \texttt{qpcr\_core}, and a comparison
+script that regenerates all validation outputs and figures. We will keep the
+software and its source code available for at least two years after
+publication. Supplementary Figures~S1--S2 and Supplementary Table~S1 are
+available online only.

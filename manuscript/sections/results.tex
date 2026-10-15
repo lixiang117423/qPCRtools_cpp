@@ -4,94 +4,47 @@
 
 \subsection{Typical analysis workflow}
 
-To illustrate a typical analysis, we analyzed the bundled example dataset
-(\texttt{examples/cq.csv} and \texttt{examples/design.csv}), comprising the
-target gene \textit{fos-glo-myc} normalized against the reference gene
-\textit{Beta Actin} across three treatment groups (0, 0.5, 1) with three
-biological replicates each. Using the $\Delta\Delta C_t$ method with a
-Welch two-sample $t$-test against the control group~(0), relative expression
-rose monotonically to 1.92 at dose~0.5 and 2.74 at dose~1, both significantly
-different from the control ($p = 0.006$ and $p = 0.022$;
-Figure~\ref{fig:results}). As defined by Livak and Schmittgen, the calibrator
-is the control group, so the control group is $\approx 1$
-(here $1.01 \pm 0.21$). The group means, standard deviations and $p$-values
-quoted here are reproduced without any dependency on the application or on
-the R package by \texttt{validation/check\_example\_stats.R}.
-Applied to a four-fold dilution
-series of four genes, the standard-curve module recovered slopes between
-$-2.07$ and $-2.24$ $C_q$ per four-fold dilution step ($\log_4$ scale) with
-$R^2 > 0.99$ for three of the four primers
-(efficiencies 0.85--0.95), illustrating amplification-efficiency estimation
-that, per MIQE guidance, determines which quantification method is
-appropriate. The complete workflow---import, configuration, analysis, and
-export---is performed through the graphical interface without writing code.
-
-\begin{figure}[h]
-\centering
-\includegraphics[width=\linewidth]{figures/fig2_results_v2.pdf}
-\caption{Analysis output on real data. (A)~Standard curves for four genes
-over a four-fold dilution series, with fitted regressions and $R^2$; the
-abscissa is $\log_4$ concentration (dilution steps), matching the regression,
-and hollow symbols mark wells outside the calibrated range (4--4096)
-that are excluded from the fit.
-(B)~Relative expression of \textit{fos-glo-myc} across treatment groups
-($\Delta\Delta C_t$ method, calibrated to the control group), with significance
-labels. Both panels were drawn
-from the numerical output of the application (the standard-curve parameters
-and the per-group means exported by the results table) by the plotting script
-shipped in the repository; version~1.1.0 exports result tables rather than
-rendering figures.}
-\label{fig:results}
-\end{figure}
+{\sloppy We applied the application to the bundled example dataset
+(\texttt{examples/cq.csv}, \texttt{examples/design.csv}): the target gene
+\textit{fos-glo-myc} against the reference gene \textit{Beta Actin} across
+three treatment groups (0, 0.5, 1) with three biological replicates each.
+With the $\Delta\Delta C_t$ method and Welch tests against the control,
+relative expression rose to 1.92 at dose~0.5 and 2.74 at dose~1, both
+significantly different from the control ($p = 0.006$ and $p = 0.022$); as
+defined by Livak and Schmittgen the calibrator is the control group, which is
+therefore $\approx 1$ (here $1.01 \pm 0.21$). These means, standard
+deviations and $p$-values are reproduced without the application or the R
+package by \texttt{validation/check\_example\_stats.R}, and the complete
+output is shown in Supplementary Figure~S1B. On a four-fold dilution series
+of four genes, the standard-curve module recovered slopes of $-2.07$ to
+$-2.24$ $C_q$ per dilution step with $R^2 > 0.99$ for three of the four
+primers (efficiencies 0.85--0.95; Supplementary Figure~S1A), illustrating the
+efficiency estimation that, per MIQE guidance, determines which
+quantification method is appropriate. The quality-control panel flagged the
+single $C_q = 40$ well of the weakest primer, and the complete
+workflow---import, configuration, analysis, export---is performed in the
+graphical interface without writing code.\par}
 
 \subsection{Equivalence to the R package}
 
-{\sloppy We validated the C++ implementation against the original R package
-\cite{li2022qpcrtools} by running both on identical inputs for every shared
+{\sloppy We ran the C++ implementation and the original R package
+\cite{li2022qpcrtools} on identical inputs for every shared
 method---$\Delta\Delta C_t$ (\texttt{CalExp2ddCt}), the standard curve
-(\texttt{CalCurve}), and the efficiency-based RqPCR method
-(\texttt{CalExpRqPCR})---and comparing every resulting quantity pairwise
-(Table~\ref{tab:equivalence}, Figure~\ref{fig:equivalence}). Inputs were
-drawn from the repository's example data and from a dilution series used in
-the original R package; both implementations read the same on-disk files, so
-any difference reflects the implementations alone.\par}
+(\texttt{CalCurve}) and the efficiency-based RqPCR method
+(\texttt{CalExpRqPCR})---reading the same on-disk files, so any difference
+reflects the implementations alone (Supplementary Table~S1 and Figure~S2).
+For both expression methods, expression values, standard deviations and
+standard errors matched to within floating-point precision (maximum relative
+difference $< 4 \times 10^{-15}$). For the standard curve, slope, intercept,
+$R^2$ and efficiency agreed to within $2.5 \times 10^{-3}$ relative
+difference, the residual being attributable to the R package rounding its
+tabulated output to two to four decimals while the underlying $C_q$ inputs
+are identical; every point falls on the line $y = x$.\par}
 
-\begin{table}[h]
-\centering
-\caption{Equivalence of C++ and R results across all shared methods on
-identical inputs. Relative difference is $|R - \mathrm{C{+}{+}}|/|R|$.}
-\label{tab:equivalence}
-\begin{tabular}{llcc}
-\toprule
-Method & Compared quantities & Pairs & Max.\ rel.\ diff.\ \\
-\midrule
-$\Delta\Delta C_t$  & expression, SD                          & 6  & $3.8 \times 10^{-15}$ \\
-Standard curve      & slope, intercept, $R^2$, efficiency     & 16 & $2.5 \times 10^{-3}$  \\
-RqPCR               & expression, SE                          & 16 & $2.1 \times 10^{-15}$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-For the two expression methods, $\Delta\Delta C_t$ and RqPCR, every compared
-quantity---expression values, standard deviations, and standard
-errors---matched between implementations to within floating-point precision
-(maximum relative difference $< 4 \times 10^{-15}$). For the standard curve,
-slope, intercept, $R^2$, and efficiency agreed to within $2.5 \times 10^{-3}$
-relative difference; the residual is attributable to the R package rounding
-its tabulated output to two to four decimal places, since the underlying
-$C_q$ inputs are identical. Plotting every C++ result against its R
-counterpart, all points fall on the line $y = x$
-(Figure~\ref{fig:equivalence}). These results confirm that the C++
-reimplementation preserves the analytical behavior of the R package across
-all shared methods. The validation is fully reproducible from the open
-scripts in \texttt{validation/} (see Availability).
-
-\begin{figure}[h]
-\centering
-\includegraphics[width=0.7\linewidth]{figures/fig3_equivalence.pdf}
-\caption{Numerical equivalence of the C++ implementation and the R package.
-Each C++ result is plotted against the corresponding R result across all
-shared methods ($\Delta\Delta C_t$, standard curve, RqPCR); all points fall
-on the $y = x$ line.}
-\label{fig:equivalence}
-\end{figure}
+The validation is fully reproducible from the open scripts in
+\texttt{validation/} (see Availability). Preparing the port also revealed
+defects in result aggregation that the R implementation shared---the input of
+the reference-gene stability measure, replicate handling in the efficiency
+method and the $\Delta\Delta C_t$ calibrator---as well as one specific to the
+C++ code (multiple-comparison $p$-values); each was corrected and is covered
+by a regression test.
