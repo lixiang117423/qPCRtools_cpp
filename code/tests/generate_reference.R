@@ -68,6 +68,83 @@ geNormSelect <- function(cq_long, use_relative = TRUE, stepwise = TRUE) {
 }
 
 # -----------------------------------------------------------------------------
+# RqPCR（SATQPCR / qPCRtools::CalExpRqPCR）参考实现
+#   · dedupValues = TRUE ：复现 R 包 CalExpRqPCR 的口径 —— 组内汇总用
+#     mean(unique(expression))、sd(unique(expression))、se 除以 unique(biorep) 数。
+#   · dedupValues = FALSE：修正口径 —— 数值相同但来自不同样品的重复仍是独立观测，
+#     组内均值/标准差对**所有生物学重复**计算，se = sd/sqrt(n_biorep)。
+#   · dedupRows：是否按（TechRep, Cq）剔除完全重复的行（数据整理产物）。
+# 已核对：dedupValues = TRUE 时本实现与 R 包生成的旧 fixture 完全一致（~1e-12），
+# 故可作为不依赖 qPCRtools 包的参考实现。
+# -----------------------------------------------------------------------------
+rqpcrReference <- function(cqTable, designTable, refGenes,
+                           dedupValues = FALSE, dedupRows = TRUE) {
+  df <- merge(designTable, cqTable, by = "Position")
+
+  # 1) 每个 (Group, BioRep, Gene) 的平均 Cq 与 SD（技术重复平均）
+  keys <- unique(df[, c("Group", "Gene", "BioRep")])
+  perRep <- do.call(rbind, lapply(seq_len(nrow(keys)), function(i) {
+    k   <- keys[i, ]
+    sel <- df$Group == k$Group & df$Gene == k$Gene & df$BioRep == k$BioRep
+    sub <- df[sel, ]
+    if (dedupRows) sub <- sub[!duplicated(paste(sub$TechRep, sub$Cq, sep = "|")), ]
+    cqs <- sub$Cq
+    data.frame(Group = k$Group, Gene = k$Gene, BioRep = k$BioRep,
+               mean.cq = mean(cqs, na.rm = TRUE),
+               sd.cq   = if (length(cqs) > 1) stats::sd(cqs, na.rm = TRUE) else 0,
+               Eff     = sub$Eff[1], stringsAsFactors = FALSE)
+  }))
+  perRep$sd.cq[is.na(perRep$sd.cq)] <- 0
+
+  # 2) min.mean.cq = 同一 BioRep 内、跨 Group 的最小平均 Cq（R 包的"编号配对"口径）
+  perRep$min.mean.cq <- ave(perRep$mean.cq,
+                            paste(perRep$BioRep, perRep$Gene, sep = "|"), FUN = min)
+  perRep$QCq    <- perRep$Eff^(perRep$min.mean.cq - perRep$mean.cq)
+  perRep$SD_QCq <- perRep$sd.cq * perRep$QCq * log(perRep$Eff)
+
+  # 3) 归一化因子：每个 (Group, BioRep) 上参考基因 QCq 的几何均值（广播到所有基因）
+  gm    <- function(x) exp(mean(log(x)))
+  isref <- perRep$Gene %in% refGenes
+  k3    <- paste(perRep$Group, perRep$BioRep, sep = "|")
+  facKeys <- unique(k3[isref])
+  facByKey <- vapply(facKeys, function(k) gm(perRep$QCq[isref & k3 == k]), numeric(1))
+  names(facByKey) <- facKeys
+  perRep$factor <- facByKey[match(k3, names(facByKey))]
+
+  # 4) 校正表达量
+  perRep$expression <- perRep$QCq / perRep$factor
+
+  # 5) 组内汇总
+  gkeys <- unique(df[, c("Group", "Gene")])
+  groupDf <- do.call(rbind, lapply(seq_len(nrow(gkeys)), function(i) {
+    g    <- gkeys[i, ]
+    sel  <- perRep$Group == g$Group & perRep$Gene == g$Gene
+    vals <- perRep$expression[sel]
+    nRep <- sum(sel)
+    if (dedupValues) {
+      vals <- unique(vals)
+      nRep <- length(unique(perRep$BioRep[sel]))
+    }
+    s <- if (length(vals) > 1) stats::sd(vals, na.rm = TRUE) else 0
+    data.frame(Group = g$Group, Gene = g$Gene,
+               mean.expr = mean(vals, na.rm = TRUE),
+               sd.expr   = s, se.expr = s / sqrt(nRep),
+               stringsAsFactors = FALSE)
+  }))
+
+  # 6) 按基因内最小 group 均值归一化
+  groupDf <- do.call(rbind, lapply(split(groupDf, groupDf$Gene), function(sub) {
+    m <- min(sub$mean.expr)
+    sub$mean.expr <- sub$mean.expr / m
+    sub$sd.expr   <- sub$sd.expr / m
+    sub$se.expr   <- sub$se.expr / m
+    sub
+  }))
+  rownames(groupDf) <- NULL
+  groupDf
+}
+
+# -----------------------------------------------------------------------------
 # 输入数据集（单一事实源：R 与 C++ 共用同一份 data.json，避免漂移）
 # -----------------------------------------------------------------------------
 data <- list(
@@ -326,25 +403,32 @@ if (!is.null(ddct)) {
 }
 
 # -----------------------------------------------------------------------------
-# ExpressionCalculator 标准曲线(效率法) vs R qPCRtools::CalExpRqPCR（examples/rqpcr_*.csv）
+# ExpressionCalculator 标准曲线(效率法) RqPCR 的组均值（examples/rqpcr_*.csv）
+# 期望值来自本文件的 rqpcrReference()（不依赖 qPCRtools 包）：
+#   · by_gene            = 修正口径 —— 组内均值/标准差对**所有**生物学重复计算
+#   · by_gene_r_original = R 包 CalExpRqPCR 口径 —— mean(unique(expression))、se 除以 unique(biorep) 数
+# 两者在示例数据上不同（最大相对差 ~10%），属**有意偏离**：R 的按数值去重会把数值碰巧相同的
+# 独立生物学重复合并掉（导师 2026-10-14 意见第 8 条）。已核对 by_gene_r_original 与 R 包旧
+# fixture 完全一致（~1e-12），说明本参考实现忠实复现了 R 包口径。
 # 注意：这是 CalExpRqPCR（Eff 法，QCq=Eff^(min.meanCq-meanCq)、参考基因几何均值校正、
 # 按基因内最小组均值归一化），不是 CalExpCurve（斜率截距法）。ref_gene 固定为 OsUBQ
-# 以隔离表达量计算（避免 GeNorm 自动选择引入额外变量）。
+# 以隔离表达量计算（避免参考基因自动选择引入额外变量）。
 # -----------------------------------------------------------------------------
-rqpcr_cq     <- read.csv("examples/rqpcr_cq.csv",     check.names = FALSE)
-rqpcr_design <- read.csv("examples/rqpcr_design.csv", check.names = FALSE)
-rqpcr <- tryCatch(
-  CalExpRqPCR(cq_table = rqpcr_cq, design_table = rqpcr_design,
-              ref_gene = "OsUBQ", ref_group = "CK", stat_method = "t.test"),
-  error = function(e) { message("CalExpRqPCR ERROR: ", conditionMessage(e)); NULL }
-)
-if (!is.null(rqpcr)) {
-  rqpcr_t <- rqpcr[["table"]]
-  by_gene_rqpcr <- lapply(split(rqpcr_t, rqpcr_t$gene), function(d) sort(unique(d$Expression)))
-  J(list(ref_gene = "OsUBQ", by_gene = by_gene_rqpcr), "expected_expression_rqpcr.json")
-} else {
-  message("Skipped expected_expression_rqpcr.json (CalExpRqPCR failed)")
-}
+rqpcr_cq       <- read.csv("examples/rqpcr_cq.csv",     check.names = FALSE)
+rqpcr_design   <- read.csv("examples/rqpcr_design.csv", check.names = FALSE)
+rqpcr_ref_gene <- "OsUBQ"
+rqpcr_fixed <- rqpcrReference(rqpcr_cq, rqpcr_design, rqpcr_ref_gene,
+                              dedupValues = FALSE, dedupRows = TRUE)
+rqpcr_rpkg  <- rqpcrReference(rqpcr_cq, rqpcr_design, rqpcr_ref_gene,
+                              dedupValues = TRUE,  dedupRows = FALSE)
+# 与 R 包一致：输出表只含目标基因（参考基因不进结果表）
+rqpcr_fixed <- rqpcr_fixed[!(rqpcr_fixed$Gene %in% rqpcr_ref_gene), ]
+rqpcr_rpkg  <- rqpcr_rpkg[!(rqpcr_rpkg$Gene %in% rqpcr_ref_gene), ]
+J(list(ref_gene = rqpcr_ref_gene,
+       by_gene            = lapply(split(rqpcr_fixed, rqpcr_fixed$Gene), function(d) sort(d$mean.expr)),
+       by_gene_r_original = lapply(split(rqpcr_rpkg,  rqpcr_rpkg$Gene),  function(d) sort(d$mean.expr))),
+  "expected_expression_rqpcr.json")
+cat("RqPCR fixture: ", length(unique(rqpcr_fixed$Gene)), "个目标基因（by_gene = 修正口径，by_gene_r_original = R 包口径）\n")
 
 cat("OK -> wrote fixtures to", normalizePath(fix_dir), "\n")
 cat("  ttest:", length(stat$ttest),
@@ -356,4 +440,4 @@ cat("  ttest:", length(stat$ttest),
     " standard_curve:", length(sc),
     " expression_dct:", if (!is.null(dct)) length(by_gene) else 0,
     " expression_ddct:", if (!is.null(ddct)) length(by_gene_ddct) else 0,
-    " expression_rqpcr:", if (!is.null(rqpcr)) length(by_gene_rqpcr) else 0, "\n")
+    " expression_rqpcr:", if (!is.null(rqpcr_fixed)) length(unique(rqpcr_fixed$Gene)) else 0, "\n")

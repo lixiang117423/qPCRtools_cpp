@@ -62,12 +62,32 @@ ExpressionResult ExpressionCalculator::calculateByStandardCurve(
     }
 
     // Pass 1: mean.cq & sd.cq per (biorep, group, gene).
+    // 按**样本身份**（Group|BioRep|TechRep|Gene|Cq）去重：数据整理产生的完全重复行只计一次，
+    // 而「数值相同但来自不同样品」的记录全部保留（导师 2026-10-14 意见第 8 条：
+    // 去重必须按样本身份，不能按数值）。原实现直接取全部匹配行，重复行会被重复计数。
     struct RawCq { QString biorep, group, gene; double meanCq, sdCq; };
     QVector<RawCq> rawCqs;
     for (const QString& biorep : bioreps) {
         for (const QString& gene : genes) {
             for (const QString& group : groups) {
-                QVector<double> cqValues = getFilteredValues(merged, "BioRep", biorep, "Gene", gene, "Group", group, "Cq");
+                QVector<double> cqValues;
+                QSet<QString> seenRows;
+                for (int i = 0; i < merged.rowCount(); ++i) {
+                    if (merged.get(i, "Gene").toString() != gene) continue;
+                    if (merged.get(i, "Group").toString() != group) continue;
+                    if (merged.get(i, "BioRep").toString() != biorep) continue;
+
+                    bool ok = false;
+                    const double cq = merged.get(i, "Cq").toDouble(&ok);
+                    if (!ok) continue;
+
+                    const QString rowIdentity = group + QChar('|') + biorep + QChar('|')
+                                              + merged.get(i, "TechRep").toString() + QChar('|')
+                                              + gene + QChar('|') + QString::number(cq, 'g', 17);
+                    if (seenRows.contains(rowIdentity)) continue;
+                    seenRows.insert(rowIdentity);
+                    cqValues.append(cq);
+                }
                 if (cqValues.isEmpty()) continue;
                 RawCq r{biorep, group, gene, computeMean(cqValues), calculateStandardDeviation(cqValues)};
                 rawCqs.append(r);
@@ -196,31 +216,22 @@ ExpressionResult ExpressionCalculator::calculateByStandardCurve(
     // controlGroup is NOT used for expression normalization here — only for the stats
     // below — so, like R, the control group is not pinned to 1.
     //
-    // R averages mean(unique(expression)) per (gene, group): bioreps whose expression
-    // coincides exactly (e.g. the min group, where QCq = 1.0 exactly) are collapsed
-    // before averaging. Replicate that, or genes with several pinned-to-1.0 bioreps
-    // diverge. se divides by sqrt(unique-biorep count).
-    auto uniqueDoubles = [](const QVector<double>& v) {
-        QVector<double> out;
-        for (double x : v) {
-            bool seen = false;
-            for (double y : out) if (y == x) { seen = true; break; }
-            if (!seen) out.append(x);
-        }
-        return out;
-    };
-
-    QMap<QString, double> groupUniqueMean;   // key = gene + "_" + group
-    QMap<QString, double> groupUniqueSd;
+    // 组内汇总：对**所有生物学重复**求均值/标准差（导师 2026-10-14 意见第 8 条）。
+    // 原实现照搬 R 的 mean(unique(expression))：两个重复表达量碰巧相同（例如 1、1、4）会先被
+    // 去重成 1、4，均值由 2.0 变成 2.5 —— 数值相同不代表同一个观测，必须按样本身份去重
+    // （行级重复已在 Pass 1 按身份剔除），因此这里不再做任何按数值的去重。
+    // 有意与 R 版 CalExpRqPCR 不同（R 用 mean(unique(expression))）；在论文示例数据上两者一致
+    // （该数据不存在数值完全相同的生物学重复），差异出现在有并列值的数据上，已用测试锁住。
+    QMap<QString, double> groupMeanExpr;     // key = gene + "_" + group
+    QMap<QString, double> groupSdExpr;
     QMap<QString, int> groupBiorepCount;
     for (const QString& gene : genes) {
         if (refGenes.contains(gene)) continue;
         for (const QString& group : groups) {
             QString key = gene + "_" + group;
             if (!groupExpressions.contains(key)) continue;
-            QVector<double> uniq = uniqueDoubles(groupExpressions[key]);
-            groupUniqueMean[key] = computeMean(uniq);
-            groupUniqueSd[key]   = calculateStandardDeviation(uniq);
+            groupMeanExpr[key]    = computeMean(groupExpressions[key]);
+            groupSdExpr[key]      = calculateStandardDeviation(groupExpressions[key]);
             groupBiorepCount[key] = groupExpressions[key].size();
         }
     }
@@ -232,18 +243,18 @@ ExpressionResult ExpressionCalculator::calculateByStandardCurve(
         double minMean = -1.0;
         for (const QString& group : groups) {
             QString key = gene + "_" + group;
-            if (groupUniqueMean.contains(key)) {
-                double m = groupUniqueMean[key];
+            if (groupMeanExpr.contains(key)) {
+                double m = groupMeanExpr[key];
                 if (minMean < 0 || m < minMean) minMean = m;
             }
         }
 
         for (const QString& group : groups) {
             QString key = gene + "_" + group;
-            if (!groupUniqueMean.contains(key)) continue;
+            if (!groupMeanExpr.contains(key)) continue;
 
-            double mean = groupUniqueMean[key];
-            double sd   = groupUniqueSd[key];
+            double mean = groupMeanExpr[key];
+            double sd   = groupSdExpr[key];
             double se   = sd / std::sqrt(static_cast<double>(groupBiorepCount[key]));
 
             ExpressionData expData;

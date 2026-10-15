@@ -1,5 +1,67 @@
 # CHANGELOG
 
+## 2026-10-15 14:32 — 第④项：RqPCR 组内汇总改为按样本身份去重（不再按数值去重）；并核实"按 BioRep 编号配对"来自原始方法
+
+导师意见第 8 条（"RqPCR 按数值去重，会把独立的生物学重复合并掉"）。两处都查了原始文献，
+结论比原先的转述更精确 —— 上半是真 bug，下半是**方法本身的设计前提**、需要在文档里讲清楚。
+
+### 文献核实（两份 PDF 均已获取正文，非凭记忆）
+
+- **Hilliou & Tran (2013)**《RqPCRAnalysis: Analysis of Quantitative Real-time PCR Data》，
+  BIOINFORMATICS 2013, 202–211，DOI `10.5220/0004312002020211`（SciTePress 官方 PDF 可下载）。
+  这是 RqPCR 方法的原始出处（SATQPCR 与 R 包 `CalExpRqPCR` 的 §2 都引用它）。
+  - §2.2.2：**"For each biological replicate i, the average of Cq is computed … the relative quantity …
+    where the highest expression level set to one"** —— 即相对量是在**每个生物学重复内部**跨处理标定的
+    （最高表达 = 1）。R 包与 C++ 现有的 `min.mean.cq`（同一 BioRep 内跨 Group 取最小平均 Cq）**忠实实现了原文**。
+  - §2.2.4：对生物学重复求均值 / 标准差，全文**没有**任何"按数值去重"的写法。
+  - §2.3：统计比较是"all pairs of samples across biological replicates"（跨生物学重复的样本两两比较）。
+- **Rancurel et al. (2019)**《SATQPCR: Website for statistical analysis of real-time quantitative PCR data》，
+  *Molecular and Cellular Probes* 46:101418，DOI `10.1016/j.mcp.2019.07.001`（HAL 开放版
+  `hal-02264348`）。§3.5：默认"for each gene, your data are rescaled using **the sample with the lowest
+  expression**"，并允许用户指定用于重标定的样品；§3.2 要求"至少 3 个生物学重复、2 个技术重复…每个生物学重复
+  行数相同（平衡设计）"。
+
+### 1.（真 bug，已修）组内汇总不再按数值去重
+
+- 现象：R 包与 C++ 都用 `mean(unique(expression))` / `sd(unique(expression))` / `se = sd/√unique(biorep)`。
+  两个生物学重复表达量碰巧相同（1、1、4）会被合并，均值由 2.0 变成 2.5 —— 与原始方法论文不符
+  （§2.2.4 只要求对生物学重复求均值）。
+- 改法（`ExpressionCalculatorStandardCurve.cpp`）：
+  ① 行级按**样本身份** `Group|BioRep|TechRep|Gene|Cq` 去重（数据整理产生的完全重复行只计一次；
+     数值不同则视为两次独立测量并全部保留）；
+  ② 组内 `mean`/`sd` 对**全部**生物学重复计算，`se = sd/√n_biorep`。
+- **实测影响**（示例数据 `examples/rqpcr_*.csv`，6 基因 × 16 样品）：4 个基因的组均值改变，最大 ~10%
+  （`OsWAK91` 3.6824 → 3.3319；`OsCeBip` 1.2854 → 1.0912；`OSPOX8` 1.5406 → 1.3765；
+  `OsRBBI2` 1.2964 → 1.2515）；`OsPR10` 不变。修复后**最低组发生切换**，因此该基因的归一化基准也随之变化。
+  组间 p 值不变（统计检验用的是逐生物学重复的表达量）。
+- **fixture 与参考实现**：`generate_reference.R` 新增 `rqpcrReference()`（R 侧独立实现，不依赖 qPCRtools 包），
+  可分别按"R 包口径"与"修正口径"出值；已核对 R 包口径与旧 fixture **完全一致（~1e-12）**，
+  说明参考实现忠实复现了 R 包。新 fixture 同时保留两套值：`by_gene`（修正）/ `by_gene_r_original`（R 包）。
+  附带收益：RqPCR fixture 现在**不再需要安装 qPCRtools 包**即可重生成。
+- **测试**：新增 `ExpressionCalculator.RqPCRGroupMeanKeepsIdenticalReplicates`
+  （导师原例：Treatment 组重复表达量 0.5、0.5、1.0 → 正确均值 2/3，归一化后 CK = 1.5；旧行为给 1.3333，
+  已断言两者不同）与 `ExpressionCalculator.RqPCRGroupMeansDeviateFromRPackage`（记录 ~10% 的有意偏离）。
+  `ctest` **51/51 通过**。
+
+### 2.（非 bug，需讲清设计前提）"按 BioRep 编号跨组取最小 Cq"是原始方法的规定
+
+- 结论：这一条**不是**移植错误 —— Hilliou & Tran 2013 §2.2.2 明确要求在**每个生物学重复内部**把最高表达
+  设为 1。它对应的实验设计是**按生物学重复配对的区组设计**：编号相同的 BioRep 在各处理组里应是同一份
+  生物学材料（原文的例子里，"重复 1/2/3"是三次独立实验、每次都覆盖全部处理）。
+- 风险：如果用户的数据里各组样品相互独立、BioRep 只是各组从 1 开始编号，这个标定会引入不存在的配对结构。
+  SATQPCR 网页版默认用"表达量最低的样品"重标定、并允许用户指定样品，属于更保守的做法。
+- 处置（本轮只记录、不改行为）：在 `docs/08_status.md` 写明该前提与风险；**是否需要给 GUI 增加
+  "标定样品/是否按 BioRep 配对"的选项，待用户按实际实验设计确认**（改动会再次改变所有 RqPCR 数值）。
+
+### 3. 待用户决策（论文与 R 包层面，本轮未动）
+
+- 修正 1 使 C++ 与 R 包 `CalExpRqPCR` 的组均值产生 ~10% 的**有意差异**，因此
+  `validation/results/comparison.csv` 的 RqPCR 一侧（原记录相对差 ~2e-15）与论文 Table 1/Figure 3
+  的对应数字**必须重做**。两条路：① 同步修补 R 包（`CalExpRqPCR` 的 `mean(unique(...))` → 全部重复），
+  再重跑 R 侧与对比；② 保留 R 包原状，在论文里写明这一处有意偏离并改用"逐生物学重复表达量一致
+  （仍 ~1e-15）"作为等价性证据。建议走 ①（导师已指出 R 包同一处也错）。
+- 本轮**未覆盖** `validation/results/` 下的任何文件（C++ 侧重跑产物已变化，见上）。
+
 ## 2026-10-15 14:18 — 第③项：geNorm 参考基因筛选改用相对量 + 逐步剔除
 
 导师意见第 7 条（"geNorm 内参筛选的输入用错了，R 包和 C++ 版都有"）。核对 R 包源码后确认

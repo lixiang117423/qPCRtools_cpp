@@ -19,7 +19,7 @@ GUI 用 Qt WebEngine，前端是 web 技术（HTML/CSS/JS）；核心算法是 C
 | `CalCurve()` | `StandardCurve` 类 | ✅ 对齐 R |
 | `CalExp2dCt()` | `ExpressionCalculator::calculateByDeltaCt` | ✅ 对齐 R |
 | `CalExp2ddCt()` | `calculateByDeltaDeltaCt` | ✅ 对齐 R（全数据均值归一化，对照≠1）|
-| `CalExpRqPCR()` | `calculateByStandardCurve`（效率法） | ✅ 对齐 R（min.meanCq/参考基因几何均值/最小组均值归一化）|
+| `CalExpRqPCR()` | `calculateByStandardCurve`（效率法） | ✅ 对齐 R（min.meanCq/参考基因几何均值/最小组均值归一化）；**组内汇总有意偏离** R 的 `mean(unique(expression))`，改为对全部生物学重复求均值（见下方说明）|
 | `CalExpCurve()` | —（斜率截距法 `(Cq-Intercept)/Slope`） | ⏳ 未移植 |
 | `CalRTable()` / `CalExpRqPCR` 的 GeNorm 自动选参考基因 | `ExpressionCalculator::selectReferenceGenesByGeNorm` | ✅ 已实现（2026-10-15 按 geNorm 原文改正：**相对量 + 逐步剔除**；R 包 `find_ref_gene()` 用原始 Cq 相除，两者在部分数据上会选出不同内参——见下方说明）|
 
@@ -29,6 +29,20 @@ GUI 用 Qt WebEngine，前端是 web 技术（HTML/CSS/JS）；核心算法是 C
 > 而 geNorm 原文（Vandesompele et al. 2002）要求先换算成相对量 `Q = 2^(minCq − Cq)`。C++ 版按原文实现。
 > 在论文示例数据（`examples/rqpcr_*.csv`，6 基因 × 16 样品）上两者选出的内参集合相同（`OsRBBI2` / `OsUBQ`），
 > 但构造的判别数据集上会不同（测试 `ExpressionCalculator.GeNormSelectsReferenceGenes` 锁住了这一点）。
+>
+> RqPCR 的生物学重复汇总（2026-10-15）：R 包 `CalExpRqPCR` 用 `mean(unique(expression))` / `sd(unique(expression))`，
+> 会把**数值碰巧相同**的独立生物学重复合并掉（1、1、4 的均值由 2.0 变成 2.5）。原始方法论文
+> （Hilliou & Tran 2013, SciTePress, DOI 10.5220/0004312002020211）§2.2.4 只需对生物学重复求均值，
+> 全文未出现按数值去重 —— 故 C++ 改为对全部重复求均值（`mean`/`sd` 用 n 个重复，`se = sd/√n`），
+> 属**有意偏离**。示例数据上二者最大相对差 ~10%（如 `OsWAK91` 3.6824 → 3.3319），旧口径值保留在
+> fixture 的 `by_gene_r_original` 中。
+>
+> RqPCR 方法的**设计前提**（同一次核查发现，需在文档/论文里写明）：Hilliou & Tran 2013 §2.2.2 规定
+> "For each biological replicate i … where the highest expression level set to one"，即**在每个生物学重复内部**
+> 跨处理取最小 Cq 做标定。这要求实验是**按生物学重复配对的区组设计**（同一编号的 BioRep 在各处理组里是同一份样品/同一株）；
+> 若各组样品相互独立而 BioRep 编号只是各自从 1 开始，这一标定会引入不存在的配对结构。SATQPCR 网页版
+> （Rancurel et al. 2019 §3.5）默认用"表达量最低的样品"重标定，并允许用户指定样品——建议后续给 GUI/文档
+> 增加同类提示或选项（待用户按实际实验设计确认，见 CHANGELOG 2026-10-15 第④项）。
 
 ## 测试
 
@@ -73,6 +87,10 @@ cmake -S code -B build-tests -DBUILD_TESTS=ON [同上 Qt/Eigen] && cmake --build
   且只算一轮 M 就取最小的两个。现按 geNorm 原文：`Q = 2^(minCq − Cq)`、M = 与其余基因两两
   `log2(Q_a/Q_b)` 的 SD 的平均，**每轮剔除 M 最大者直到剩 2 个**。在论文示例数据上两者
   选出的内参相同（`OsRBBI2` / `OsUBQ`），判别数据集上不同（有专门用例锁住）。
+- RqPCR 组内汇总不再按数值去重（2026-10-15，导师意见第 8 条上半）。原实现照搬 R 包的
+  `mean(unique(expression))`：两个生物学重复表达量碰巧相同会被合并（1、1、4 → 均值 2.5 而非 2.0）。
+  现按样本身份去重（行级完全重复按 `Group|BioRep|TechRep|Gene|Cq` 剔除），组内 `mean`/`sd` 用全部
+  生物学重复、`se = sd/√n`。示例数据上最大相对差 ~10%，旧口径值保留在 fixture 里。
 - `tTest`/`pairedTTest`/ANOVA/Tukey 的除零与空组边界（se=0、dfWithin≤0、空组）
 - `generateLetterGroups`：重写字母分配算法（旧实现在非传递性比较下会给显著差异组分配相同字母）；不再解析 `testName` 字符串（改用 `TestResult::group1Name/group2Name`）
 - 标曲表达量法：统计结果的 group1/group2 命名与 PValue 合并循环约定相反 → 结果表 PValue 恒为空，已修复

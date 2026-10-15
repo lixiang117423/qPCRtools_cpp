@@ -137,6 +137,91 @@ TEST(ExpressionCalculator, GeNormMatchesReferenceOnExampleData) {
     EXPECT_EQ(got.join(",").toStdString(), expected.join(",").toStdString());
 }
 
+// 有意偏离的记录：OsWAK91 在示例数据上有数值相同的生物学重复，
+// R 包口径（按数值去重）给 3.6823903149，修正口径给 3.3319094218（相对差 ~10%）。
+TEST(ExpressionCalculator, RqPCRGroupMeansDeviateFromRPackage) {
+    auto fix = testfix::load_json("expected_expression_rqpcr.json").object();
+    auto oldStyle = fix.value("by_gene_r_original").toObject();
+    auto newStyle = fix.value("by_gene").toObject();
+
+    QVector<double> oldWak = testfix::to_doubles(oldStyle.value("OsWAK91").toArray());
+    QVector<double> newWak = testfix::to_doubles(newStyle.value("OsWAK91").toArray());
+    ASSERT_EQ(oldWak.size(), 2);
+    ASSERT_EQ(newWak.size(), 2);
+
+    EXPECT_NEAR(oldWak[1], 3.68239031492738, 1e-9);   // R 包 mean(unique(...)) 口径
+    EXPECT_NEAR(newWak[1], 3.33190942175262, 1e-9);   // 修正口径（全部生物学重复）
+    EXPECT_GT(std::abs(oldWak[1] - newWak[1]), 0.3);
+}
+
+// RqPCR 组内汇总必须按**样本身份**去重，不能按数值去重（导师 2026-10-14 意见第 8 条）：
+// 两个生物学重复的表达量碰巧相同（例如 1、1、4）仍是三个独立观测。
+// 数据构造（Eff = 2；REF 为参考基因，G1 为目标基因）：
+//   BioRep 1/2：REF CK=20 / Treatment=22 → QCq_T = 0.25；G1 CK=25 / Treatment=28 → QCq_T = 0.125
+//               → 归一化因子 Treatment = 0.25 → G1 表达量 Treatment = 0.5（两个重复完全相同）
+//   BioRep 3  ：REF CK=20 / Treatment=26 → QCq_T = 0.015625；G1 CK=25 / Treatment=31 → QCq_T = 0.015625
+//               → 归一化因子 = 0.015625 → G1 表达量 Treatment = 1.0
+// 于是 Treatment 组三个重复表达量 = 0.5、0.5、1.0：
+//   正确均值 = (0.5+0.5+1.0)/3 = 2/3 → 按基因内最小组均值(2/3)归一化后 CK = 1/(2/3) = 1.5
+//   旧行为（mean(unique(...))）= (0.5+1.0)/2 = 0.75 → CK = 1/0.75 = 1.3333…（会把结论夸大）
+TEST(ExpressionCalculator, RqPCRGroupMeanKeepsIdenticalReplicates) {
+    qpcr::DataFrame df;
+    QList<QVariant> genes, groups, bioreps, techreps, effs, cqs;
+    auto add = [&](const QString& gene, const QString& group, int biorep, double cq) {
+        genes << QVariant(gene);
+        groups << QVariant(group);
+        bioreps << QVariant(biorep);
+        techreps << QVariant(1);
+        effs << QVariant(2.0);
+        cqs << QVariant(cq);
+    };
+    for (int b = 1; b <= 3; ++b) {
+        add("REF", "CK", b, 20.0);
+        add("REF", "Treatment", b, b <= 2 ? 22.0 : 26.0);
+        add("G1", "CK", b, 25.0);
+        add("G1", "Treatment", b, b <= 2 ? 28.0 : 31.0);
+    }
+    df.addColumn("Gene", genes);
+    df.addColumn("Group", groups);
+    df.addColumn("BioRep", bioreps);
+    df.addColumn("TechRep", techreps);
+    df.addColumn("Eff", effs);
+    df.addColumn("Cq", cqs);
+
+    qpcr::StandardCurveParams params;
+    params.cqTable       = df;
+    params.referenceGene = "REF";
+    params.controlGroup  = "CK";
+
+    qpcr::ExpressionResult result =
+        qpcr::ExpressionCalculator::calculateByStandardCurve(params, "t.test");
+    ASSERT_GT(result.table.rowCount(), 0);
+
+    double ckMean = std::numeric_limits<double>::quiet_NaN();
+    double treatMean = std::numeric_limits<double>::quiet_NaN();
+    for (int i = 0; i < result.table.rowCount(); ++i) {
+        if (result.table.get(i, "Gene").toString() != "G1") continue;
+        if (result.table.get(i, "Group").toString() == "CK") {
+            ckMean = result.table.get(i, "Mean").toDouble();
+        } else {
+            treatMean = result.table.get(i, "Mean").toDouble();
+        }
+    }
+    EXPECT_NEAR(treatMean, 1.0, 1e-12);          // 最小组被归一化为 1
+    EXPECT_NEAR(ckMean, 1.5, 1e-12);             // = 1 / (2/3)
+    EXPECT_GT(std::abs(ckMean - 4.0 / 3.0), 1e-6);   // 旧行为（按数值去重）会给 1.3333
+
+    // 原始表里 Treatment 组应保留 3 个生物学重复（没有被数值去重吃掉）
+    int treatReps = 0;
+    for (int i = 0; i < result.rawData.rowCount(); ++i) {
+        if (result.rawData.get(i, "Gene").toString() == "G1" &&
+            result.rawData.get(i, "Group").toString() == "Treatment") {
+            ++treatReps;
+        }
+    }
+    EXPECT_EQ(treatReps, 3);
+}
+
 // performANOVA 的输出行序必须由输入决定。旧实现遍历 QSet，行序随每次进程启动的
 // 随机哈希种子变化（2026-10-15 实测 validation 输出两次运行不一致）。
 TEST(ExpressionCalculator, AnovaStatisticsFollowInputOrder) {
@@ -214,11 +299,15 @@ TEST(ExpressionCalculator, DeltaDeltaCtMatchesR) {
     }
 }
 
-// 标准曲线（效率法）表达量：对应 R qPCRtools::CalExpRqPCR —— 基于 Eff 的
+// 标准曲线（效率法）表达量：对应 RqPCR 方法（Hilliou & Tran 2013 / SATQPCR）—— 基于 Eff 的
 // QCq = Eff^(min.meanCq - meanCq)、参考基因几何均值校正、按基因内最小组均值归一化。
-// 注意：这不是 CalExpCurve（斜率截距法）。用 rqpcr 示例数据（examples/rqpcr_*.csv），
-// 升序集合对比。
-TEST(ExpressionCalculator, StandardCurveRqPCRMatchesR) {
+// 注意：这不是 CalExpCurve（斜率截距法）。用 rqpcr 示例数据（examples/rqpcr_*.csv），升序集合对比。
+//
+// 期望值来自 generate_reference.R 的 rqpcrReference()（**修正口径**：组内均值/标准差对全部
+// 生物学重复计算）。R 包 CalExpRqPCR 用 mean(unique(expression))，会把数值碰巧相同的独立
+// 生物学重复合并掉，与原始方法论文（Hilliou & Tran 2013 §2.2.4：对生物学重复取均值；全文
+// 未出现按数值去重）不符 —— 属**有意偏离**，旧口径的值保留在 fixture 的 by_gene_r_original 里。
+TEST(ExpressionCalculator, StandardCurveRqPCRMatchesReference) {
     qpcr::CSVParser parser;
     qpcr::DataFrame cq     = parser.parse(QString(QPCR_EXAMPLES_DIR) + "/rqpcr_cq.csv");
     qpcr::DataFrame design = parser.parse(QString(QPCR_EXAMPLES_DIR) + "/rqpcr_design.csv");
