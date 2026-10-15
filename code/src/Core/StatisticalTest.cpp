@@ -717,6 +717,12 @@ TestResult StatisticalTest::wilcoxonSignedRankTest(
 // ANOVA
 //=============================================================================
 
+double StatisticalTest::tTwoSidedPValue(double t, double df)
+{
+    // 复用本文件内的正则化不完全 Beta 实现（无 GSL 时同样精确）
+    return tTwoSidedP(t, df);
+}
+
 TestResult StatisticalTest::anova(
     const QVector<QVector<double>>& groups,
     double alpha)

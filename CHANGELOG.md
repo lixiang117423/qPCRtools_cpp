@@ -1,5 +1,41 @@
 # CHANGELOG
 
+## 2026-10-15 15:49 — 无 GSL 路径的标准曲线 p 值改精确 t 分布；CI 增加无 GSL 与前端两个作业
+
+### 1. C++：标准曲线回归 p 值不再依赖 GSL
+
+- 问题（导师审稿意见第 1 条的遗留项）：`StandardCurve::calculateSingle()` 里斜率的双侧 p 值在**无 GSL**构建下
+  走 `2*(1-Φ(|t|))` 的正态近似，与 GSL / R 的 `2*pt(-|t|, df)` 不一致。
+- 改法：`StatisticalTest` 新增公开静态方法 `tTwoSidedPValue(t, df)`（复用本文件内已验证的正则化不完全 Beta
+  实现，与 GSL/R 同精度），`StandardCurve` 两条分支统一调用它 → 去掉了唯一的"无 GSL 回退"。
+- **验证**：本机额外配置**无 GSL** 构建（`-DCMAKE_DISABLE_FIND_PACKAGE_GSL=ON`，`CXX_DEFINES` 中无 `HAS_GSL`、
+  测试二进制不链接 GSL）→ `ctest` **52/52 通过**，其中 `StandardCurveMatchesR` 会把 p 值与 R `lm()` 的
+  `pValue_real` 逐值比对 ✓。带 GSL 的构建同样 52/52 ✓。
+
+### 2. CI：新增两个作业（与既有 C++ 作业并行）
+
+- `test-no-gsl`：不装 GSL 的构建 + ctest（覆盖上面这条路径，防止回退）。
+- 既有 `test` 作业末尾追加**前端 jsdom 冒烟测试**（`code/tests/js` → `npm ci` → `node smoke.test.js`），
+  覆盖 43 个函数存在性、分析记录、两张图的 option 结构、质控三类预警等。
+
+### 3. R 包 `CalExpCurve()`（导师第 5 条，工作区未提交）
+
+- **反对数**：`(Cq - Intercept)/Slope`（对数浓度）→ `dilution^((Cq - Intercept)/Slope)`（浓度），
+  新增 `dilution = 4` 参数（与 `CalCurve()` 内部 `log(Conc, base = dilution)` 一致），roxygen 与
+  `man/CalExpCurve.Rd` 同步。
+- **技术重复层级**：先在 `(Gene, Treatment, BioRep)` 内平均技术孔，再以生物学重复为单位做组间检验与作图；
+  缺 `BioRep` 列时明确 warning（不再静默按孔当独立样本）。顺带修掉 `fig.type = "bar"` 的柱高
+  `mean.expre / n` → `mean.expre`。
+- **新增测试**：`CRAN/qPCRtools/tests/01_verify_calexpcurve.R`（随 R CMD check 运行）——判别用例按生物学重复
+  p = 0.074 → `NS`，而按孔计算是 p = 1.2e-4 → `***`，因此该脚本能真正锁住"必须按生物学重复检验"。
+  本地 `Rscript tests/01_verify_calexpcurve.R` 通过。
+
+### 4. 待办
+
+- R 包工作区仍未提交（含导师补丁半成品与行尾差异）；`CalExpCurve` 修正后**2022 年论文图 2 需重跑看结论**。
+- 官方篇幅/展示项上限仍未核实（Cloudflare）；正文已 2,222 词 + 3 图 2 表。
+- GUI 端到端取证（作图 / 分析记录 / 质控）。
+
 ## 2026-10-15 15:37 — 恢复作图功能（表达量图 + 标准曲线图）与质控预警；版本升到 1.2.0
 
 导师意见「二」第 3 条（作图功能关掉了，与文章自己说的需求对不上）与第 5 条（没有质控，示例数据里

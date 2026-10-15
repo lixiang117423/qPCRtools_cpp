@@ -59,3 +59,43 @@ jobs:
       run: |
         npm ci --no-audit --no-fund
         node smoke.test.js
+
+  test-no-gsl:
+    # 无 GSL 的构建路径曾长期没有被 CI 覆盖：标准曲线回归的 p 值在那里退化成正态近似，
+    # 与 GSL/R 不一致（2026-10-15 改为共享的精确 t 分布实现）。这里单独跑一遍确保不回退。
+    name: Build & run tests (no GSL)
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: ${{ env.QT_VERSION }}
+        host: 'mac'
+        target: 'desktop'
+        arch: 'clang_64'
+        cache: true
+
+    - name: Install dependencies
+      # 故意不装 gsl：验证无 GSL 时 t/F 分布与标准曲线 p 值仍精确
+      run: brew install eigen ninja
+
+    - name: Configure (no GSL)
+      run: |
+        cmake -S code -B build \
+          -DCMAKE_PREFIX_PATH="$Qt6_DIR" \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_TESTS=ON \
+          -DQPCRTOOLS_BUILD_APP=OFF \
+          -DCMAKE_DISABLE_FIND_PACKAGE_GSL=ON \
+          -GNinja
+
+    - name: Build
+      run: cmake --build build
+
+    - name: Run tests
+      run: ctest --test-dir build --output-on-failure

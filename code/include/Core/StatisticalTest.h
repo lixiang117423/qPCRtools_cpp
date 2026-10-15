@@ -110,6 +110,19 @@ public:
     );
 
     /**
+     * @brief t 分布的双侧 p 值（无 GSL 依赖）
+     *
+     * 用正则化不完全 Beta 函数计算，与 GSL / R 的 `2 * pt(-|t|, df)` 同精度，
+     * 供核心库中需要 t 分布 p 值的其它模块（如标准曲线回归的斜率检验）复用，
+     * 避免各自写「无 GSL 时改用正态近似」的近似回退。
+     *
+     * @param t t 统计量
+     * @param df 自由度（须 > 0）
+     * @return 双侧 p 值；参数非法时返回 NaN
+     */
+    static double tTwoSidedPValue(double t, double df);
+
+    /**
      * @brief 单因素方差分析 (ANOVA)
      *
      * 比较多组均值

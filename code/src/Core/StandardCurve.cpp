@@ -1,4 +1,5 @@
 #include "Core/StandardCurve.h"
+#include "Core/StatisticalTest.h"   // 共享精确 t 分布 p 值（tTwoSidedPValue）
 #include <cmath>
 #include <algorithm>
 #include <numeric>
@@ -255,12 +256,10 @@ void StandardCurve::linearRegression(
             int df = n - 2;
 
             // 斜率的双侧 p 值（t 分布，df = n-2）。
-#ifdef HAS_GSL
-            pValue = 2.0 * (1.0 - gsl_cdf_tdist_P(std::fabs(tStat), df));
-#else
-            // 无 GSL 时的正态近似回退
-            pValue = 2.0 * (1.0 - 0.5 * (1.0 + std::erf(std::fabs(tStat) / std::sqrt(2.0))));
-#endif
+            // 2026-10-15：改用核心库共享的精确 t 分布实现（正则化不完全 Beta），
+            // 去掉原「无 GSL 时用正态近似」的回退——那条路径在无 GSL 构建下给出的
+            // p 值与 GSL/R 不一致（导师审稿意见第 1 条遗留项）。
+            pValue = StatisticalTest::tTwoSidedPValue(tStat, df);
             if (pValue > 1.0) pValue = 1.0;
         } else {
             pValue = qQNaN();
