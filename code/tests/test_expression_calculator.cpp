@@ -255,10 +255,12 @@ TEST(ExpressionCalculator, AnovaStatisticsFollowInputOrder) {
     EXPECT_EQ(res[3].group.toStdString(), "A");
 }
 
-// ΔΔCt 方法：R qPCRtools::CalExp2ddCt 用「全数据均值」做归一化基准（不是对照组），
-// 故对照组表达量 ≠ 1。C++ 必须与之对齐，否则对照组被钉死在 1.0。
-// 同样用升序集合对比，规避 group 在 C++/R 间字符串/数值表示的差异。
-TEST(ExpressionCalculator, DeltaDeltaCtMatchesR) {
+// ΔΔCt 方法：按文献（Livak & Schmittgen 2001）以**校准样品 = 对照组**为基准，故对照组表达量 ≈ 1
+// （每个样本对"对照组平均 ΔCt"取 2^-ΔΔCt，对照组均值略高于 1、几何均值 = 1）。
+// 期望值来自 generate_reference.R 的 deltaDeltaCtReference()（对照组基准）；
+// R 包 CalExp2ddCt 1.0.1 用「所有组」平均 ΔCt 的旧口径值保留在 fixture 的 by_gene_r_original，
+// 两者相差一个常数因子（本示例中 1/0.5872 ≈ 1.703）。同样用升序集合对比。
+TEST(ExpressionCalculator, DeltaDeltaCtMatchesReference) {
     qpcr::CSVParser parser;
     qpcr::DataFrame cq     = parser.parse(QString(QPCR_EXAMPLES_DIR) + "/cq.csv");
     qpcr::DataFrame design = parser.parse(QString(QPCR_EXAMPLES_DIR) + "/design.csv");
@@ -296,6 +298,60 @@ TEST(ExpressionCalculator, DeltaDeltaCtMatchesR) {
         for (int i = 0; i < got.size(); ++i) {
             testfix::expect_close(got[i], expected[i]);
         }
+    }
+}
+
+// 校准基准必须是**对照组**（导师 2026-10-14 意见第 2 条 / R 包 issue #5、#1）：
+//   ① 对照组表达量应 ≈ 1（旧实现给 0.5872）；
+//   ② 换 controlGroup 必须改变结果（旧实现换 ref_group 结果不变）；
+//   ③ 旧口径值应等于新值除以对照组旧均值（常数因子）。
+TEST(ExpressionCalculator, DeltaDeltaCtCalibratesToControlGroup) {
+    qpcr::CSVParser parser;
+    qpcr::DataFrame cq     = parser.parse(QString(QPCR_EXAMPLES_DIR) + "/cq.csv");
+    qpcr::DataFrame design = parser.parse(QString(QPCR_EXAMPLES_DIR) + "/design.csv");
+    ASSERT_GT(cq.rowCount(), 0);
+
+    auto fix = testfix::load_json("expected_expression_ddct.json").object();
+    const QString ref = fix.value("ref_gene").toString();
+    const QString gene = fix.value("by_gene").toObject().keys().first();
+
+    auto runWith = [&](const QString& control) {
+        qpcr::DeltaDeltaCtParams p;
+        p.cqTable       = cq;
+        p.designTable   = design;
+        p.referenceGene = ref;
+        p.controlGroup  = control;
+        return qpcr::ExpressionCalculator::calculateByDeltaDeltaCt(p, "t.test");
+    };
+    auto meanOf = [&](const qpcr::ExpressionResult& r, const QString& group) {
+        for (int i = 0; i < r.table.rowCount(); ++i) {
+            if (r.table.get(i, "Gene").toString() == gene &&
+                r.table.get(i, "Group").toString() == group) {
+                return r.table.get(i, "Mean").toDouble();
+            }
+        }
+        return std::numeric_limits<double>::quiet_NaN();
+    };
+
+    // ① 对照组（"0"）≈ 1
+    auto withControl0 = runWith("0");
+    EXPECT_NEAR(meanOf(withControl0, "0"), 1.01446560323372, 1e-9);
+    EXPECT_LT(std::abs(meanOf(withControl0, "0") - 1.0), 0.05);
+
+    // ② 换对照组（"1"）结果必须变化
+    auto withControl1 = runWith("1");
+    // 新校准组的均值 ≈ 1（严格说是几何均值 = 1，算术均值略高于 1，取决于该组自身离散度）
+    EXPECT_LT(std::abs(meanOf(withControl1, "1") - 1.0), 0.05);
+    EXPECT_GT(std::abs(meanOf(withControl1, "0") - meanOf(withControl0, "0")), 0.1);
+
+    // ③ 旧口径（by_gene_r_original）与新口径相差常数因子 1/0.587162224960086
+    QVector<double> oldMeans = testfix::to_doubles(
+        fix.value("by_gene_r_original").toObject().value(gene).toArray());
+    QVector<double> newMeans = testfix::to_doubles(
+        fix.value("by_gene").toObject().value(gene).toArray());
+    ASSERT_EQ(oldMeans.size(), newMeans.size());
+    for (int i = 0; i < oldMeans.size(); ++i) {
+        testfix::expect_close(oldMeans[i] * 1.01446560323372 / 0.587162224960086, newMeans[i]);
     }
 }
 

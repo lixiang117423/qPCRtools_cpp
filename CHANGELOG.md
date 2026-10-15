@@ -1,5 +1,73 @@
 # CHANGELOG
 
+## 2026-10-15 14:46 — 第⑤⑥项：ΔΔCt 校准基准改为对照组；SE 公式核查；R 包同步修补（未提交）
+
+用户指示「按照文献的公式来；其余的按你的建议」。本轮把 ΔΔCt 的基准改成文献定义（Livak & Schmittgen 2001：
+校准样品 = 对照组），核查了 SE，并把 R 包侧同一批问题一并修好（R 包工作区**未提交**，见最后一节）。
+
+### 1. ΔΔCt 校准基准：全样本均值 → 对照组（C++，有意偏离 R 包 1.0.1）
+
+- 原实现（与 R 包 `CalExp2ddCt` 1.0.1 相同）用**所有组**的平均 ΔCt 做基准 → 对照组 ≠ 1、换 `ref_group`
+  结果不变，且与稿件公式（2）自相矛盾（导师意见第 2 条；R 包 issue #5 / #1）。
+- 现按文献：基准 ΔCt 只取**对照组**；对照组缺失时按「第一个有数据的组」回退并打印警告。
+  文件：`code/src/Core/ExpressionCalculatorDeltaDeltaCt.cpp`。
+- **示例数据实测**（`examples/cq.csv` + `design.csv`，3 组 × 3 重复）：
+
+  | 组 | 旧口径（全样本均值） | 新口径（对照组基准） | SD（新） | Welch p vs 组 0 |
+  |---|---|---|---|---|
+  | 0 | 0.5872 ± 0.1214 | **1.0145 ± 0.2098** | 0.2098 | — |
+  | 0.5 | 1.1095 ± 0.1192 | **1.9169 ± 0.2060** | 0.2060 | 0.006027（不变）|
+  | 1 | 1.5861 ± 0.3229 | **2.7403 ± 0.5580** | 0.5580 | 0.022191（不变）|
+
+  旧值 × 常数因子 1/0.5871622 即新值（同一个 2^(−ΔΔCt) 常数平移），**组间 p 值不变**（检验用逐重复值）。
+- 新增/调整测试：`ExpressionCalculator.DeltaDeltaCtMatchesReference`（对照修正后 fixture）、
+  `ExpressionCalculator.DeltaDeltaCtCalibratesToControlGroup`（① 对照组 ≈ 1；② 换对照组结果必须变化；
+  ③ 旧口径 = 新口径 × 常数因子）。`ctest` **52/52 通过**。
+- fixture：`expected_expression_ddct.json` 现同时保存 `by_gene`（修正）与 `by_gene_r_original`（R 包旧口径）
+  以及 `control_mean_fixed`；生成脚本新增 R 侧独立参考实现 `deltaDeltaCtReference()`（可切 baseline），
+  已核对 `baseline = "global"` 与旧 fixture 完全一致。
+
+### 2. SE 公式核查（第⑥项）
+
+- **C++ 无此 bug**：ΔΔCt 结果表只有 Mean/SD（无 SE 列）；RqPCR 路径的 SE 在 2026-10-15 第④项已确认是 `sd/√n`。
+- **R 包确实写错**：`CalExp2ddCt` 的 `se.expression = mean.expression / sqrt(n.biorep)`（应为 `sd/√n`），
+  已在 R 包侧改正（`CalExp2dCt` / `CalExpCurve` 本来就是 sd/√n）。
+
+### 3. 稿件与零依赖复算脚本同步
+
+- `manuscript/sections/results.tex`：ΔΔCt 段数字改为 1.92 / 2.74，并改成"按 Livak & Schmittgen 以对照组为
+  校准样品，故对照组 ≈ 1（1.01 ± 0.21）"，删除"按全样本均值归一化、对照组不强制为 1"的旧表述
+  （原表述与公式（2）自相矛盾，正是导师指出的问题）。
+- `code/validation/check_example_stats.R`：归一化改为对照组基准，并把实测值更新为
+  1.0145±0.2098 / 1.9169±0.2060 / 2.7403±0.5580（p 仍为 0.006027 / 0.022191）。
+  沙箱实跑复核通过（`/tmp/qpcr_stats_check`，项目内已提交的 CSV **未覆盖**）。
+
+### 4. R 包（`/Users/lixiang/NutstoreFiles/03.编程相关/qPCRtools/CRAN/qPCRtools/`）同步修补（未提交）
+
+工作区里已有一份半成品改动（ΔΔCt 只加了 `df.sub.ck` 过滤却没换用），本轮补完并修掉其余各条：
+
+- `R/CalExp2ddCt.R`：① 基准 ΔCt 真正改用 `df.sub.ck`（对照组）；② `se.expression` 改为 `sd/sqrt(n)`；
+  ③ `cld(tuk, level = 0.95, ddecreasing = TRUE)` → `cld(tuk, level = 0.05, decreasing = TRUE)`。
+- `R/CalExpCurve.R`、`R/CalExpRqPCR.R`：同样修正 `cld` 的 level（0.95 → 0.05）与 `decreasing` 拼写。
+  **实测依据**：本机 multcomp 里 `cld.glht(object, level = 0.05, decreasing = FALSE)` 的 `level` 是
+  **显著性水平**；用三组无差异数据验证：`cld(tk, level = 0.95)` 给出 a,a,b（假阳性），
+  `cld(tk)` 给 a,a,a ✓。
+- `R/CalExpRqPCR.R`：④ 组内汇总 `mean(unique(expression))` → `mean(expression)`（含 `sd`、`se = sd/√n`）；
+  ⑤ geNorm 稳定性改用相对量 `Q = 2^(minCq − Cq)`（用 `sweep()` 按列减最小值 —— 写 `data - apply(data,2,min)`
+  会因 R 列主序回收错位，本轮踩到并规避）；⑥ 删除自动选内参分支里那段**从未被使用**的 M 计算（避免两套实现）；
+  ⑦ `geometric.mean` 从"自动选内参"分支提到函数开头（原写法在显式给 `ref.gene` 时报
+  `没有 geometric.mean 这个函数`，属既有 bug）。
+- **验证**（R 4.6.1 实跑）：ΔΔCt 对照组 ≈ 1.01–1.32、SE = SD/√n ✓、换 `ref.group` 结果改变 ✓、
+  字母标记 NS/* 合理 ✓；`find_ref_gene` 自动选内参由 OSPOX8/OsRBBI2（错）变为 **OsUBQ + OsRBBI2**，
+  与 C++ 一致 ✓；RqPCR 组均值与 C++ 修正口径一致到 **3.9e-11**（差异来自 fixture 存储精度）✓。
+- 未提交原因：该工作区含上一批未提交改动（导师补丁的半成品 + 行尾差异），建议用户先确认后再提交/发布 CRAN。
+
+### 5. 待办
+
+- ⑦ 图 2A 重画（log10 横轴配 log4 斜率）+ 公式（1）口径统一；图 2B 也需按新 ΔΔCt 数值重画。
+- `validation/results/` 全套重跑（R 侧需先提交修正后的 R 包）、`comparison.csv`、论文 Table 1/Figure 3 数字。
+- R 包侧仍未做的：GSL 缺失时的占位 p 值（第1条）、`CalExpCurve` 技术重复层级（第5条）。
+
 ## 2026-10-15 14:32 — 第④项：RqPCR 组内汇总改为按样本身份去重（不再按数值去重）；并核实"按 BioRep 编号配对"来自原始方法
 
 导师意见第 8 条（"RqPCR 按数值去重，会把独立的生物学重复合并掉"）。两处都查了原始文献，

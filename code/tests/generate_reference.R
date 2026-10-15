@@ -7,9 +7,9 @@
 # =============================================================================
 suppressPackageStartupMessages(library(jsonlite))
 
-# qPCRtools 是可选的：只有表达量部分（CalExp2dCt/CalExp2ddCt/CalExpRqPCR）需要它。
-# 未安装时仍可重新生成统计类 fixture（data.json / expected_stat.json /
-# expected_standard_curve.json），表达量部分会打印 Skipped 并跳过。
+# qPCRtools 现在是**可选**的：仅 ΔCt 的 fixture（expected_expression_dct.json）仍直接调用
+# CalExp2dCt；ΔΔCt / RqPCR 已改为本文件内的独立参考实现（deltaDeltaCtReference /
+# rqpcrReference），无需安装 R 包即可重生成。未装包时 ΔCt 部分会打印 Skipped 并跳过。
 has_qpcr <- requireNamespace("qPCRtools", quietly = TRUE)
 if (has_qpcr) {
   suppressPackageStartupMessages(library(qPCRtools))
@@ -142,6 +142,53 @@ rqpcrReference <- function(cqTable, designTable, refGenes,
   }))
   rownames(groupDf) <- NULL
   groupDf
+}
+
+# -----------------------------------------------------------------------------
+# ΔΔCt 参考实现（Livak & Schmittgen 2001 / qPCRtools::CalExp2ddCt）
+#   baseline = "global" ：复现 R 包 1.0.1 —— 基准 ΔCt 用**所有组**的平均（bug，见 issue #5/#1）
+#   baseline = "control"：按文献 —— 基准只用**对照组**，因此对照组表达量恒为 1
+# 组内汇总：mean/sd 对生物学重复计算，se = sd/√n（R 包 1.0.1 误写成 mean/√n，属已知 bug，
+# 此处按文献/常规统计口径实现）。
+# -----------------------------------------------------------------------------
+deltaDeltaCtReference <- function(cqTable, designTable, refGene, controlGroup,
+                                  baseline = c("control", "global")) {
+  baseline <- match.arg(baseline)
+  df <- merge(designTable, cqTable, by = "Position")
+  genes <- setdiff(unique(df$Gene), refGene)
+  perRep <- list()
+
+  for (g in genes) {
+    sub <- df[df$Gene %in% c(g, refGene), ]
+    if (baseline == "global") {
+      base <- mean(sub$Cq[sub$Gene == g]) - mean(sub$Cq[sub$Gene == refGene])
+    } else {
+      ck <- sub[sub$Group == controlGroup, ]
+      if (nrow(ck) == 0) stop(paste0("对照组 ", controlGroup, " 没有基因 ", g, " 的数据"))
+      base <- mean(ck$Cq[ck$Gene == g]) - mean(ck$Cq[ck$Gene == refGene])
+    }
+
+    for (grp in unique(sub$Group)) {
+      for (r in unique(sub$BioRep[sub$Group == grp])) {
+        t  <- sub$Cq[sub$Group == grp & sub$BioRep == r & sub$Gene == g]
+        rf <- sub$Cq[sub$Group == grp & sub$BioRep == r & sub$Gene == refGene]
+        if (length(t) == 0 || length(rf) == 0) next
+        dct <- mean(t) - mean(rf)
+        perRep[[length(perRep) + 1]] <- data.frame(
+          Group = grp, Gene = g, BioRep = r,
+          Expression = 2^(-(dct - base)), stringsAsFactors = FALSE)
+      }
+    }
+  }
+  res <- do.call(rbind, perRep)
+
+  do.call(rbind, lapply(split(res, paste(res$Group, res$Gene)), function(d) {
+    data.frame(Group = d$Group[1], Gene = d$Gene[1],
+               mean.expression = mean(d$Expression),
+               sd.expression   = stats::sd(d$Expression),
+               se.expression   = stats::sd(d$Expression) / sqrt(nrow(d)),
+               n.biorep        = nrow(d), stringsAsFactors = FALSE)
+  }))
 }
 
 # -----------------------------------------------------------------------------
@@ -384,23 +431,31 @@ if (!is.null(dct)) {
 }
 
 # -----------------------------------------------------------------------------
-# ExpressionCalculator ΔΔCt vs R qPCRtools::CalExp2ddCt（examples 数据）
-# 关键：R 的 CalExp2ddCt 用「全数据均值」做归一化基准（平均所有 group 的 target/ref，
-# 不是只取对照组），故对照组表达量 ≠ 1。C++ 端必须用同一基准，否则与对照组基准相差一个
-# 常数因子。remove_outliers=FALSE：C++ 不做 IQR 离群值剔除，此处对齐以隔离归一化对比。
+# ExpressionCalculator ΔΔCt（examples 数据）
+# 基准按文献（Livak & Schmittgen 2001）：校准样品 = **对照组**，故对照组表达量 ≈ 1
+# （严格说：每个样本对"对照组平均 ΔCt"取 2^-ΔΔCt，对照组均值略高于 1，几何均值 = 1）。
+# R 包 CalExp2ddCt 1.0.1 用「所有组」的平均 ΔCt 做基准，故对照组 ≈ 0.59 且换 ref_group 无效
+# （GitHub issue #5 / #1）—— 属已知 bug，C++ 端**有意偏离**，旧口径值记录在 by_gene_r_original。
+# remove_outliers=FALSE：C++ 默认不做 IQR 离群值剔除，此处对齐以隔离归一化对比。
 # -----------------------------------------------------------------------------
-ddct <- tryCatch(
-  CalExp2ddCt(cq_table = cq_tb, design_table = design_tb,
-              ref_gene = ref_gene, ref_group = "0", remove_outliers = FALSE),
-  error = function(e) { message("CalExp2ddCt ERROR: ", conditionMessage(e)); NULL }
-)
-if (!is.null(ddct)) {
-  ddct_t <- ddct[["table"]]
-  by_gene_ddct <- lapply(split(ddct_t, ddct_t$gene), function(d) sort(unique(d$mean.expre)))
-  J(list(ref_gene = ref_gene, by_gene = by_gene_ddct), "expected_expression_ddct.json")
-} else {
-  message("Skipped expected_expression_ddct.json (CalExp2ddCt failed)")
-}
+ddct_fixed <- deltaDeltaCtReference(cq_tb, design_tb, ref_gene, "0", baseline = "control")
+ddct_rpkg  <- deltaDeltaCtReference(cq_tb, design_tb, ref_gene, "0", baseline = "global")
+by_gene_ddct        <- lapply(split(ddct_fixed, ddct_fixed$Gene), function(d) sort(d$mean.expression))
+by_gene_ddct_rpkg   <- lapply(split(ddct_rpkg,  ddct_rpkg$Gene),  function(d) sort(d$mean.expression))
+J(list(ref_gene = ref_gene, control_group = "0",
+       by_gene            = by_gene_ddct,
+       by_gene_r_original = by_gene_ddct_rpkg,
+       control_mean_fixed = lapply(split(ddct_fixed, ddct_fixed$Gene),
+                                   function(d) d$mean.expression[d$Group == "0"])),
+  "expected_expression_ddct.json")
+cat("ΔΔCt fixture:", length(unique(ddct_fixed$Gene)), "个基因；对照组均值（修正口径）=",
+    paste(sprintf("%.4f", unlist(lapply(split(ddct_fixed, ddct_fixed$Gene),
+                                        function(d) d$mean.expression[d$Group == "0"]))), collapse = ", "), "\n")
+
+# 旧写法（依赖 qPCRtools 包、全局均值基准）已由上面的 deltaDeltaCtReference() 取代：
+#   ddct <- CalExp2ddCt(cq_table = cq_tb, design_table = design_tb, ref_gene = ref_gene,
+#                       ref_group = "0", remove_outliers = FALSE)
+#   by_gene_ddct <- lapply(split(ddct[["table"]], ...), function(d) sort(unique(d$mean.expre)))
 
 # -----------------------------------------------------------------------------
 # ExpressionCalculator 标准曲线(效率法) RqPCR 的组均值（examples/rqpcr_*.csv）
@@ -439,5 +494,5 @@ cat("  ttest:", length(stat$ttest),
     " genorm:", length(stat$genorm),
     " standard_curve:", length(sc),
     " expression_dct:", if (!is.null(dct)) length(by_gene) else 0,
-    " expression_ddct:", if (!is.null(ddct)) length(by_gene_ddct) else 0,
+    " expression_ddct:", length(by_gene_ddct),
     " expression_rqpcr:", if (!is.null(rqpcr_fixed)) length(unique(rqpcr_fixed$Gene)) else 0, "\n")

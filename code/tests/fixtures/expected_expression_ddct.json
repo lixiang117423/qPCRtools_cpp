@@ -1,7 +1,13 @@
 {
   "ref_gene": "Beta Actin",
+  "control_group": "0",
   "by_gene": {
+    "fos-glo-myc": [1.01446560323372, 1.91690467824615, 2.74032787841458]
+  },
+  "by_gene_r_original": {
     "fos-glo-myc": [0.587162224960086, 1.10948465115786, 1.5860735041988]
   },
-  "note": "CalExp2ddCt, remove_outliers=FALSE; R normalizes by the GLOBAL mean over all groups (control != 1)."
+  "control_mean_fixed": {
+    "fos-glo-myc": 1.01446560323372
+  }
 }

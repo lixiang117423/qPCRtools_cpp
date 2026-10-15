@@ -10,12 +10,11 @@ target gene \textit{fos-glo-myc} normalized against the reference gene
 \textit{Beta Actin} across three treatment groups (0, 0.5, 1) with three
 biological replicates each. Using the $\Delta\Delta C_t$ method with a
 Welch two-sample $t$-test against the control group~(0), relative expression
-rose monotonically to 1.11 at dose~0.5 and 1.59 at dose~1, both significantly
+rose monotonically to 1.92 at dose~0.5 and 2.74 at dose~1, both significantly
 different from the control ($p = 0.006$ and $p = 0.022$;
-Figure~\ref{fig:results}). Following the R implementation, expression values
-are normalized to the mean $\Delta C_t$ over all samples rather than to the
-control group, so the control group is not forced to exactly~1
-(here $0.59 \pm 0.12$). The group means, standard deviations and $p$-values
+Figure~\ref{fig:results}). As defined by Livak and Schmittgen, the calibrator
+is the control group, so the control group is $\approx 1$
+(here $1.01 \pm 0.21$). The group means, standard deviations and $p$-values
 quoted here are reproduced without any dependency on the application or on
 the R package by \texttt{validation/check\_example\_stats.R}.
 Applied to a four-fold dilution

@@ -34,30 +34,50 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
     QList<QString> sortedGenes = sortedUniqueExclude(merged.getStringColumn("Gene"), params.referenceGene);
     QList<QString> sortedGroups = sortedUnique(merged.getStringColumn("Group"));
 
-    // Compute the GLOBAL mean DeltaCt across ALL groups per gene — this is the
-    // normalization baseline R qPCRtools::CalExp2ddCt actually uses: it averages
-    // the target and reference gene over every group (see CalExp2ddCt.R lines
-    // 102-111), NOT just the control group. Pinning to the control group instead
-    // would force the control group toward 1.0 and diverge from R by a constant
-    // factor. (controlGroup is still consumed below for the statistical tests.)
-    QHash<QString, double> globalDeltaCtByGene;
-    for (const QString& gene : sortedGenes) {
-        DataFrame geneData = merged.filter(
-            [&params, &gene](const Row& row) {
-                return row.value("Gene").toString() == gene ||
-                       row.value("Gene").toString() == params.referenceGene;
-            });
+    // 校准组：对照组（缺省或为空时回退到第一个组）。既作为 ΔΔCt 的校准基准，也用于统计检验。
+    const QString refGroup = params.controlGroup.isEmpty()
+        ? (sortedGroups.isEmpty() ? QString() : sortedGroups.first())
+        : params.controlGroup;
 
-        QVector<double> targetCqs, refCqs;
-        for (int i = 0; i < geneData.rowCount(); ++i) {
-            QString g = geneData.get(i, "Gene").toString();
-            double cq = geneData.get(i, "Cq").toDouble();
-            if (g == gene) targetCqs.append(cq);
-            else if (g == params.referenceGene) refCqs.append(cq);
+    // 校准基准（ΔΔCt 的第二个 Δ）：Livak & Schmittgen (2001) 以**校准样品**为基准，通常即对照组，
+    // 因此对照组表达量恒为 1。
+    // 原实现（与 R 包 CalExp2ddCt 1.0.1 相同）用**所有组**的平均 ΔCt 做基准，导致对照组 ≠ 1、
+    // 换 ref_group 结果不变（R 包 GitHub issue #5 / #1），且与稿件公式（2）自相矛盾。
+    // 这里按文献改为只取对照组；对照组在该基因上没有数据时按「第一个有数据的组」回退并给出警告。
+    auto deltaCtOfGroup = [&](const QString& gene, const QString& group, bool& ok) {
+        double targetSum = 0.0, refSum = 0.0;
+        int targetN = 0, refN = 0;
+        for (int i = 0; i < merged.rowCount(); ++i) {
+            if (merged.get(i, "Group").toString() != group) continue;
+            const QString g = merged.get(i, "Gene").toString();
+            if (g != gene && g != params.referenceGene) continue;
+            bool numOk = false;
+            const double cq = merged.get(i, "Cq").toDouble(&numOk);
+            if (!numOk) continue;
+            if (g == gene) { targetSum += cq; ++targetN; }
+            else           { refSum    += cq; ++refN; }
         }
+        ok = (targetN > 0 && refN > 0);
+        if (!ok) return 0.0;
+        return targetSum / targetN - refSum / refN;
+    };
 
-        if (!targetCqs.isEmpty() && !refCqs.isEmpty()) {
-            globalDeltaCtByGene[gene] = computeMean(targetCqs) - computeMean(refCqs);
+    QHash<QString, double> calibratorDeltaCtByGene;
+    for (const QString& gene : sortedGenes) {
+        bool ok = false;
+        double deltaCt = deltaCtOfGroup(gene, refGroup, ok);
+        if (!ok) {
+            for (const QString& group : sortedGroups) {
+                deltaCt = deltaCtOfGroup(gene, group, ok);
+                if (ok) {
+                    qWarning() << "ΔΔCt 校准：对照组" << refGroup << "缺少基因" << gene
+                               << "的数据，回退到组" << group;
+                    break;
+                }
+            }
+        }
+        if (ok) {
+            calibratorDeltaCtByGene[gene] = deltaCt;
         }
     }
 
@@ -105,7 +125,7 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
 
                 if (!targetCqs.isEmpty() && !refCqs.isEmpty()) {
                     double deltaCt = computeMean(targetCqs) - computeMean(refCqs);
-                    double deltaDeltaCt = deltaCt - globalDeltaCtByGene.value(gene, 0.0);
+                    double deltaDeltaCt = deltaCt - calibratorDeltaCtByGene.value(gene, deltaCt);
                     double expression = std::pow(2.0, -deltaDeltaCt);
                     repExpressions.append({bioRep, expression});
                 }
@@ -155,12 +175,7 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
         }
     }
 
-    // Statistical tests
-    // 对照组只用于统计检验；为空时回退到第一组（与 ΔCt 行为一致，避免统计结果静默为空）
-    const QString refGroup = params.controlGroup.isEmpty()
-        ? (sortedGroups.isEmpty() ? QString() : sortedGroups.first())
-        : params.controlGroup;
-
+    // Statistical tests（refGroup 见上方：校准组 = 对照组，为空时回退第一个组）
     if (statMethod == "anova") {
         runAnovaTests(allData, sortedGenes, sortedGroups, result.statistics);
     } else {
