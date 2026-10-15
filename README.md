@@ -93,42 +93,25 @@ Try qPCRtools with built-in example data:
 
 ```
 qPCRtools_cpp/
-├── CMakeLists.txt           # Main CMake configuration
-├── README.md                # This file
-├── src/                     # Source files
-│   ├── Core/                # Core algorithms
-│   │   ├── StandardCurve.cpp
-│   │   ├── ExpressionCalculator.cpp
-│   │   └── StatisticalTest.cpp
-│   ├── Data/                # Data structures and parsers
-│   │   ├── DataFrame.cpp
-│   │   ├── CSVParser.cpp
-│   │   └── ExcelImporter.cpp
-│   ├── GUI/                 # User interface
-│   │   ├── WebMainWindow.cpp
-│   │   └── WebBridge.cpp
-│   └── Utils/               # Utility functions
-├── include/                 # Header files
-│   ├── Core/
-│   ├── Data/
-│   ├── GUI/
-│   └── Utils/
-├── web/                     # Web interface files
-│   ├── index.html           # Main HTML
-│   ├── css/
-│   │   └── style.css        # Stylesheets
-│   └── js/
-│       ├── app.js           # Application logic
-│       ├── i18n.js          # Internationalization
-│       ├── jquery.min.js
-│       ├── bootstrap.bundle.min.js
-│       └── echarts.min.js   # Chart library
-├── examples/                # Example data files
-│   ├── cq.csv              # Sample Cq data
-│   ├── design.csv          # Sample experimental design
-│   └── README.md           # Example data documentation
-└── translations/            # i18n translation files
+├── README.md  CHANGELOG.md  CONTRIBUTING.md  LICENSE
+├── code/                           # THE SOFTWARE (CMake project root)
+│   ├── CMakeLists.txt  vcpkg.json  # Build configuration
+│   ├── src/  include/              # C++17 sources and headers: Core/ (algorithms), Data/, GUI/, Utils/
+│   ├── web/                        # HTML/CSS/JS interface loaded by QWebEngineView
+│   ├── tests/                      # GoogleTest suites + JS smoke test (fixtures generated from R)
+│   ├── validation/                 # R-versus-C++ equivalence harness (see its README)
+│   ├── examples/                   # Example datasets used by the app and the tests
+│   ├── translations/  macos/       # Qt translations; bundled Info.plist (used by CMake)
+│   └── scripts/                    # Build, packaging and release scripts
+├── docs/                           # Documentation, numbered 01_...; docs/00_README.md maps everything
+├── manuscript/                     # Manuscript sources (LaTeX, figures, submission checklist)
+├── paper.md  paper.bib             # Short software paper (JOSS submission, must stay at the root)
+├── archive/                        # Superseded files kept for reference (do not reuse)
+└── 软件著作权申请资料/                # Software-copyright registration package (Chinese)
 ```
+
+For a one-line description of every top-level item, see
+[docs/00_README.md](docs/00_README.md).
 
 ## Building from Source
 
@@ -155,7 +138,7 @@ brew install cmake qt@6 eigen gsl
 - Install Visual Studio 2019 or later
 - Install CMake from the [official website](https://cmake.org/download/)
 
-**📖 Detailed Windows build guide:** See [WINDOWS_BUILD.md](WINDOWS_BUILD.md) for step-by-step instructions.
+**📖 Detailed Windows build guide:** See [docs/04_windows_build.md](docs/04_windows_build.md) for step-by-step instructions.
 
 #### Linux (Ubuntu/Debian)
 ```bash
@@ -170,24 +153,29 @@ sudo apt-get install cmake qt6-base-dev qt6-webengine-dev libeigen3-dev libgsl-d
 git clone https://github.com/lixiang117423/qPCRtools_cpp.git
 cd qPCRtools_cpp
 
-# Create build directory
-mkdir build && cd build
-
-# Configure with CMake
-cmake ..
+# The CMake project lives in code/; the build directory stays at the repository root
+cmake -S code -B build
 
 # Build
-cmake --build . --parallel
+cmake --build build --parallel
 
-# Run the application
-./qPCRtools  # macOS/Linux
-# or
-qPCRtools.exe  # Windows
+# Run the application (macOS: open build/qPCRtools.app)
+./build/qPCRtools        # Linux
+build\Release\qPCRtools.exe   # Windows
 ```
+
+Everything that belongs to the software itself — sources, tests, the
+equivalence-validation harness, the example datasets and the build/packaging
+scripts — lives under `code/`, which is the project root for CMake and for the
+scripts in `code/scripts/`. Run those commands (and `Rscript
+code/tests/generate_reference.R`, `Rscript code/validation/run_R.R`) from the
+repository root as shown, or from inside `code/` with the paths adjusted.
 
 ## Citation
 
-If you use this software in your research, please cite:
+If you use this software in your research, please cite the original R package
+it reimplements (algorithms and validation reference) and, if relevant, this
+desktop application:
 
 > **Li X, Wang Y, Li J, et al. qPCRtools: An R package for qPCR data processing and visualization.** Frontiers in Genetics, 2022, 13: 1002704.
 >
@@ -199,7 +187,7 @@ If you use this software in your research, please cite:
 ```bibtex
 @article{li2022qpcrtools,
   title={qPCRtools: An R package for qPCR data processing and visualization},
-  author={Li, Xiang and Wang, Yan and Li, Jun and Li, Xueying and Zhang, Yage and Zhang, Yinping and Wang, Ji-Hong},
+  author={Li, Xiang and Wang, Yingmin and Li, Jingyu and Mei, Xinyue and Liu, Yixiang and Huang, Huichuan},
   journal={Frontiers in Genetics},
   volume={13},
   pages={1002704},
@@ -208,6 +196,28 @@ If you use this software in your research, please cite:
   doi={10.3389/fgene.2022.1002704}
 }
 ```
+
+> Author list corrected 2026-10-13 against Crossref; the previous list in this
+> file was wrong.
+
+## Contributing, support and governance
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for how to
+report a bug, propose a change, or add a new analysis method, and for how
+decisions are made and released. In short: reports and pull requests are
+handled publicly in
+[GitHub issues](https://github.com/lixiang117423/qPCRtools_cpp/issues); the
+project is currently maintained by a single author, who reviews every change,
+and no contribution requires a signed agreement. For analysis questions
+(interpreting a result, choosing a method), please open an issue rather than
+emailing, so that the answer stays searchable for other users.
+
+## Manuscript and validation
+
+- `manuscript/` — manuscript describing the software, with the LaTeX sources,
+  figures and the submission checklist.
+- `validation/` — the R-versus-C++ equivalence harness; `validation/README.md`
+  explains how to regenerate the comparison table and figures.
 
 ## License
 

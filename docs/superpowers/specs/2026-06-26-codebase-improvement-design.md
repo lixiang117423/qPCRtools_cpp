@@ -32,6 +32,7 @@ qPCRtools_cpp 是 Qt6 + QWebEngineView 的 qPCR 数据分析桌面应用，已�
 - `tests/` 目录为空，核心统计算法无任何测试，也无与 R 版本的结果对比。
 - `ExpressionCalculator.cpp`(1182) 与 `web/js/app.js`(2534) 偏大。
 - `STATUS.md` / `PROGRESS.md` 内容过时（仍写"进度 40-50%、GUI 待开发"，与已发布状态矛盾）。
+  （2026-10-13 目录整理后，这两个文件现位于 `docs/08_status.md` 与 `archive/PROGRESS_2025-01_obsolete.md`）
 
 ---
 
@@ -92,7 +93,7 @@ include/Utils/GgplotTheme.h          (144)   src/Utils/GgplotTheme.cpp (293)
 
 ### 3.6 不在阶段 1 范围内
 
-- `STATUS.md` / `PROGRESS.md` 等文档更新（文档过时是独立问题，留待后续或单独处理）。
+- `STATUS.md` / `PROGRESS.md` 等文档更新（文档过时是独立问题，留待后续或单独处理；整理后路径见上方注）。
 - 阶段 2-4 的具体实现。
 
 ---

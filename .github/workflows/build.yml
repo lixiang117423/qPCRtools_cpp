@@ -43,8 +43,9 @@ jobs:
         C:\vcpkg\vcpkg install eigen3:x64-windows gsl:x64-windows --classic
 
     - name: Configure CMake
+      # 2026-10-13 目录整理：CMake 工程位于 code/，构建目录仍在仓库根
       run: |
-        cmake -B build `
+        cmake -S code -B build `
           -DCMAKE_PREFIX_PATH="$env:Qt6_DIR" `
           -DCMAKE_BUILD_TYPE=Release `
           -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake" `
@@ -59,13 +60,13 @@ jobs:
         # 使用 windeployqt 收集依赖（Qt6 会自动检测 WebEngine）
         & "$env:Qt6_DIR/bin/windeployqt.exe" build/Release/qPCRtools.exe --release --no-translations
 
-        # 复制 web 资源
+        # 复制 web 资源（源码侧在 code/web）
         New-Item -ItemType Directory -Force -Path build/Release/web
-        Copy-Item -Path web/* -Destination build/Release/web -Recurse -Force
+        Copy-Item -Path code/web/* -Destination build/Release/web -Recurse -Force
 
         # 复制示例数据文件
         New-Item -ItemType Directory -Force -Path build/Release/examples
-        Copy-Item -Path examples/*.csv -Destination build/Release/examples -Force
+        Copy-Item -Path code/examples/*.csv -Destination build/Release/examples -Force
 
         # 创建发布目录
         New-Item -ItemType Directory -Force -Path release
@@ -118,8 +119,9 @@ jobs:
         brew install eigen gsl ninja
 
     - name: Configure CMake
+      # 2026-10-13 目录整理：CMake 工程位于 code/，构建目录仍在仓库根
       run: |
-        cmake -B build \
+        cmake -S code -B build \
           -DCMAKE_PREFIX_PATH="$Qt6_DIR" \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_CXX_STANDARD=17 \
@@ -151,13 +153,13 @@ jobs:
 
         echo "✅ Found app at: $APP_PATH"
 
-        # 先复制 web 资源（在 macdeployqt 之前）
+        # 先复制 web 资源（在 macdeployqt 之前；源码侧在 code/web）
         mkdir -p "$APP_PATH/Contents/Resources/web"
-        cp -R web/* "$APP_PATH/Contents/Resources/web/"
+        cp -R code/web/* "$APP_PATH/Contents/Resources/web/"
 
         # 复制示例数据文件
         mkdir -p "$APP_PATH/Contents/Resources/examples"
-        cp examples/*.csv "$APP_PATH/Contents/Resources/examples/"
+        cp code/examples/*.csv "$APP_PATH/Contents/Resources/examples/"
 
         # 使用 macdeployqt 收集依赖
         $Qt6_DIR/bin/macdeployqt "$APP_PATH" -no-strip

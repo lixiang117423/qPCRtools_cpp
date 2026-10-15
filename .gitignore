@@ -1,8 +1,20 @@
 # Build directories
 build/
 build-tests/
+build-*/
 cmake-build-*/
 out/
+
+# Local tool state (not part of the project)
+.claude/
+
+# 归档里的旧 Word 稿件：只在本地归档保留（合计约 3 MB 二进制，不入库）
+archive/*.docx
+
+# 内部/未投稿材料：软著申请材料、导师审稿意见、送审用 PDF 副本
+软件著作权申请资料/
+manuscript/*审稿意见*.docx
+manuscript/qPCRtools GUI manuscript.pdf
 
 # IDE specific
 .vscode/
@@ -60,14 +72,13 @@ desktop.ini
 
 # Test results
 Testing/
-tests/build/
 
 # Translation binaries
 *.qm
-translations/*.qm
 
 # Logs
 *.log
+*.blg
 
 # Temporary files
 *.tmp
@@ -75,4 +86,4 @@ translations/*.qm
 *.backup
 
 # Node.js (jsdom smoke test for app.js)
-tests/js/node_modules/
+node_modules/
