@@ -202,6 +202,17 @@ public:
     Q_INVOKABLE QString showSaveDialog(const QString &title, const QString &filter, const QString &defaultName = "");
 
     /**
+     * @brief 把纯文本保存到文件（用于导出"分析记录"）
+     *
+     * 与 exportToCSV / exportToExcel 一样走前端选定的路径；写入失败时发出 errorOccurred。
+     *
+     * @param text 文本内容（UTF-8 写出）
+     * @param filePath 目标文件绝对路径（由 showSaveDialog 返回）
+     * @return 是否写入成功
+     */
+    Q_INVOKABLE bool saveTextFile(const QString &text, const QString &filePath);
+
+    /**
      * @brief 显示消息提示
      * @param title 标题
      * @param message 消息内容

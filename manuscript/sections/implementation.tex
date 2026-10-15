@@ -52,7 +52,13 @@ geometric mean of one or more reference genes \cite{pfaffl2001new}.
 
 \subsection{Statistical analysis}
 
-For each target gene the application compares groups statistically. The core
+For each target gene the application compares groups statistically. Group
+comparisons are performed on the linear relative-expression scale---the scale
+on which the values are reported and plotted, and the one used by the R
+implementation---rather than on $\Delta C_t$; the choice is stated here
+explicitly because the two scales give different $p$-values for the same data,
+and a single scale is therefore applied throughout the application and the
+validation. The core
 library implements two-sample $t$-tests with and without the Welch
 variance correction, the paired $t$-test, the Wilcoxon rank-sum and
 signed-rank tests, and one-way ANOVA followed by Tukey's HSD post-hoc letter
@@ -64,7 +70,11 @@ which provided $t$-test and ANOVA/Tukey testing only. The graphical interface
 currently exposes the Welch two-sample $t$-test, the Wilcoxon rank-sum test
 and one-way ANOVA with Tukey's HSD; the paired $t$-test and the Wilcoxon
 signed-rank test are exercised by the test suite but are not yet offered as
-interface options.
+interface options. For multi-group designs, Tukey's HSD controls the
+family-wise error rate across the pairwise comparisons of a gene; the reported
+$p$-values are per gene and are not additionally corrected across the many
+genes analysed in one run, which is stated as a limitation rather than left
+implicit.
 
 \subsection{Software engineering and scope}
 
@@ -75,7 +85,11 @@ figures: the ECharts-based figure view is present in the code base but
 disabled, and the figures of this paper were therefore produced from the
 application's numerical output by the plotting script shipped in the
 repository (\texttt{validation/plot\_examples.py}), not by the graphical
-interface. \textit{qPCRtools} is managed with CMake and ships with a
+interface. Each analysis can also be exported as a plain-text \emph{analysis
+record} that lists the input files and their row counts, the reference
+gene(s), the control group, the statistical test, the outlier-removal setting,
+the software version and a timestamp, so that a reader can re-run the same
+analysis without inspecting the session. \textit{qPCRtools} is managed with CMake and ships with a
 unit-test suite; the interface
 is bilingual (Chinese/English) and reads CSV input as well as Excel
 (\texttt{.xlsx}) workbooks when built against the optional OpenXLSX

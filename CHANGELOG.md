@@ -1,5 +1,47 @@
 # CHANGELOG
 
+## 2026-10-15 15:18 — 新功能：分析记录导出（.txt）；稿件补上检验尺度与多重比较口径
+
+导师意见「二」第 1 条把"让不会编程的人也能正确完成整个分析、并且把分析过程完整保存下来（可核查、可重跑）"
+列为最值得写的贡献。本轮把这件事实做出来（原来只有结果表导出，没有任何参数留痕），再把稿件的相应表述补上。
+
+### 1. 新功能：分析记录导出（GUI）
+
+- **C++**：`WebBridge::saveTextFile(text, filePath)`（新增，`include/GUI/WebBridge.h` + `src/GUI/WebBridge.cpp`），
+  UTF-8 写出，路径为空或写不出时发 `errorOccurred`；与既有 `exportToCSV/Excel` 走同一套 `showSaveDialog` 流程。
+- **前端**（`web/js/app.js`）：
+  - 载入 Cq / design / concentration 文件时记下**文件名**（`currentCqFileName` 等）；
+  - 每次分析成功后 `captureAnalysisParameters()` 冻结本次**真实用过**的参数（方法、内参、对照组、检验方法、
+    离群值开关、标曲的 lowest/highest/dilution/byMean）与**输入规模**（行×列）、输出规模（summary/raw/statistics 行数）；
+  - 纯函数 `buildAnalysisRecord(snapshot, appVersion, timestamp)` 生成可核查的文本记录；
+  - `exportAnalysisRecord()` 通过 `bridge.getAppVersion()` 取真实版本号，默认文件名 `analysis_record_YYYYMMDD.txt`；
+    无 bridge（浏览器演示模式）时走 `downloadFile`。
+- **界面**：结果页摘要表表头新增 `Analysis record` 按钮（`web/index.html`），i18n 键 `btn.analysisRecord`（中英）。
+- **测试**：`code/tests/js/smoke.test.js` 扩充——把三个新函数纳入"必须存在"清单，并对
+  `buildAnalysisRecord` 做 11 项内容断言（版本号、时间戳、方法、内参、对照组、检验、输入文件名与行×列、
+  输出计数、不得出现 undefined/NaN）、空快照返回空串、标曲口径只列标曲参数。**SMOKE PASS**（37 个函数全在）。
+- **验证边界（如实说明）**：C++ `saveTextFile` 只做了编译验证（GUI 类依赖 QtWebEngine，未纳入单测）；
+  GUI 里点按钮 → 原生保存对话框 → 落盘这一段**本轮未端到端实跑**，建议下次用 Computer Use 跑一遍取证。
+
+### 2. 稿件补上统计口径（导师「二」第 4 条）
+
+- `sections/implementation.tex` 统计段明确写出：**组间比较在"线性相对表达量尺度"上做**（与结果展示、R 版一致），
+  不使用 ΔCt 尺度，并说明"因为两种尺度给出不同 p 值，所以整个软件与验证只用一个尺度"。
+- 同一段写明多重比较口径：多组设计用 **Tukey HSD 控制该基因两两比较的族错误率**；**跨基因 multiplicity
+  未额外校正**（p 值按基因给出），并把这一点作为**局限明写**而不是留在暗处。
+- `sections/abstract.tex`：删掉"commercial alternatives are costly, closed-source, and platform-restricted"
+  这类不准确表述（与引言同步），改为"仪器自带软件 / 免费独立程序 / 网页工具各自只覆盖一步，或绑定平台、或需上传数据"；
+  并把"分析记录导出"写进贡献句。
+
+### 3. 验证与产物
+
+- C++ 测试 **52/52**；GUI（`qPCRtools.app`）重新构建通过（`WebBridge.cpp.o` 与二进制时间戳已更新）；
+  jsdom 冒烟 **SMOKE PASS**。
+- 稿件沙箱编译（tectonic）exit 0、12 页；正文合计 **2,113 词**（摘要 271 + 引言 565 + 实现 736 + 结果 449 + 可用性 92），
+  另 3 图 2 表。**注意**：篇幅与展示项上限仍未核实（官网 Cloudflare）；按导师"约 2000 词"的口径已略超，
+  摘要 271 词也可能超刊限——待拿到官方要求后再统一裁剪（优先把 Figure 3 / Table 2 移入补充材料）。
+- 成品：`manuscript/main_v4_20261015.pdf`（v2/v3 保留不删，命名规则改为每轮一个新版本号）。
+
 ## 2026-10-15 15:09 — 引言竞品描述改正 + 工具功能对比表（Table 1）；成品 PDF 改版本号命名
 
 按导师意见「二」的第 2 条（引言对现有工具的描述不准确）与第 1 条（要一张功能对比表）改稿；

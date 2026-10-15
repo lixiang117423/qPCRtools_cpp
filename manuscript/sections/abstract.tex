@@ -7,8 +7,10 @@ statistical comparison of groups, and figure preparation. The established
 tools for this chain are predominantly programming-based---including our own
 R package \textit{qPCRtools}---and therefore remain out of reach for part of
 the laboratory community, notably students and wet-lab researchers without
-programming experience, whereas commercial alternatives are costly,
-closed-source, and platform-restricted. Here we present \textit{qPCRtools}, a
+programming experience; instrument-vendor packages and free stand-alone or
+web-based tools cover individual steps, but tie the analysis to one
+instrument platform, to one step, or to uploading the data to a remote
+server. Here we present \textit{qPCRtools}, a
 cross-platform desktop application written in C++17 with Qt6 that exposes the
 analytical core of the R package through a point-and-click interface and
 ships as a single executable requiring no R, Python, or other runtime
@@ -16,11 +18,14 @@ environment. The application implements standard-curve construction and
 amplification-efficiency estimation, the $\Delta C_t$, $\Delta\Delta C_t$ and
 efficiency-based (RqPCR) relative quantification methods, group comparison by
 two-sample $t$-test, Wilcoxon rank-sum test, or one-way ANOVA with Tukey's HSD
-letter grouping, and one-click export of both the summary table and the
-per-replicate raw data. We validated the C++ implementation against
+letter grouping, and one-click export of the summary table, the per-replicate
+raw data and a plain-text analysis record of the inputs and parameters used.
+We validated the C++ implementation against
 the R package on identical inputs: across every shared quantification method
 the compared quantities agree to floating-point precision, and the validation
-is reproducible from the open scripts shipped with the software.
+is reproducible from the open scripts shipped with the software. Preparing
+the port also revealed and corrected several defects in result aggregation,
+each covered by a regression test.
 \textit{qPCRtools} is freely available under the MIT license for Windows and
 macOS, and its source code compiles on Linux.
 \end{abstract}

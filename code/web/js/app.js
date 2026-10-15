@@ -9,6 +9,11 @@ let currentCqData = null;
 let currentDesignData = null;
 let currentConcenData = null;  // Concentration data for Standard Curve
 let analysisResults = null;
+// 输入文件名与分析参数快照：用于导出"分析记录"（可核查、可重跑）
+let currentCqFileName = '';
+let currentDesignFileName = '';
+let currentConcenFileName = '';
+let lastAnalysisParameters = null;
 let mainChart = null;
 
 // Standard Curve specific data
@@ -428,6 +433,7 @@ function setupImportPage() {
         }
         console.log('=== Loading Cq file ===');
         console.log('File name:', file.name);
+        currentCqFileName = file.name;
         console.log('File size:', file.size);
         console.log('File type:', file.type);
 
@@ -540,6 +546,7 @@ function setupImportPage() {
         console.log('=== Loading Design file ===');
         console.log('File name:', file.name);
         console.log('File size:', file.size);
+        currentDesignFileName = file.name;
         console.log('File type:', file.type);
 
         if (bridge) {
@@ -653,6 +660,7 @@ function setupImportPage() {
         console.log('File name:', file.name);
         console.log('File size:', file.size);
         console.log('File type:', file.type);
+        currentConcenFileName = file.name;
 
         if (bridge) {
             // Read file content and send to C++
@@ -1156,6 +1164,19 @@ async function runAnalysis() {
 
             analysisResults = JSON.parse(result);
 
+            // 冻结本次分析的真实参数，供导出"分析记录"（导师 2026-10-14：分析过程要可核查）
+            captureAnalysisParameters({
+                method: method,
+                referenceGene: referenceGene,
+                controlGroup: controlGroup,
+                statisticalTest: statisticalTest,
+                removeOutliers: removeOutliers,
+                lowestConcen: lowestConcen,
+                highestConcen: highestConcen,
+                dilution: dilution,
+                byMean: byMean
+            });
+
             // Navigate to results page first
             navigateToPage('results');
 
@@ -1170,6 +1191,17 @@ async function runAnalysis() {
     } else {
         // Demo mode: generate mock results
         analysisResults = generateMockResults();
+        captureAnalysisParameters({
+            method: method,
+            referenceGene: referenceGene,
+            controlGroup: controlGroup,
+            statisticalTest: statisticalTest,
+            removeOutliers: removeOutliers,
+            lowestConcen: lowestConcen,
+            highestConcen: highestConcen,
+            dilution: dilution,
+            byMean: byMean
+        });
 
         // Navigate to results page first
         navigateToPage('results');
@@ -1448,10 +1480,169 @@ function setupResultsPage() {
         exportResults('excel', 'raw');
     });
 
+    // 分析记录导出（输入、参数、输出规模一览；导师 2026-10-14 意见：让分析过程可核查、可重跑）
+    const recordBtn = document.getElementById('exportAnalysisRecord');
+    if (recordBtn) {
+        recordBtn.addEventListener('click', function() {
+            exportAnalysisRecord();
+        });
+    }
+
     // Chart export feature temporarily disabled
     // document.getElementById('exportChart').addEventListener('click', function() {
     //     exportChart();
     // });
+}
+
+/**
+ * 冻结本次分析的输入与参数到 lastAnalysisParameters（导出"分析记录"用）
+ *
+ * @param {Object} ctx 本次运行的界面参数（method/referenceGene/controlGroup/...）
+ */
+function captureAnalysisParameters(ctx) {
+    const columnCount = function (data) {
+        if (!data || data.length === 0) {
+            return 0;
+        }
+        if (Array.isArray(data.columns)) {
+            return data.columns.length;
+        }
+        return data[0] ? Object.keys(data[0]).length : 0;
+    };
+
+    lastAnalysisParameters = {
+        method: ctx.method,
+        methodLabel: i18n.t('method.' + ctx.method),
+        referenceGene: ctx.referenceGene,
+        controlGroup: ctx.controlGroup,
+        statisticalTest: ctx.statisticalTest,
+        removeOutliers: ctx.removeOutliers,
+        lowestConcen: ctx.lowestConcen,
+        highestConcen: ctx.highestConcen,
+        dilution: ctx.dilution,
+        byMean: ctx.byMean,
+        cqFileName: currentCqFileName,
+        cqRows: currentCqData ? currentCqData.length : 0,
+        cqColumns: columnCount(currentCqData),
+        designFileName: currentDesignFileName,
+        designRows: currentDesignData ? currentDesignData.length : 0,
+        designColumns: columnCount(currentDesignData),
+        concenFileName: currentConcenFileName,
+        concenRows: currentConcenData ? currentConcenData.length : 0,
+        summaryRows: (analysisResults && analysisResults.table) ? analysisResults.table.length : 0,
+        rawRows: (analysisResults && analysisResults.rawData) ? analysisResults.rawData.length : 0,
+        statisticCount: (analysisResults && Array.isArray(analysisResults.statistics))
+            ? analysisResults.statistics.length : 0
+    };
+}
+
+/**
+ * 构建"分析记录"文本（纯函数，便于 jsdom 单元测试）
+ *
+ * 记录一次分析实际用到的输入、参数与输出规模，使分析过程可核查、可重跑。
+ *
+ * @param {Object} snapshot 最近一次成功分析的参数与输入信息快照
+ * @param {string} appVersion 软件版本（来自 C++ 端 getAppVersion）
+ * @param {string} timestamp 生成本记录的时间字符串
+ * @returns {string} 记录文本；snapshot 为空时返回空串
+ */
+function buildAnalysisRecord(snapshot, appVersion, timestamp) {
+    if (!snapshot) {
+        return '';
+    }
+
+    const lines = [];
+    const field = function (label, value) {
+        const shown = (value === undefined || value === null || value === '') ? '-' : value;
+        lines.push(label.padEnd(24, ' ') + ': ' + shown);
+    };
+
+    lines.push('qPCRtools analysis record');
+    lines.push('=========================');
+    lines.push('');
+    lines.push('[Run]');
+    field('Generated at', timestamp);
+    field('Software version', appVersion);
+    field('Method', snapshot.methodLabel || snapshot.method);
+    lines.push('');
+    lines.push('[Inputs]');
+    field('Cq file', snapshot.cqFileName);
+    field('Cq rows x columns', snapshot.cqRows + ' x ' + snapshot.cqColumns);
+    if (snapshot.method === 'standardCurve') {
+        field('Concentration file', snapshot.concenFileName);
+        field('Concentration rows', snapshot.concenRows);
+    } else {
+        field('Design file', snapshot.designFileName);
+        field('Design rows x columns', snapshot.designRows + ' x ' + snapshot.designColumns);
+    }
+    lines.push('');
+    lines.push('[Parameters]');
+    if (snapshot.method === 'standardCurve') {
+        field('Lowest concentration', snapshot.lowestConcen);
+        field('Highest concentration', snapshot.highestConcen);
+        field('Dilution factor', snapshot.dilution);
+        field('Average technical reps', snapshot.byMean ? 'yes' : 'no');
+    } else {
+        field('Reference gene(s)', snapshot.referenceGene);
+        field('Control group', snapshot.controlGroup);
+        field('Statistical test', snapshot.statisticalTest);
+        field('Remove outliers (IQR)', snapshot.removeOutliers ? 'yes' : 'no');
+    }
+    lines.push('');
+    lines.push('[Output]');
+    field('Summary rows', snapshot.summaryRows);
+    field('Raw rows', snapshot.rawRows);
+    field('Statistical results', snapshot.statisticCount);
+    lines.push('');
+    lines.push('[Notes]');
+    lines.push('- Group comparisons are performed on the linear relative-expression scale');
+    lines.push('  (Welch t-test, Wilcoxon rank-sum, or one-way ANOVA with Tukey HSD),');
+    lines.push('  matching the R implementation.');
+    lines.push('- Re-running the same input files with the parameters listed above');
+    lines.push('  reproduces this analysis.');
+    lines.push('');
+    return lines.join('\n');
+}
+
+/**
+ * 导出"分析记录"（.txt）：把最近一次成功分析的输入与参数写盘
+ */
+async function exportAnalysisRecord() {
+    if (!lastAnalysisParameters) {
+        showNotification(i18n.t('msg.noData'), 'warning');
+        return;
+    }
+
+    const now = new Date();
+    const stamp = now.toISOString().slice(0, 19).replace('T', ' ');
+    const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
+    let version = 'unknown';
+    if (bridge && bridge.getAppVersion) {
+        try {
+            version = await bridge.getAppVersion();
+        } catch (e) {
+            version = 'unknown';
+        }
+    }
+
+    const text = buildAnalysisRecord(lastAnalysisParameters, version, stamp);
+    if (!text) {
+        showNotification(i18n.t('msg.noData'), 'warning');
+        return;
+    }
+
+    const defaultName = 'analysis_record_' + datePart;
+    if (bridge) {
+        bridge.showSaveDialog(i18n.t('btn.analysisRecord'), '*.txt', defaultName).then(filePath => {
+            if (filePath) {
+                bridge.saveTextFile(text, filePath);
+                showNotification(i18n.t('msg.analysisCompleted'), 'success');
+            }
+        });
+    } else {
+        downloadFile(text, defaultName + '.txt', 'text/plain');
+        showNotification(i18n.t('msg.analysisCompleted'), 'success');
+    }
 }
 
 /**

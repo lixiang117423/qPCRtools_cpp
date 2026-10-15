@@ -47,6 +47,7 @@ const translations = {
         'btn.proceedToAnalysis': '进入分析',
         'btn.runAnalysis': '运行分析',
         'btn.export': '导出',
+        'btn.analysisRecord': '分析记录',
         'btn.close': '关闭',
         'btn.download': '下载',
 
@@ -181,6 +182,7 @@ const translations = {
         'btn.proceedToAnalysis': 'Proceed to Analysis',
         'btn.runAnalysis': 'Run Analysis',
         'btn.export': 'Export',
+        'btn.analysisRecord': 'Analysis record',
         'btn.close': 'Close',
         'btn.download': 'Download',
 

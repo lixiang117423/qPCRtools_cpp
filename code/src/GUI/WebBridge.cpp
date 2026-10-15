@@ -663,6 +663,31 @@ bool WebBridge::writeTableToCSV(const QJsonArray &table, const QString &filePath
     return true;
 }
 
+bool WebBridge::saveTextFile(const QString &text, const QString &filePath)
+{
+    if (filePath.trimmed().isEmpty()) {
+        emit errorOccurred(tr("No file path provided for the analysis record"));
+        return false;
+    }
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        emit errorOccurred(tr("Cannot write analysis record to %1").arg(filePath));
+        return false;
+    }
+
+    QTextStream out(&file);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    out.setEncoding(QStringConverter::Utf8);
+#endif
+    out << text;
+    out.flush();
+    file.close();
+
+    emit progressChanged(100, tr("Analysis record saved"));
+    return true;
+}
+
 bool WebBridge::exportToCSV(const QString &data, const QString &filePath)
 {
     emit progressChanged(10, tr("Exporting to CSV..."));

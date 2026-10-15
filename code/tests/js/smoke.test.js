@@ -60,6 +60,7 @@ const EXPECTED_FNS = [
   'displayScCqPreview', 'displayScConcenPreview', 'generateMockStandardCurveResults',
   'navigateToPage', 'displayResults', 'displayCharts', 'parseCSV', 'convertToCSV', 'downloadFile',
   'exportResults', 'exportChart',
+  'buildAnalysisRecord', 'exportAnalysisRecord', 'captureAnalysisParameters',
   'downloadCqTemplate', 'downloadDesignTemplate', 'downloadExampleDataFiles',
   'downloadDesignWithEffTemplate', 'downloadDesignWithSlopeTemplate', 'downloadStandardCurveExpExample',
 ];
@@ -83,6 +84,57 @@ setTimeout(() => {
     errorMessages.forEach(m => console.log('   -', m));
   } else {
     console.log('✓ No uncaught errors (i18n + app.js loaded, initializeUI ran clean)');
+  }
+
+  // 分析记录导出：buildAnalysisRecord() 必须是纯函数且只记录传入的真实值
+  const recordSnapshot = {
+    method: 'deltaDeltaCt', methodLabel: 'ΔΔCt Method',
+    referenceGene: 'Beta Actin', controlGroup: '0',
+    statisticalTest: 't.test', removeOutliers: false,
+    cqFileName: 'cq.csv', cqRows: 96, cqColumns: 4,
+    designFileName: 'design.csv', designRows: 96, designColumns: 5,
+    summaryRows: 3, rawRows: 9, statisticCount: 2,
+  };
+  const record = w.buildAnalysisRecord(recordSnapshot, '1.1.0', '2026-10-15 15:20');
+  const recordChecks = [
+    ['header', record.includes('qPCRtools analysis record')],
+    ['version', record.includes('1.1.0')],
+    ['timestamp', record.includes('2026-10-15 15:20')],
+    ['method', record.includes('ΔΔCt Method')],
+    ['reference gene', record.includes('Beta Actin')],
+    ['control group', record.includes('0')],
+    ['statistical test', record.includes('t.test')],
+    ['input file names', record.includes('cq.csv') && record.includes('design.csv')],
+    ['input shape', record.includes('96 x 4') && record.includes('96 x 5')],
+    ['output counts', record.includes('Summary rows') && record.includes('Statistical results')],
+    ['no undefined/NaN leakage', !/undefined|NaN/.test(record)],
+  ];
+  const recordFailures = recordChecks.filter(c => !c[1]).map(c => c[0]);
+  if (recordFailures.length) {
+    ok = false;
+    console.log('✗ Analysis record content missing/invalid:', recordFailures.join(', '));
+  } else {
+    console.log(`✓ Analysis record contains all ${recordChecks.length} expected fields`);
+  }
+
+  if (w.buildAnalysisRecord(null, '1.1.0', 'x') !== '') {
+    ok = false;
+    console.log('✗ buildAnalysisRecord(null) must return an empty string');
+  }
+
+  const scRecord = w.buildAnalysisRecord({
+    method: 'standardCurve', methodLabel: 'Standard Curve',
+    lowestConcen: 4, highestConcen: 4096, dilution: 4, byMean: true,
+    cqFileName: 'calsc.cq.txt', cqRows: 24, cqColumns: 2,
+    concenFileName: 'calsc.info.txt', concenRows: 24,
+    summaryRows: 4, rawRows: 0, statisticCount: 0,
+  }, '1.1.0', 't');
+  if (!scRecord.includes('Dilution factor') || !scRecord.includes('Lowest concentration')
+      || scRecord.includes('Reference gene(s)')) {
+    ok = false;
+    console.log('✗ Standard-curve record must list dilution/concentration parameters only');
+  } else {
+    console.log('✓ Standard-curve analysis record lists the standard-curve parameters only');
   }
 
   console.log(ok ? '\nSMOKE PASS' : '\nSMOKE FAIL');
