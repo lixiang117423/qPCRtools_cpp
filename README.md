@@ -16,9 +16,12 @@ No installation required! Just download and run.
 - **Modern Web-based Interface**
   - Built with Qt6 QWebEngineView
   - Responsive design using Bootstrap 5.3
-  - Interactive charts powered by ECharts
+  - In-app figures powered by ECharts (group means with SD error bars and
+    significance labels; fitted standard curves), exportable as PNG
   - Bilingual support (Chinese/English)
-  - Clean, modern UI inspired by ggplot2 aesthetics
+  - Quality-control warnings (high Cq, technical-replicate scatter,
+    efficiency outside 90-110%) and one-click export of a plain-text
+    analysis record (inputs, parameters, software version, timestamp)
 
 - **Multiple Analysis Methods**
   - Standard Curve Calculation
@@ -27,22 +30,24 @@ No installation required! Just download and run.
 
 - **Data Import**
   - CSV/TXT file support
-  - Excel (.xlsx) file support (planned)
+  - Excel (.xlsx) input when built with the optional OpenXLSX component
+    (not enabled in the released binaries, which read CSV/TXT)
   - Interactive data preview
   - Example data for quick start
 
 - **Statistical Analysis**
-  - t-test (independent and paired)
-  - Wilcoxon test (rank-sum and signed-rank)
-  - ANOVA with Tukey's HSD
-  - Outlier detection (IQR method)
+  - Welch t-test (exposed in the interface); Student and paired t-tests are
+    implemented and tested in the core library
+  - Wilcoxon rank-sum test in the interface (small-sample exact p-values);
+    the signed-rank test is implemented and tested in the core library
+  - ANOVA with Tukey's HSD letter grouping
+  - Outlier detection (IQR method) and Cohen's d effect sizes
 
 - **Visualization**
-  - ggplot2-style charts
-  - Standard curve plots
-  - Box plots
-  - Bar plots with error bars
-  - Significance labels
+  - Bar chart of group means with SD error bars and significance labels
+  - Standard-curve scatter with the fitted regression line (log_dilution
+    abscissa) and hollow markers for wells outside the calibrated range
+  - PNG export of either figure
   - Multiple color palettes
 
 - **Multi-language Support**
@@ -79,15 +84,18 @@ Try qPCRtools with built-in example data:
 
 3. **Run Analysis**
    - Click "Run Analysis" button
-   - View results in multiple tabs:
-     - Data Table: Expression values
-     - Charts: ggplot2-style visualizations
-     - Statistics: Test results with p-values
+   - View the results page:
+     - Quality-control warnings (if any wells/samples/primer efficiencies
+       fall outside the default thresholds)
+     - Summary table: group means, SD/SE, p-values and Tukey letters
+     - Figure: group means with SD error bars and significance labels
+     - Raw table: per-biological-replicate values
 
 4. **Export Results**
-   - Export charts as images
-   - Export data tables
-   - Export statistical results
+   - Export the summary or raw table as CSV/Excel
+   - Export the figure as PNG
+   - Export an analysis record (.txt) listing the input files, parameters,
+     software version and timestamp
 
 ## Project Structure
 

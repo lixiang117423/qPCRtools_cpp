@@ -85,8 +85,9 @@ repeated in the analysis record, while no data are removed automatically.
 MIQE requires these quantities to be reported rather than to satisfy fixed
 cut-offs \cite{bustin2009miqe}, so the defaults are meant to be adapted to
 the instrument and assay. \textit{qPCRtools} is managed with CMake and ships
-with unit tests; the interface is bilingual and reads CSV and Excel
-(\texttt{.xlsx}) input. It is distributed as a single self-contained
+with unit tests; the interface is bilingual and reads CSV/TXT input, and Excel
+(\texttt{.xlsx}) workbooks when built with the optional OpenXLSX component
+(the released binaries read CSV/TXT). It is distributed as a single self-contained
 executable for Windows and macOS---requiring no R, Python or runtime
 installation---and the source compiles on Linux under the MIT license. Two R
 functions are not yet ported---the standard-curve

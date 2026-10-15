@@ -16,7 +16,10 @@
 
 | 官方要求 | 本稿设置 | 状态 |
 | --- | --- | --- |
-| ≤ 4 页；≈2,600 词，或 **2,000 词 + 1 图** | 按更严的"2,000 词 + 1 图"档执行：正文 **1,777 词**（摘要 231 + 引言 465 + 实现 595 + 结果 336 + 可用性 150），主文只留 **1 图 + 1 表** | ✅ 已满足（表格不计入"1 图"，若编辑要求只留 1 个展示项，把 Table 1 移补充材料即可，5 分钟可改）|
+| ≤ 4 页；≈2,600 词，或 **2,000 词 + 1 图** | 按更严的"2,000 词 + 1 图"档执行：正文 **1,856 词**（含四段式摘要），主文只留 **1 图 + 1 表** | ✅ 已满足（表格不计入"1 图"，若编辑要求只留 1 个展示项，把 Table 1 移补充材料即可，5 分钟可改）|
+| 摘要按 Summary / Availability and Implementation / Contact / Supplementary Information 分段 | 已改为四段式（2026-10-15） | ✅ |
+| 使用 AI 编程工具需如实说明 | backmatter 新增 `Use of AI-assisted tools`（OpenAI Codex 用于重构、生成单测与语言审校；结论由作者核验） | ✅ 已加，**请确认措辞** |
+| 图 1 建议换成分析结果页截图 | 现仍为英文界面**首页**截图；结果页截图（含图表 + 质控提示 + 导出按钮）需要实机重截 | ⏳ 待做（下一步用 Computer Use 跑一次）|
 | 软件/数据对非商业用户免费可用 | MIT license，GitHub 公开仓库 + Windows/macOS 预编译二进制 | ✅ |
 | Availability and Implementation 必须在正文写明 | 专设一节 `\section{Availability and implementation}`，写明实现方式（C++17/Qt6、CMake、可选依赖）与获取方式（仓库地址、二进制、无需注册） | ✅ |
 | 软件须在发表后至少两年可用 | 该节明确写"We will keep the software and its source code available for at least two years after publication" | ✅（建议另做 Zenodo DOI 存档，见待办）|

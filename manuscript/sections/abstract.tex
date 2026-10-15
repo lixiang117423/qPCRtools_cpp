@@ -1,4 +1,5 @@
 \begin{abstract}
+\textbf{Summary:}
 Quantitative real-time PCR (qPCR) is a standard technique for measuring gene
 expression, yet turning instrument-exported $C_q$ values into
 publication-ready results requires several non-trivial steps: estimating
@@ -20,7 +21,21 @@ in-interface figures, and a plain-text record of the inputs and parameters of
 each analysis. On identical inputs the C++ implementation agrees with the R
 package to floating-point precision for every shared method; preparing the
 port also revealed and corrected several defects in result aggregation, each
-covered by a regression test. Supplementary figures and tables give the full
-analysis output and the equivalence comparison, and the availability and
-implementation statement appears at the end of the article.
+covered by a regression test.
+
+\textbf{Availability and Implementation:}
+\textit{qPCRtools} is written in C++17 with Qt6 and built with CMake; the core
+algorithm library requires only Qt~Core and optionally links Eigen3, GSL and
+OpenXLSX. Version~1.2.0 is distributed as a single self-contained executable
+for Windows and macOS under the MIT license at
+\url{https://github.com/lixiang117423/qPCRtools_cpp}, with pre-built binaries
+in the repository releases; no registration is required, and the source
+compiles on Linux. The software and its source will remain available for at
+least two years.
+
+\textbf{Contact:} \texttt{lixiang117423@gmail.com}
+
+\textbf{Supplementary Information:} Supplementary Figures~S1--S2 give the full
+analysis output and the equivalence comparison, and Supplementary Table~S1
+summarises the equivalence across all shared methods.
 \end{abstract}
