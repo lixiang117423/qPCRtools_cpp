@@ -63,14 +63,9 @@ BODY = [
     "register, and we will keep the software available for at least two years after publication.",
     "The manuscript is original, is not under consideration elsewhere, and its relationship to "
     "our 2022 R-package paper \u2014 the same algorithms, a new delivery mode \u2014 is stated "
-    "explicitly in the text. Both authors have approved the submission and declare no competing "
-    "interests. In line with the journal's policy on AI-assisted tools, the manuscript includes "
-    "a disclosure of how AI coding assistants were used.",
-    "[Associate Editor nomination \u2014 fill in only if the submission system asks for it. "
-    "\u5efa\u8bae\u4ece\u201c\u751f\u7269\u4fe1\u606f\u5b66\u8f6f\u4ef6/\u5de5\u5177\u201d"
-    "\u6216\u201cqPCR / MIQE \u65b9\u6cd5\u5b66\u201d\u65b9\u5411\u7684\u7f16\u59d4\u91cc"
-    "\u63d0\u540d\u4e00\u4f4d\uff0c\u5e76\u786e\u8ba4\u4e0e\u8be5\u5de5\u4f5c\u65e0"
-    "\u5229\u76ca\u51b2\u7a81\u3002]",
+    "explicitly in the text. The authors declare no competing interests. In line with the "
+    "journal's policy on AI-assisted tools, the manuscript includes a disclosure of how AI "
+    "coding assistants were used.",
     "Yours sincerely,",
 ]
 

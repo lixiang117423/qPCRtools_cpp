@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## 2026-10-19 13:33 — 发导师前的最后自检：补 Word 版、修补充材料图注双编号、清 cover letter 占位
+
+- **补充 Word 版（此前缺失）**：新增 `code/scripts/15_make_manuscript_docx.py`，一条命令生成
+  `manuscript/main_v10_20261015.docx`（11 页）与 `manuscript/supplementary_v3_20261019.docx`（4 页）。
+  排版：A4、Arial 11 pt、1.5 倍行距、两端对齐；表格改三线表；图片按原比例缩到 15 cm 并居中
+  （实测左右各 85.1 pt，长宽比 1.473 / 2.353 / 1.000，与源图一致，未被拉伸）。
+- **pandoc 转 Word 的两个坑（已处理）**：① LaTeX 的 `\caption` 被转成图片 alt 文本，Word 里图注没有
+  "Figure 1./Table 1." 编号——脚本改为在 Image Caption / Table Caption 段落前补编号；
+  ② 补充材料两张图是 PDF，Word 无法显示（转出的 PDF 里一张图都没有）——脚本先用 pdftoppm 转 400 dpi PNG 再嵌入。
+- **补充材料图注双编号**：`supplementary.tex` 原来靠 LaTeX 自动编号 + 图注手写 "Figure S1."，排出来是
+  "Figure 1: Figure S1."。改为 `\renewcommand{\thefigure}{S\arabic{figure}}` 与 `\thetable`，
+  图注去掉手写前缀；同时把 supplementary 的页面从 Letter 统一为 A4。
+  **说明**：本机 Tectonic 的 TeX 包缓存不完整（重新下载时在 `hyph-uk.tex` 写入缓存失败），
+  `supplementary_v3_20261019.pdf` 暂由同源 docx 经 LibreOffice 渲染（4 页 A4，内容与编号正确，
+  字体/行距与主文 LaTeX 版略有差异）；`supplementary.tex` 已改好，TeX 缓存补齐后重编即为 LaTeX 版。
+- **cover letter 两处必须改**：删除 `[[Associate Editor nomination …]]` 占位段（交付件不得带占位符）；
+  删去 "Both authors have approved the submission"——黄老师尚未审阅，不能先写这句。
+  同步更新 `cover_letter_20261015.md` 与生成脚本 `code/scripts/14_make_cover_letter.py`，重出 docx + pdf（1 页 A4）。
+- **自检结论**：主文 PDF 7 页（A4，图在第 3 页、居中、236 ppi）；正文 1,805 词 + 摘要约 230 词；
+  三份 docx 转 PDF 后均无占位符、无 Markdown 残留、图表编号连续；`citation` 绿框问题仍由 `hyperref[hidelinks]` 控制。
+- **仍需用户/黄老师确认（不影响先发审阅稿）**：基金声明是否沿用（2021YFD1000200、31801792、31960554、霍英东基金）；
+  Associate Editor 人选（投稿系统内填）；是否换成 OUP 官方 Application Note `.cls`（现在用 article 骨架）。
+
 ## 2026-10-15 18:47 — 投稿包：cover letter（Word 版）+ 按官方要求逐条复核
 
 - **Cover letter**：新增 `manuscript/cover_letter_20261015.{md,docx,pdf}`（Word 版为投稿材料硬要求，A4 一页，Arial 10.5 pt 两端对齐）；生成脚本 `code/scripts/14_make_cover_letter.py`（内容改动后一条命令重出）。内容含：为何适合 Application Note、验证方式（与 R 包数值等价 + 统计层对零依赖 base R 参照）、公开获取方式（MIT、GitHub、v1.2.0 release 含安装包、无需注册、两年可用）、作者声明（**两位作者均已确认**，修正旧草稿里"single author"的错误）、AI 使用披露、AI 辅助工具说明；Associate Editor 提名处留占位。

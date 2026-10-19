@@ -16,9 +16,7 @@ The central claim of the Application Note is validated equivalence. On identical
 
 All source code, example data, validation scripts and tests are available under the MIT licence at <https://github.com/lixiang117423/qPCRtools_cpp>; version 1.2.0 with pre-built binaries is archived at <https://github.com/lixiang117423/qPCRtools_cpp/releases/tag/v1.2.0>. Users do not need to register, and we will keep the software available for at least two years after publication.
 
-The manuscript is original, is not under consideration elsewhere, and its relationship to our 2022 R-package paper — the same algorithms, a new delivery mode — is stated explicitly in the text. Both authors have approved the submission and declare no competing interests. In line with the journal's policy on AI-assisted tools, the manuscript includes a disclosure of how AI coding assistants were used.
-
-[[Associate Editor nomination — fill in only if the submission system asks for it. 建议从"生物信息学软件/工具"或"qPCR / MIQE 方法学"方向的编委里提名一位，并确认与该工作无利益冲突。]]
+The manuscript is original, is not under consideration elsewhere, and its relationship to our 2022 R-package paper — the same algorithms, a new delivery mode — is stated explicitly in the text. The authors declare no competing interests. In line with the journal's policy on AI-assisted tools, the manuscript includes a disclosure of how AI coding assistants were used.
 
 Yours sincerely,
 

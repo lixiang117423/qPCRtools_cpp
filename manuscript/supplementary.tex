@@ -10,7 +10,7 @@
 %   Figure S2  C++ 与 R 的数值等价性散点（y = x）
 %   Table S1   各共有方法的等价性汇总
 
-\documentclass[11pt]{article}
+\documentclass[11pt,a4paper]{article}
 
 \usepackage[utf8]{inputenc}
 \usepackage{graphicx}
@@ -19,6 +19,10 @@
 \usepackage{amsmath}
 \usepackage{geometry}
 \geometry{margin=2.5cm}
+
+% 图/表按 S1、S2、S1 编号（原来 LaTeX 自动编号会输出 "Figure 1: Figure S1."）
+\renewcommand{\thefigure}{S\arabic{figure}}
+\renewcommand{\thetable}{S\arabic{table}}
 
 \title{Supplementary material\\[4pt]
 \large qPCRtools: a cross-platform C++ desktop application for qPCR data
@@ -63,7 +67,7 @@ reproduced without the application or the R package by
 \begin{figure}[h]
 \centering
 \includegraphics[width=\linewidth]{figures/fig2_results_v2.pdf}
-\caption{\textbf{Figure S1.} Analysis output on real data.
+\caption{Analysis output on real data.
 (A)~Standard curves for four genes over a four-fold dilution series, with
 fitted regressions and $R^2$. The abscissa is $\log_4$ concentration
 (dilution steps), matching the regression, and hollow symbols mark wells
@@ -85,7 +89,7 @@ method---$\Delta\Delta C_t$ (\texttt{CalExp2ddCt}), the standard curve
 \begin{figure}[h]
 \centering
 \includegraphics[width=0.62\linewidth]{figures/fig3_equivalence.pdf}
-\caption{\textbf{Figure S2.} Numerical equivalence of the C++ implementation
+\caption{Numerical equivalence of the C++ implementation
 and the R package. Each C++ result is plotted against the corresponding R
 result across all shared methods; all points fall on the line $y = x$.}
 \label{fig:s2}
@@ -93,7 +97,7 @@ result across all shared methods; all points fall on the line $y = x$.}
 
 \begin{table}[h]
 \centering
-\caption{\textbf{Table S1.} Equivalence of the application (C++) with the
+\caption{Equivalence of the application (C++) with the
 reference implementations. (a)~Numerical equivalence with the R package on
 identical inputs; relative difference is $|R - \mathrm{C{+}{+}}|/|R|$.
 (b)~Statistical layer on the bundled $\Delta\Delta C_t$ example, recomputed

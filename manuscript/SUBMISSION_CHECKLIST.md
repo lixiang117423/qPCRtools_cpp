@@ -1,6 +1,6 @@
 # 投稿前清单（Bioinformatics Application Note 主线）
 
-最后更新：2026-10-15 18:47。**官方要求以用户 2026-10-15 从 OUP 页面取得的原文为准**（本机再次抓取 `academic.oup.com/bioinformatics/pages/instructions_to_authors` 仍被 Cloudflare 拦成 "Just a moment..." 页面，无法复核当年指南，故不臆造任何新条款；投稿前若页面可访问，请再对一遍）。
+最后更新：2026-10-19 13:30。**官方要求以用户 2026-10-15 从 OUP 页面取得的原文为准**（本机再次抓取 `academic.oup.com/bioinformatics/pages/instructions_to_authors` 仍被 Cloudflare 拦成 "Just a moment..." 页面，无法复核当年指南，故不臆造任何新条款；投稿前若页面可访问，请再对一遍）。
 
 ## 一、官方要求 ↔ 本文档设置（2026-10-15 核实）
 
@@ -33,12 +33,12 @@
 
 | 项 | 状态 |
 | --- | --- |
-| 主文 | `main_v10_20261015.pdf`（**7 页**，`article` 骨架＋A4/2.5 cm 页边距；正文 **1,851 词**＝摘要 300＋引言＋实现＋结果，不含 backmatter 与 availability 声明；**1 图 + 1 表** + 17 条参考文献）|
-| 补充材料 | `supplementary_v2_20261015.pdf`（3 页）：Figure S1（标准曲线 + ΔΔCt 表达量）、Figure S2（等价性散点）、Table S1（(a) 数值等价 +(b) 统计层对账）|
+| 主文 | `main_v10_20261015.pdf`（**7 页**，`article` 骨架＋A4/2.5 cm 页边距；正文 **1,805 词**＋摘要约 230 词；**1 图 + 1 表** + 17 条参考文献）。Word 版 `main_v10_20261015.docx`（A4、Arial 11 pt、1.5 倍行距、两端对齐、11 页，图注表注带 Figure 1./Table 1. 编号）已生成并渲染核对 |
+| 补充材料 | `supplementary_v3_20261019.pdf`（4 页 A4，图注已改为 S1/S2 自动编号，消除原来 "Figure 1: Figure S1." 的双编号）；同源 Word 版 `supplementary_v3_20261019.docx`（2 图 1 表，图已转 400 dpi PNG 嵌入）。⚠️ 本机 Tectonic 的 TeX 包缓存不完整，v3 的 PDF 是由同源 docx 经 LibreOffice 渲染（排版为 Arial/1.5 倍行距，与主文 LaTeX 版观感略有差异）；`supplementary.tex` 已改好，等 TeX 包缓存补齐后重编即可得到 LaTeX 版，两者内容一致 |
 | 作者与单位 | Xiang Li（第一作者 + 通讯，单位 1、2，现地址 Yazhouwan National Laboratory）与 Huichuan Huang（共同通讯，单位 1、2）；邮箱 `lixiang117423@gmail.com` / `absklhhc@gmail.com` |
 | Figure 1 | 分析结果页截图（`manuscript/figures/fig1_results_page_en_v3.png`）：上＝汇总表、下＝界面内作图，同窗两个滚动位置拼接；原始首页截图 `fig1_home_en.png` 保留未删 |
 | 软件版本 | 稿件描述 **1.2.0**；已发布 release <https://github.com/lixiang117423/qPCRtools_cpp/releases/tag/v1.2.0>（Windows ZIP 由 CI 构建；macOS DMG 本地构建并实测可启动、界面正常加载）|
-| Cover letter | `cover_letter_20261015.docx`（Word 版，1 页 A4）+ 同名 `.pdf` / `.md`；内容含发表理由、验证方式、公开获取方式与作者声明；Associate Editor 提名处留占位待填 |
+| Cover letter | `cover_letter_20261015.docx`（Word 版，1 页 A4）+ 同名 `.pdf` / `.md`；内容含发表理由、验证方式、公开获取方式与作者声明；已删除占位说明、并删去"两位作者已批准"的表述（黄老师审阅前不下此结论）。Associate Editor 提名仅在投稿系统要求时于系统内填写 |
 | `main.docx` | 2026-10-13 归档到 `archive/manuscript_2026-06_word_version.docx`，投稿只用 PDF |
 | 历史版本 | `main.pdf`(10-13)、`main_v2..v9_20261015.pdf` 保留不删（**v10 为当前定稿**；v8 为已废弃的中间版）|
 
@@ -48,6 +48,13 @@
 cd /Users/lixiang/NutstoreFiles/03.编程相关/qPCRtools_cpp/manuscript
 TECTONIC_CACHE_DIR="$HOME/Library/Caches/TectonicProject.Tectonic" tectonic main.tex
 TECTONIC_CACHE_DIR="$HOME/Library/Caches/TectonicProject.Tectonic" tectonic supplementary.tex
+```
+
+Word 版（正文 + 补充材料，改完 tex 后重跑一次）：
+
+```bash
+cd /Users/lixiang/NutstoreFiles/03.编程相关/qPCRtools_cpp
+/Users/lixiang/miniforge3/envs/python/bin/python3 code/scripts/15_make_manuscript_docx.py
 ```
 
 ## 四、参考文献核验（Crossref，最新 2026-10-15）
@@ -70,8 +77,8 @@ Pabinger et al. 2014、Vandesompele et al. 2002、Rancurel et al. 2019、Wickham
 
 ## 五、待你确认 / 处理
 
-1. **基金声明确认**：backmatter 保留原基金（2021YFD1000200、31801792、31960554、霍英东基金），与 Frontiers 2022 一致——请确认是否仍适用。
-2. **Associate Editor 提名**：投稿系统通常要求；`cover_letter_20261015.docx` 里已留占位行，确认人选后替换（建议从"生物信息学软件/工具"或"qPCR / MIQE 方法学"方向选，并确认无利益冲突）。
+1. **基金声明确认**：backmatter 保留原基金（2021YFD1000200、31801792、31960554、霍英东基金），与 Frontiers 2022 一致——**仍需黄老师确认是否仍适用**；投稿系统里的 funding 栏要与正文一致。
+2. **Associate Editor 提名**：投稿系统通常要求；确认人选后在**系统里**填写（cover letter 不再留占位）。建议从"生物信息学软件/工具"或"qPCR / MIQE 方法学"方向选，并确认无利益冲突。
 3. **Zenodo DOI**：用户 2026-10-15 决定**不做**——以 GitHub release（v1.2.0，含安装包）作为存档与引用入口。
 4. **OUP 官方模板**：现用 `article` 骨架；若 OUP 提供 Application Note 专用 `.cls`/`.bst`，投稿前替换（`main.tex` 顶部已标注该步骤）。
 5. **R 包侧同步**：用户 2026-10-15 决定**先不做**（`CRAN/qPCRtools/` 工作区里的修补保持未提交状态；`CalExpCurve` 反变换一修会牵动 2022 年论文图 2 的重跑，将来要做时再议）。
@@ -79,6 +86,10 @@ Pabinger et al. 2014、Vandesompele et al. 2002、Rancurel et al. 2019、Wickham
 7. **JOSS 支线**（`paper.md`）：作者已含 Huichuan Huang，1,484 词符合 JOSS 要求；仍待补 Research impact 段的自用/教学证据与 AI 使用披露确认。
 
 ## 六、本轮已解决的历史问题
+
+- **补充材料图注双编号**（2026-10-19）：LaTeX 自动编号 + 图注里手写 "Figure S1." 会排成 "Figure 1: Figure S1."；已改为 `\renewcommand{\thefigure}{S\arabic{figure}}` / `\thetable`，图注里去掉手写前缀。
+- **Cover letter 占位与越权声明**（2026-10-19）：删除 `[[Associate Editor nomination …]]` 占位段；删去 "Both authors have approved the submission"（黄老师尚未审阅，不能先写）。
+- **Word 版缺失**（2026-10-19）：新增 `code/scripts/15_make_manuscript_docx.py`，一次生成正文与补充材料 docx；pandoc 的 LaTeX reader 会把图注转成图片 alt 文本、且无法显示嵌入的 PDF 图，脚本里已分别处理（补 Figure/Table 编号、PDF 图先转 400 dpi PNG）。
 
 - **作图功能**：原 `displayCharts()` 是写死假数据的桩、结果页连图表容器都没有；2026-10-15 已按真实结果表重写（表达量图 bar + SD 误差线 + 显著性标注；标准曲线图 log₄(浓度) 散点 + 回归线 + 范围外空心点），均可导出 PNG，界面版本升至 1.2.0。
 - **界面标签与检验不符**：下拉原本写 "Student's t-test" 而实际调用 Welch 检验；2026-10-15 改为 "t-test (Welch)"，与结果表显示一致。
