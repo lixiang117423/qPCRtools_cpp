@@ -109,8 +109,10 @@ cmake -S code -B build-tests -DBUILD_TESTS=ON [同上 Qt/Eigen] && cmake --build
 - ΔΔCt：全表重复 filter → 一次遍历索引；ΔCt：每 gene 重复 filter → 提升到 group 层
 - 新增回归测试 `tests/test_bugfixes.cpp`（20 个用例）与 Wilcoxon 并列黄金 fixture（R 4.5 生成）；现有 33/33 测试全绿
 
-**版本**：1.3.0（2026-10-29 已发布：多组对同一对照的 Welch/Wilcoxon P 值按基因内 Holm
+**版本**：1.3.1（2026-10-29 补丁发布：修复结果图散点与显著性标记未跟随柱子；
+多组对同一对照的 Welch/Wilcoxon P 值按基因内 Holm
 校正，结果表同时输出 `RawPValue` / `AdjustedPValue` / `PAdjustMethod`；结果图增加单个
 生物学重复点、柱间间隔和校正后显著性标记，并移除 SD 图例项。此前 1.2.0 已恢复作图、
-加入分析记录与质控预警。1.3.0 的 Windows/macOS Release 与源码 tag 已发布，
+加入分析记录与质控预警。1.3.0 的 Windows/macOS Release 与源码 tag 已发布；
+1.3.1 修复散点定位并以同版本 Windows/macOS Release 与源码 tag 发布，
 真实数据端到端示例位于 `code/examples/real_workflow/`）

@@ -315,7 +315,7 @@ def png_copy_of_pdf_figures(tmpdir: Path) -> dict[str, Path]:
 def build(kind: str) -> Path:
     src = MS / ("main.tex" if kind == "main" else "supplementary.tex")
     out = MS / (
-        "main_v17_20261029.docx"
+        "main_v18_20261029.docx"
         if kind == "main"
         else "supplementary_v9_20261029.docx"
     )

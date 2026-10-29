@@ -135,7 +135,7 @@ def main():
     lo = min(min(all_r), min(all_c)); hi = max(max(all_r), max(all_c))
     ax.plot([lo, hi], [lo, hi], "r--", lw=1, label="y = x")
     ax.set_xlabel("Independent base-R reference")
-    ax.set_ylabel("qPCRtools 1.3.0 result")
+    ax.set_ylabel("qPCRtools 1.3.1 result")
     ax.set_aspect("equal", adjustable="datalim")
     ax.legend(loc="upper left", frameon=False)
     fig.tight_layout()

@@ -6,10 +6,10 @@ A cross-platform desktop application for qPCR data analysis, rewritten in C++ fr
 
 **Pre-built binaries are available from [GitHub Releases](https://github.com/lixiang117423/qPCRtools_cpp/releases/latest)**
 
-The current release is version 1.3.0.
+The current release is version 1.3.1.
 
-- **Windows**: `qPCRtools-1.3.0-windows.zip` — extract and run `qPCRtools.exe` (no installation)
-- **macOS**: `qPCRtools-1.3.0-macOS.dmg` — open the DMG and drag `qPCRtools.app` to Applications.
+- **Windows**: `qPCRtools-1.3.1-windows.zip` — extract and run `qPCRtools.exe` (no installation)
+- **macOS**: `qPCRtools-1.3.1-macOS.dmg` — open the DMG and drag `qPCRtools.app` to Applications.
   The macOS bundle is ad-hoc signed but **not notarized** by Apple, so the first launch needs
   right-click → Open; if macOS reports the app as damaged, run once:
 

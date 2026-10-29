@@ -11,16 +11,16 @@ from docx import Document
 
 ROOT = Path(__file__).resolve().parents[2]
 MS = ROOT / "manuscript"
-RENDER = Path("/Users/lixiang/tmp/qpcr_docx_render_v7")
+RENDER = Path("/Users/lixiang/tmp/qpcr_docx_render_v8")
 
 FINAL = {
-    "main_pdf": MS / "main_v17_20261029.pdf",
-    "main_docx": MS / "main_v17_20261029.docx",
+    "main_pdf": MS / "main_v18_20261029.pdf",
+    "main_docx": MS / "main_v18_20261029.docx",
     "supp_pdf": MS / "supplementary_v9_20261029.pdf",
     "supp_docx": MS / "supplementary_v9_20261029.docx",
-    "letter_docx": MS / "cover_letter_v6_20261029.docx",
-    "letter_pdf": RENDER / "cover_letter_v6_20261029.pdf",
-    "main_rendered": RENDER / "main_v17_20261029.pdf",
+    "letter_docx": MS / "cover_letter_v7_20261029.docx",
+    "letter_pdf": RENDER / "cover_letter_v7_20261029.pdf",
+    "main_rendered": RENDER / "main_v18_20261029.pdf",
     "supp_rendered": RENDER / "supplementary_v9_20261029.pdf",
 }
 
@@ -31,7 +31,7 @@ BANNED = (
     "validated equivalence",
     "validated behaviour",
     "both authors read and approved",
-    "source for version 1.3.0 is",
+    "source for version 1.3.1 is",
     "δct-scale option",
 )
 
@@ -106,7 +106,7 @@ def main() -> None:
     main_latex = check_pdf(
         FINAL["main_pdf"],
         expected_max_pages=10,
-        required=("EasyqpcR", "1.3.0", "Holm", "qBase+", "Table S3"),
+        required=("EasyqpcR", "1.3.1", "Holm", "qBase+", "Table S3"),
     )
     supp_latex = check_pdf(
         FINAL["supp_pdf"],

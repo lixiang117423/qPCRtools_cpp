@@ -148,7 +148,7 @@ def verify_group_analysis() -> None:
 
     record = (EXPECTED / "06_analysis_record.txt").read_text(encoding="utf-8")
     required = [
-        "Software version        : 1.3.0",
+        "Software version        : 1.3.1",
         "Reference gene(s)       : OsUBQ",
         "Control group           : CK",
         "P-value adjustment      : holm",

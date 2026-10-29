@@ -20,9 +20,9 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Cm, Pt
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT = ROOT / "manuscript" / "cover_letter_v6_20261029.docx"
+OUT = ROOT / "manuscript" / "cover_letter_v7_20261029.docx"
 
-MD_OUT = ROOT / "manuscript" / "cover_letter_v6_20261029.md"
+MD_OUT = ROOT / "manuscript" / "cover_letter_v7_20261029.md"
 
 SUBJECT = (
     "To: The Editors, Bioinformatics\n"
@@ -42,11 +42,11 @@ BODY = [
     "to one platform. The users who most need a reproducible analysis are frequently those "
     "least able to set up an R environment: newly enrolled students, visiting researchers "
     "and wet-lab staff without programming experience.",
-    "We present qPCRtools 1.3.0, a native C++17/Qt6 desktop application that re-implements "
+    "We present qPCRtools 1.3.1, a native C++17/Qt6 desktop application that re-implements "
     "the analytical core of the R package and wraps it in a graphical workflow \u2014 import, "
     "configuration, analysis, export \u2014 with in-interface figures, quality-control warnings "
     "and a plain-text record of every analysis. It runs as a single executable with no R, "
-    "Python or other runtime dependency. Version 1.3.0, including the source tag and "
+    "Python or other runtime dependency. Version 1.3.1, including the source tag and "
     "Windows/macOS binaries, is publicly released.",
     "The central claim of the Application Note is reproducible, auditable analysis. We compared "
     "the application with an independent base-R implementation for all three quantification "
