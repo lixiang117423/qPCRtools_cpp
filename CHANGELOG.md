@@ -22,7 +22,9 @@
   的 Windows、macOS 和 Release 三个作业全部成功：
   <https://github.com/lixiang117423/qPCRtools_cpp/releases/tag/v1.3.0>。
   Release 资产为 `qPCRtools-1.3.0-windows.zip`（146,699,165 bytes）与
-  `qPCRtools-1.3.0-macOS.dmg`（219,709,193 bytes）。
+  `qPCRtools-1.3.0-macOS.dmg`（219,709,193 bytes）。重新下载后
+  SHA-256 与 GitHub asset digest 逐项一致，MD5/SHA-256 已登记到
+  `项目文件记录.md`。
 
 ## 2026-10-29 08:52 — 第二轮审稿返修：独立验证、Holm 校正、1.3.0 界面与投稿包重建
 
