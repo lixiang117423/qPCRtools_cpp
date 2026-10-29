@@ -17,7 +17,8 @@ namespace qpcr {
 
 ExpressionResult ExpressionCalculator::calculateByStandardCurve(
     const StandardCurveParams& params,
-    const QString& statMethod)
+    const QString& statMethod,
+    const QString& pAdjustMethod)
 {
     ExpressionResult result;
     result.method = "Standard Curve Expression";
@@ -225,6 +226,7 @@ ExpressionResult ExpressionCalculator::calculateByStandardCurve(
     QMap<QString, double> groupMeanExpr;     // key = gene + "_" + group
     QMap<QString, double> groupSdExpr;
     QMap<QString, int> groupBiorepCount;
+    QMap<QString, double> minMeanByGene;
     for (const QString& gene : genes) {
         if (refGenes.contains(gene)) continue;
         for (const QString& group : groups) {
@@ -248,6 +250,7 @@ ExpressionResult ExpressionCalculator::calculateByStandardCurve(
                 if (minMean < 0 || m < minMean) minMean = m;
             }
         }
+        minMeanByGene[gene] = minMean;
 
         for (const QString& group : groups) {
             QString key = gene + "_" + group;
@@ -292,6 +295,9 @@ ExpressionResult ExpressionCalculator::calculateByStandardCurve(
     result.table.addColumn("StdDev", finalStdDevs);
     result.table.addColumn("SE", finalSE);
     result.table.addColumn("PValue", finalPValues);
+    result.table.addColumn("RawPValue", finalPValues);
+    result.table.addColumn("AdjustedPValue", finalPValues);
+    result.table.addColumn("PAdjustMethod", finalSig);
     result.table.addColumn("Significance", finalSig);
 
     // Build raw data table
@@ -300,7 +306,10 @@ ExpressionResult ExpressionCalculator::calculateByStandardCurve(
         rawGroups.append(expData.group);
         rawGenes.append(expData.gene);
         rawBioReps.append(expData.biorep);
-        rawExpr.append(expData.bioRepExpression);
+        const double minMean = minMeanByGene.value(expData.gene, -1.0);
+        rawExpr.append(minMean > 0
+            ? expData.bioRepExpression / minMean
+            : expData.bioRepExpression);
 
         QString key = expData.gene + "_" + expData.group;
         if (finalResults.contains(key)) {
@@ -344,9 +353,14 @@ ExpressionResult ExpressionCalculator::calculateByStandardCurve(
                     } else {
                         result.statistics.append(performTTest(controlData, treatData, gene, params.controlGroup, group));
                     }
+                    StatisticalResult& stat = result.statistics.last();
+                    stat.rawPValue = stat.pValue;
+                    stat.adjustedPValue = stat.pValue;
+                    stat.adjustmentMethod = QStringLiteral("none");
                 }
             }
         }
+        applyPairwisePAdjustment(result.statistics, pAdjustMethod);
     } else if (statMethod == "anova") {
         for (const QString& gene : genes) {
             if (refGenes.contains(gene)) continue;
@@ -370,6 +384,7 @@ ExpressionResult ExpressionCalculator::calculateByStandardCurve(
             }
         }
     }
+    result.adjustmentMethod = statMethod == "anova" ? QStringLiteral("tukey") : pAdjustMethod;
 
     // Merge p-values into result table
     for (int i = 0; i < result.table.rowCount(); ++i) {
@@ -378,6 +393,9 @@ ExpressionResult ExpressionCalculator::calculateByStandardCurve(
 
         if (group == params.controlGroup) {
             result.table.set(i, "PValue", QVariant());
+            result.table.set(i, "RawPValue", QVariant());
+            result.table.set(i, "AdjustedPValue", QVariant());
+            result.table.set(i, "PAdjustMethod", QVariant());
             result.table.set(i, "Significance", "");
             continue;
         }
@@ -385,6 +403,9 @@ ExpressionResult ExpressionCalculator::calculateByStandardCurve(
         for (const StatisticalResult& stat : result.statistics) {
             if (stat.gene == gene && stat.group2 == group) {
                 result.table.set(i, "PValue", stat.pValue);
+                result.table.set(i, "RawPValue", stat.rawPValue);
+                result.table.set(i, "AdjustedPValue", stat.adjustedPValue);
+                result.table.set(i, "PAdjustMethod", stat.adjustmentMethod);
                 result.table.set(i, "Significance", stat.significance);
                 break;
             }

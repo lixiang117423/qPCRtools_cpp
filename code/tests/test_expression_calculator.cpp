@@ -213,13 +213,30 @@ TEST(ExpressionCalculator, RqPCRGroupMeanKeepsIdenticalReplicates) {
 
     // 原始表里 Treatment 组应保留 3 个生物学重复（没有被数值去重吃掉）
     int treatReps = 0;
+    QVector<double> treatRawValues;
+    QVector<double> ckRawValues;
     for (int i = 0; i < result.rawData.rowCount(); ++i) {
-        if (result.rawData.get(i, "Gene").toString() == "G1" &&
-            result.rawData.get(i, "Group").toString() == "Treatment") {
+        if (result.rawData.get(i, "Gene").toString() != "G1") continue;
+        const QString group = result.rawData.get(i, "Group").toString();
+        const double value = result.rawData.get(i, "Expression").toDouble();
+        if (group == "Treatment") {
             ++treatReps;
+            treatRawValues.append(value);
+        } else if (group == "CK") {
+            ckRawValues.append(value);
         }
     }
     EXPECT_EQ(treatReps, 3);
+    ASSERT_EQ(treatRawValues.size(), 3);
+    ASSERT_EQ(ckRawValues.size(), 3);
+
+    const auto mean = [](const QVector<double>& values) {
+        double sum = 0.0;
+        for (double value : values) sum += value;
+        return sum / values.size();
+    };
+    EXPECT_NEAR(mean(treatRawValues), treatMean, 1e-12);
+    EXPECT_NEAR(mean(ckRawValues), ckMean, 1e-12);
 }
 
 // performANOVA 的输出行序必须由输入决定。旧实现遍历 QSet，行序随每次进程启动的
@@ -253,6 +270,58 @@ TEST(ExpressionCalculator, AnovaStatisticsFollowInputOrder) {
     EXPECT_EQ(res[2].group.toStdString(), "B");
     EXPECT_EQ(res[3].gene.toStdString(), "G1");
     EXPECT_EQ(res[3].group.toStdString(), "A");
+}
+
+// 多组对同一对照：t 检验/Wilcoxon 的原始 P 值必须保留，并按基因内 Holm 校正。
+// 示例数据（examples/cq.csv）的未校正 Welch P 为 0.0060274 与 0.0221908，
+// R: p.adjust(c(0.006027445165323275, 0.022190816144114445), "holm")
+// 给出 0.01205489033064655 与 0.022190816144114445。
+TEST(ExpressionCalculator, PairwisePValuesUseWithinGeneHolm) {
+    qpcr::CSVParser parser;
+    qpcr::DataFrame cq     = parser.parse(QString(QPCR_EXAMPLES_DIR) + "/cq.csv");
+    qpcr::DataFrame design = parser.parse(QString(QPCR_EXAMPLES_DIR) + "/design.csv");
+
+    qpcr::DeltaDeltaCtParams params;
+    params.cqTable       = cq;
+    params.designTable   = design;
+    params.referenceGene = "Beta Actin";
+    params.controlGroup  = "0";
+    params.removeOutliers = false;
+
+    auto result = qpcr::ExpressionCalculator::calculateByDeltaDeltaCt(
+        params, "t.test", "holm");
+    ASSERT_EQ(result.statistics.size(), 2);
+    EXPECT_EQ(result.adjustmentMethod.toStdString(), "holm");
+
+    QHash<QString, qpcr::StatisticalResult> byGroup;
+    for (const auto& stat : result.statistics) {
+        byGroup.insert(stat.group2, stat);
+        EXPECT_EQ(stat.adjustmentMethod.toStdString(), "holm");
+    }
+
+    ASSERT_TRUE(byGroup.contains("0.5"));
+    ASSERT_TRUE(byGroup.contains("1"));
+    EXPECT_NEAR(byGroup["0.5"].rawPValue, 0.006027445165323275, 1e-14);
+    EXPECT_NEAR(byGroup["0.5"].adjustedPValue, 0.01205489033064655, 1e-14);
+    EXPECT_NEAR(byGroup["1"].rawPValue, 0.022190816144114445, 1e-14);
+    EXPECT_NEAR(byGroup["1"].adjustedPValue, 0.022190816144114445, 1e-14);
+    EXPECT_EQ(byGroup["0.5"].significance.toStdString(), "*");
+    EXPECT_EQ(byGroup["1"].significance.toStdString(), "*");
+
+    // 导出表必须同时保留原始值、校正值与校正方法。
+    const QStringList cols = result.table.columns();
+    EXPECT_TRUE(cols.contains("RawPValue"));
+    EXPECT_TRUE(cols.contains("AdjustedPValue"));
+    EXPECT_TRUE(cols.contains("PAdjustMethod"));
+
+    // method = "none" 时不校正，但仍保留原始值。
+    auto rawOnly = qpcr::ExpressionCalculator::calculateByDeltaDeltaCt(
+        params, "t.test", "none");
+    for (const auto& stat : rawOnly.statistics) {
+        EXPECT_EQ(stat.adjustmentMethod.toStdString(), "none");
+        EXPECT_DOUBLE_EQ(stat.rawPValue, stat.adjustedPValue);
+        EXPECT_DOUBLE_EQ(stat.rawPValue, stat.pValue);
+    }
 }
 
 // ΔΔCt 方法：按文献（Livak & Schmittgen 2001）以**校准样品 = 对照组**为基准，故对照组表达量 ≈ 1

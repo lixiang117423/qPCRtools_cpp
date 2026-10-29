@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # validation/compare.py
 #
-# 对比 R 版 (run_R.R) 与 C++ 版 (run_cpp) 的输出 CSV，生成：
+# 对比独立 base-R 参照与当前 C++ 版 (run_cpp) 的输出 CSV，生成：
 #   - validation/results/comparison.csv   逐数值列的相对差汇总
-#   - ../manuscript/figures/fig3_equivalence.pdf  C++ 结果 vs R 结果散点（y=x 参考线）
+#   - ../manuscript/figures/fig3_equivalence.pdf  C++ 结果 vs 独立 base-R 参照散点（y=x 参考线）
 #
 # 运行（code/ 目录，需先产出 R_*.csv 与 cpp_*.csv）： python3 validation/compare.py
 # 依赖： pip install pandas matplotlib
@@ -21,9 +21,9 @@ RESULTS = "validation/results"
 FIG_OUT = "../manuscript/figures/fig3_equivalence.pdf"
 
 PAIRS = {
-    "deltadeltaCt":  ("R_deltadeltaCt.csv",  "cpp_deltadeltaCt.csv"),
-    "standardcurve": ("R_standardcurve.csv", "cpp_standardcurve.csv"),
-    "rqpcr":         ("R_rqpcr.csv",         "cpp_rqpcr.csv"),
+    "deltadeltaCt":  ("reference_ddct_holm.csv",  "cpp_deltadeltaCt_holm_round2.csv"),
+    "standardcurve": ("reference_standardcurve.csv", "cpp_standardcurve_round2.csv"),
+    "rqpcr":         ("reference_rqpcr_holm.csv",  "cpp_rqpcr_holm_round2.csv"),
 }
 
 # 列名归一化：R 名 / C++ 名 -> 规范名
@@ -32,9 +32,11 @@ COLUMN_ALIASES = {
     "Mean": "expression", "mean.expre": "expression", "mean_expre": "expression",
     "Expression": "expression", "expression": "expression",
     # 标准差
-    "StdDev": "sd", "sd.expre": "sd", "sd_expre": "sd",
+    "StdDev": "sd", "SD": "sd", "sd.expre": "sd", "sd_expre": "sd",
     # p 值
-    "PValue": "pvalue", "P.value": "pvalue", "p.value": "pvalue", "p": "pvalue",
+    "PValue": "pvalue", "RawPValue": "raw_pvalue",
+    "AdjustedPValue": "adjusted_pvalue",
+    "P.value": "pvalue", "p.value": "pvalue", "p": "pvalue",
     # 标准曲线
     "Slope": "slope", "Intercept": "intercept",
     "RSquared": "r2", "R2": "r2",
@@ -105,7 +107,7 @@ def align(r_path, c_path):
 
 def main():
     if not os.path.isdir(RESULTS):
-        sys.exit(f"结果目录不存在: {RESULTS}（请先运行 run_R.R 与 run_cpp）")
+        sys.exit(f"结果目录不存在: {RESULTS}（请先运行 reference_base_r.R 与 run_cpp）")
     all_rows, all_r, all_c = [], [], []
     for name, (rp, cp) in PAIRS.items():
         rpath, cpath = os.path.join(RESULTS, rp), os.path.join(RESULTS, cp)
@@ -132,7 +134,8 @@ def main():
     ax.scatter(all_r, all_c, s=20, alpha=0.7)
     lo = min(min(all_r), min(all_c)); hi = max(max(all_r), max(all_c))
     ax.plot([lo, hi], [lo, hi], "r--", lw=1, label="y = x")
-    ax.set_xlabel("R package result"); ax.set_ylabel("C++ implementation result")
+    ax.set_xlabel("Independent base-R reference")
+    ax.set_ylabel("qPCRtools 1.3.0 result")
     ax.set_aspect("equal", adjustable="datalim")
     ax.legend(loc="upper left", frameon=False)
     fig.tight_layout()

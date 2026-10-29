@@ -1,4 +1,7 @@
 #!/usr/bin/env Rscript
+# LEGACY: this script compares with an installed R-package release and is no
+# longer used for the manuscript. Use validation/reference_base_r.R and
+# validation/compare_to_reference.R for the current independent validation.
 # validation/run_R.R
 #
 # 用 R 版 qPCRtools 跑与 C++ driver (run_cpp) 完全相同的数据，输出 CSV 供逐项

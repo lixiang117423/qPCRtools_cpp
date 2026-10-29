@@ -39,7 +39,7 @@ def panel_standard_curve(ax):
     cq = pd.read_csv("web/calsc.cq.txt", sep="\t")     # Position, Cq
     info = pd.read_csv("web/calsc.info.txt", sep="\t")  # Position, Gene, Conc
     m = cq.merge(info, on="Position")
-    sc = pd.read_csv("validation/results/cpp_standardcurve.csv")  # Gene,Slope,...
+    sc = pd.read_csv("validation/results/cpp_standardcurve_round2.csv")
     residuals = []
     for idx, (_, row) in enumerate(sc.iterrows()):
         g = row["Gene"]
@@ -78,7 +78,7 @@ def panel_standard_curve(ax):
 
 
 def panel_expression(ax):
-    df = pd.read_csv("validation/results/cpp_deltadeltaCt.csv")
+    df = pd.read_csv("validation/results/cpp_deltadeltaCt_holm_round2.csv")
     # 列：Gene,Group,Mean,StdDev,PValue,Significance
     df = df.sort_values("Group")
     groups = df["Group"].astype(str).tolist()
@@ -86,16 +86,42 @@ def panel_expression(ax):
     sds = df["StdDev"].astype(float).fillna(0).tolist()
     sigs = df["Significance"].fillna("").astype(str).tolist()
     x = np.arange(len(groups))
+    # 显示单个生物学重复，避免只用均值±SD掩蔽分布；柱间留白便于区分组别。
+    # 直接从原始 Cq 重建每个生物学重复的表达量，避免误用旧版（全样本基准）
+    # check_example_stats.csv 造成点与柱不对应。
+    cq = pd.read_csv("examples/cq.csv")
+    design = pd.read_csv("examples/design.csv")
+    merged = cq.merge(design, on="Position")
+    wide = merged.pivot_table(
+        index=["Group", "BioRep"], columns="Gene", values="Cq", aggfunc="mean"
+    ).reset_index()
+    wide["dCt"] = wide["fos-glo-myc"] - wide["Beta Actin"]
+    control_mean = wide.loc[wide["Group"].astype(str) == "0", "dCt"].mean()
+    wide["expr"] = 2 ** (-(wide["dCt"] - control_mean))
+    rng = np.random.default_rng(20261029)
+    for i, group in enumerate(groups):
+        values = wide.loc[wide["Group"].astype(str) == group, "expr"].to_numpy(dtype=float)
+        offsets = np.linspace(-0.13, 0.13, len(values)) if len(values) > 1 else np.array([0.0])
+        ax.scatter(
+            np.full(len(values), x[i]) + offsets,
+            values,
+            s=22,
+            facecolors="white",
+            edgecolors="#333333",
+            linewidths=0.8,
+            zorder=4,
+        )
     bars = ax.bar(x, means, yerr=sds, capsize=4, color=COLORS[: len(groups)],
-                  edgecolor="black", linewidth=0.5)
-    for xi, m, s in zip(x, means, sigs):
-        if s:
-            ax.text(xi, m + (max(means) * 0.03), s, ha="center", va="bottom",
-                    fontsize=9)
+                  edgecolor="black", linewidth=0.5, width=0.52)
+    for bar, mean, sd, sig in zip(bars, means, sds, sigs):
+        if sig:
+            y = mean + sd + max(means) * 0.06
+            ax.text(bar.get_x() + bar.get_width() / 2, y, sig,
+                    ha="center", va="bottom", fontsize=10, fontweight="bold")
     ax.set_xticks(x)
     ax.set_xticklabels(groups)
     ax.set_xlabel("Treatment group")
-    ax.set_ylabel(r"Relative expression ($2^{-\Delta\Delta C_t}$)")
+    ax.set_ylabel("Relative expression")
     ax.set_title("(B) Expression (fos-glo-myc)")
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -103,12 +129,15 @@ def panel_expression(ax):
 
 def main():
     os.makedirs(os.path.dirname(FIG_OUT), exist_ok=True)
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 3.4))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(17.0, 8.0))
     panel_standard_curve(ax1)
     panel_expression(ax2)
     fig.tight_layout()
-    fig.savefig(FIG_OUT)
+    fig.savefig(FIG_OUT, dpi=600)
+    png_out = os.path.splitext(FIG_OUT)[0] + ".png"
+    fig.savefig(png_out, dpi=600)
     print(f"[plot] -> {FIG_OUT}")
+    print(f"[plot] -> {png_out}")
 
 
 if __name__ == "__main__":

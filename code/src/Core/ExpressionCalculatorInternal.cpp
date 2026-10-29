@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <numeric>
 
 namespace qpcr {
@@ -40,6 +41,53 @@ double computeStdDev(const QVector<double>& v) {
     return std::sqrt(ss / (v.size() - 1));
 }
 
+void applyPairwisePAdjustment(
+    QVector<StatisticalResult>& statistics,
+    const QString& method)
+{
+    const bool useHolm = method.compare("holm", Qt::CaseInsensitive) == 0;
+
+    // 校正族 = 同一基因内的各处理组 vs 对照。不同基因各自检验，不跨基因合并。
+    QHash<QString, QVector<int>> rowsByGene;
+    for (int i = 0; i < statistics.size(); ++i) {
+        StatisticalResult& stat = statistics[i];
+        if (stat.group1 == QStringLiteral("All")) continue;
+        if (std::isnan(stat.rawPValue)) continue;
+        rowsByGene[stat.gene].append(i);
+    }
+
+    for (auto it = rowsByGene.begin(); it != rowsByGene.end(); ++it) {
+        QVector<int> rows = it.value();
+        if (!useHolm || rows.size() < 2) {
+            for (int i : rows) {
+                StatisticalResult& stat = statistics[i];
+                stat.adjustedPValue = stat.rawPValue;
+                stat.pValue = stat.rawPValue;
+                stat.adjustmentMethod = useHolm ? QStringLiteral("holm") : QStringLiteral("none");
+                stat.significance = ExpressionCalculator::formatSignificance(stat.pValue);
+            }
+            continue;
+        }
+
+        std::sort(rows.begin(), rows.end(), [&](int a, int b) {
+            return statistics[a].rawPValue < statistics[b].rawPValue;
+        });
+
+        const int m = rows.size();
+        double runningMax = 0.0;
+        for (int rank = 0; rank < m; ++rank) {
+            const int idx = rows[rank];
+            const double candidate = std::min(1.0, (m - rank) * statistics[idx].rawPValue);
+            runningMax = std::max(runningMax, candidate);
+            statistics[idx].adjustedPValue = runningMax;
+            statistics[idx].pValue = runningMax;
+            statistics[idx].adjustmentMethod = QStringLiteral("holm");
+            statistics[idx].significance =
+                ExpressionCalculator::formatSignificance(statistics[idx].pValue);
+        }
+    }
+}
+
 // Run pairwise statistical tests for each gene, comparing refGroup to all others
 void runPairwiseTests(
     const QHash<QString, QHash<QString, QVector<double>>>& allData,
@@ -47,6 +95,7 @@ void runPairwiseTests(
     const QList<QString>& sortedGroups,
     const QString& refGroup,
     const QString& statMethod,
+    const QString& pAdjustMethod,
     QVector<StatisticalResult>& statistics)
 {
     for (const QString& gene : sortedGenes) {
@@ -66,9 +115,14 @@ void runPairwiseTests(
                 statResult = ExpressionCalculator::performTTest(
                     refValues, testValues, gene, refGroup, testGroup);
             }
+            statResult.rawPValue = statResult.pValue;
+            statResult.adjustedPValue = statResult.pValue;
+            statResult.adjustmentMethod = QStringLiteral("none");
             statistics.append(statResult);
         }
     }
+
+    applyPairwisePAdjustment(statistics, pAdjustMethod);
 }
 
 // Run ANOVA + Tukey HSD for each gene
@@ -106,6 +160,9 @@ void runAnovaTests(
             stat.group1 = "All";
             stat.group2 = grp;
             stat.pValue = anovaResult.pValue;
+            stat.rawPValue = anovaResult.pValue;
+            stat.adjustedPValue = anovaResult.pValue;
+            stat.adjustmentMethod = QStringLiteral("tukey");
             stat.fStatistic = anovaResult.statistic;
             stat.significance = letterGroups.value(grp, "");
             stat.letterGroup = letterGroups.value(grp, "");
@@ -123,6 +180,8 @@ DataFrame buildResultTableWithPValues(
     const QVector<StatisticalResult>& statistics)
 {
     QVector<QVariant> pValues, signifs;
+    QVector<QVariant> rawPValues, adjustedPValues;
+    QVector<QVariant> adjustmentMethods;
     for (int i = 0; i < genes.size(); ++i) {
         QString group = groups[i].toString();
         QString gene = genes[i].toString();
@@ -130,6 +189,9 @@ DataFrame buildResultTableWithPValues(
         for (const auto& stat : statistics) {
             if (stat.gene == gene && stat.group2 == group) {
                 pValues.append(stat.pValue);
+                rawPValues.append(stat.rawPValue);
+                adjustedPValues.append(stat.adjustedPValue);
+                adjustmentMethods.append(stat.adjustmentMethod);
                 signifs.append(stat.significance);
                 found = true;
                 break;
@@ -137,6 +199,9 @@ DataFrame buildResultTableWithPValues(
         }
         if (!found) {
             pValues.append(QVariant());
+            rawPValues.append(QVariant());
+            adjustedPValues.append(QVariant());
+            adjustmentMethods.append(QVariant());
             signifs.append("");
         }
     }
@@ -147,6 +212,9 @@ DataFrame buildResultTableWithPValues(
     table.addColumn("Mean", means);
     table.addColumn("StdDev", stdDevs);
     table.addColumn("PValue", pValues);
+    table.addColumn("RawPValue", rawPValues);
+    table.addColumn("AdjustedPValue", adjustedPValues);
+    table.addColumn("PAdjustMethod", adjustmentMethods);
     table.addColumn("Significance", signifs);
     return table;
 }

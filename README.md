@@ -6,8 +6,10 @@ A cross-platform desktop application for qPCR data analysis, rewritten in C++ fr
 
 **Pre-built binaries are available from [GitHub Releases](https://github.com/lixiang117423/qPCRtools_cpp/releases/latest)**
 
-- **Windows**: `qPCRtools-windows.zip` — extract and run `qPCRtools.exe` (no installation)
-- **macOS**: `qPCRtools-<version>-macOS.dmg` — open the DMG and drag `qPCRtools.app` to Applications.
+The current release is version 1.3.0.
+
+- **Windows**: `qPCRtools-1.3.0-windows.zip` — extract and run `qPCRtools.exe` (no installation)
+- **macOS**: `qPCRtools-1.3.0-macOS.dmg` — open the DMG and drag `qPCRtools.app` to Applications.
   The macOS bundle is ad-hoc signed but **not notarized** by Apple, so the first launch needs
   right-click → Open; if macOS reports the app as damaged, run once:
 
@@ -33,6 +35,7 @@ A cross-platform desktop application for qPCR data analysis, rewritten in C++ fr
   - Standard Curve Calculation
   - ΔCt (Delta Ct) Method
   - ΔΔCt (Delta-Delta Ct) Method
+  - Standard Curve Expression with gene-specific amplification efficiencies
 
 - **Data Import**
   - CSV/TXT file support
@@ -47,6 +50,8 @@ A cross-platform desktop application for qPCR data analysis, rewritten in C++ fr
   - Wilcoxon rank-sum test in the interface (small-sample exact p-values);
     the signed-rank test is implemented and tested in the core library
   - ANOVA with Tukey's HSD letter grouping
+  - Holm adjustment of Welch/Wilcoxon comparisons against a common control,
+    with raw and adjusted P values retained in the exported table
   - Outlier detection (IQR method) and Cohen's d effect sizes
 
 - **Visualization**
@@ -75,6 +80,22 @@ Try qPCRtools with built-in example data:
 - `examples/cq.csv` - Cq values from qPCR experiment
 - `examples/design.csv` - Experimental design mapping
 
+### Real-Data End-to-End Example
+
+`code/examples/real_workflow/` contains a complete, traceable workflow built
+from the real example data distributed with the 2022 qPCRtools R package. It
+covers standard-curve fitting, method selection, efficiency-corrected group
+analysis, QC review, and export of the summary table, raw values, figures and
+analysis record. The standard-curve and treatment plates are separate
+published example plates; they should not be described as one biological
+experiment.
+
+Run the deterministic check after exporting the GUI results:
+
+```bash
+python3 code/scripts/19_verify_real_workflow.py
+```
+
 ### Using Your Own Data
 
 1. **Import Data**
@@ -83,7 +104,8 @@ Try qPCRtools with built-in example data:
    - Preview data in the table
 
 2. **Configure Analysis**
-   - Select analysis method (Standard Curve, ΔCt, ΔΔCt)
+   - Select analysis method (Standard Curve, ΔCt, ΔΔCt, Standard Curve
+     Expression)
    - Set reference gene and control group
    - Choose statistical test method
    - Configure visualization options
@@ -113,13 +135,12 @@ qPCRtools_cpp/
 │   ├── src/  include/              # C++17 sources and headers: Core/ (algorithms), Data/, GUI/, Utils/
 │   ├── web/                        # HTML/CSS/JS interface loaded by QWebEngineView
 │   ├── tests/                      # GoogleTest suites + JS smoke test (fixtures generated from R)
-│   ├── validation/                 # R-versus-C++ equivalence harness (see its README)
+│   ├── validation/                 # Independent base-R validation harness (see its README)
 │   ├── examples/                   # Example datasets used by the app and the tests
 │   ├── translations/  macos/       # Qt translations; bundled Info.plist (used by CMake)
 │   └── scripts/                    # Build, packaging and release scripts
 ├── docs/                           # Documentation, numbered 01_...; docs/00_README.md maps everything
 ├── manuscript/                     # Manuscript sources (LaTeX, figures, submission checklist)
-├── paper.md  paper.bib             # Short software paper (JOSS submission, must stay at the root)
 ├── archive/                        # Superseded files kept for reference (do not reuse)
 └── 软件著作权申请资料/                # Software-copyright registration package (Chinese)
 ```
@@ -179,10 +200,10 @@ build\Release\qPCRtools.exe   # Windows
 ```
 
 Everything that belongs to the software itself — sources, tests, the
-equivalence-validation harness, the example datasets and the build/packaging
+independent validation harness, the example datasets and the build/packaging
 scripts — lives under `code/`, which is the project root for CMake and for the
 scripts in `code/scripts/`. Run those commands (and `Rscript
-code/tests/generate_reference.R`, `Rscript code/validation/run_R.R`) from the
+code/tests/generate_reference.R`, `Rscript code/validation/reference_base_r.R`) from the
 repository root as shown, or from inside `code/` with the paths adjusted.
 
 ## Citation
@@ -230,7 +251,7 @@ emailing, so that the answer stays searchable for other users.
 
 - `manuscript/` — manuscript describing the software, with the LaTeX sources,
   figures and the submission checklist.
-- `validation/` — the R-versus-C++ equivalence harness; `validation/README.md`
+- `validation/` — the independent base-R validation harness; `validation/README.md`
   explains how to regenerate the comparison table and figures.
 
 ## License

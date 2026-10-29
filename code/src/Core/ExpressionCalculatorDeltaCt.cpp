@@ -17,7 +17,8 @@ namespace qpcr {
 
 ExpressionResult ExpressionCalculator::calculateByDeltaCt(
     const DeltaCtParams& params,
-    const QString& statMethod)
+    const QString& statMethod,
+    const QString& pAdjustMethod)
 {
     ExpressionResult result;
     result.method = "2^-DeltaCt";
@@ -118,8 +119,10 @@ ExpressionResult ExpressionCalculator::calculateByDeltaCt(
         // 与 ΔΔCt 一致：ANOVA + Tukey 字母标记（旧实现这里静默退化成 t.test）
         runAnovaTests(allData, sortedGenes, sortedGroups, result.statistics);
     } else {
-        runPairwiseTests(allData, sortedGenes, sortedGroups, refGroup, statMethod, result.statistics);
+        runPairwiseTests(allData, sortedGenes, sortedGroups, refGroup, statMethod,
+                         pAdjustMethod, result.statistics);
     }
+    result.adjustmentMethod = statMethod == "anova" ? QStringLiteral("tukey") : pAdjustMethod;
 
     result.table = buildResultTableWithPValues(finalGenes, finalGroups, finalMeans, finalStdDevs, result.statistics);
 

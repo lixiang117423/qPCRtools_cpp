@@ -989,6 +989,7 @@ function updateAnalysisMethodUI() {
     const deltaCtParams = document.getElementById('deltaCtParams');
     const controlGroupField = document.getElementById('controlGroupField');
     const removeOutliersField = document.getElementById('removeOutliersField');
+    const pAdjustField = document.getElementById('pAdjustField');
     const referenceGeneHelp = document.getElementById('referenceGeneHelp');
     const standardCurveMethodAlert = document.getElementById('standardCurveMethodAlert');
 
@@ -998,6 +999,7 @@ function updateAnalysisMethodUI() {
         deltaCtParams.style.display = 'block';
         controlGroupField.style.display = 'block';
         removeOutliersField.style.display = 'none';
+        pAdjustField.style.display = 'none';
         if (standardCurveMethodAlert) {
             standardCurveMethodAlert.style.display = 'block';
         }
@@ -1010,6 +1012,7 @@ function updateAnalysisMethodUI() {
         deltaCtParams.style.display = 'block';
         controlGroupField.style.display = 'none';
         removeOutliersField.style.display = 'block';
+        pAdjustField.style.display = 'block';
         if (standardCurveMethodAlert) {
             standardCurveMethodAlert.style.display = 'none';
         }
@@ -1022,6 +1025,7 @@ function updateAnalysisMethodUI() {
         deltaCtParams.style.display = 'block';
         controlGroupField.style.display = 'block';
         removeOutliersField.style.display = 'block';
+        pAdjustField.style.display = 'block';
         if (standardCurveMethodAlert) {
             standardCurveMethodAlert.style.display = 'none';
         }
@@ -1034,6 +1038,7 @@ function updateAnalysisMethodUI() {
         deltaCtParams.style.display = 'block';
         controlGroupField.style.display = 'block';
         removeOutliersField.style.display = 'block';
+        pAdjustField.style.display = 'block';
         if (standardCurveMethodAlert) {
             standardCurveMethodAlert.style.display = 'none';
         }
@@ -1051,6 +1056,7 @@ async function runAnalysis() {
     const referenceGene = document.getElementById('referenceGene').value.trim();
     const controlGroup = document.getElementById('controlGroup').value.trim();
     const statisticalTest = document.getElementById('statisticalTest').value;
+    const pAdjustMethod = document.getElementById('pAdjustMethod').value;
     const removeOutliers = document.getElementById('removeOutliers').checked;
     const colorPalette = document.getElementById('colorPalette').value;
 
@@ -1065,6 +1071,7 @@ async function runAnalysis() {
     console.log('Reference Gene:', referenceGene);
     console.log('Control Group:', controlGroup);
     console.log('Statistical Test:', statisticalTest);
+    console.log('P-value adjustment:', pAdjustMethod);
     console.log('Remove Outliers:', removeOutliers);
     console.log('Color Palette:', colorPalette);
     console.log('Lowest Conc:', lowestConcen);
@@ -1155,11 +1162,14 @@ async function runAnalysis() {
             if (method === 'standardCurve') {
                 result = await bridge.calculateStandardCurve(JSON.stringify(params));
             } else if (method === 'deltaCt') {
-                result = await bridge.calculateByDeltaCt(JSON.stringify(params), statisticalTest);
+                result = await bridge.calculateByDeltaCt(
+                    JSON.stringify(params), statisticalTest, pAdjustMethod);
             } else if (method === 'deltaDeltaCt') {
-                result = await bridge.calculateByDeltaDeltaCt(JSON.stringify(params), statisticalTest);
+                result = await bridge.calculateByDeltaDeltaCt(
+                    JSON.stringify(params), statisticalTest, pAdjustMethod);
             } else if (method === 'standardCurveExp') {
-                result = await bridge.calculateByStandardCurve(JSON.stringify(params), statisticalTest);
+                result = await bridge.calculateByStandardCurve(
+                    JSON.stringify(params), statisticalTest, pAdjustMethod);
             }
 
             analysisResults = JSON.parse(result);
@@ -1171,6 +1181,7 @@ async function runAnalysis() {
                 referenceGene: referenceGene,
                 controlGroup: controlGroup,
                 statisticalTest: statisticalTest,
+                pAdjustMethod: pAdjustMethod,
                 removeOutliers: removeOutliers,
                 lowestConcen: lowestConcen,
                 highestConcen: highestConcen,
@@ -1198,6 +1209,7 @@ async function runAnalysis() {
             referenceGene: referenceGene,
             controlGroup: controlGroup,
             statisticalTest: statisticalTest,
+            pAdjustMethod: pAdjustMethod,
             removeOutliers: removeOutliers,
             lowestConcen: lowestConcen,
             highestConcen: highestConcen,
@@ -1276,7 +1288,11 @@ function displayResultsTable(results) {
     if (results.table.some(row => row.SE !== undefined && row.SE !== null)) {
         headers.push('SE');
     }
-    headers.push('PValue', 'Significance');
+    headers.push('PValue');
+    if (results.table.some(row => row.RawPValue !== undefined && row.RawPValue !== null)) {
+        headers.push('RawPValue', 'PAdjustMethod');
+    }
+    headers.push('Significance');
     console.log('Headers:', headers);
 
     const headerRow = document.createElement('tr');
@@ -1453,6 +1469,22 @@ function buildExpressionChartOption(results, palette) {
     const colors = Array.isArray(palette) && palette.length > 0 ? palette : ['#3C5488'];
     const series = [];
     const errorBars = [];
+    const rawValues = {};
+    if (Array.isArray(results.rawData)) {
+        results.rawData.forEach(function (row) {
+            const gene = row.Gene === undefined ? '' : String(row.Gene);
+            const group = row.Group === undefined ? '' : String(row.Group);
+            const value = parseFloat(row.Expression);
+            if (!gene || !group || isNaN(value)) {
+                return;
+            }
+            const key = gene + '\u001f' + group;
+            if (!rawValues[key]) {
+                rawValues[key] = [];
+            }
+            rawValues[key].push(value);
+        });
+    }
 
     // 柱宽固定成 band 的固定百分比，误差线才有确定的水平偏移。
     // ECharts 里 barWidth:'P%' 的百分比基准 = 类目带宽，而自定义 series 里
@@ -1460,7 +1492,10 @@ function buildExpressionChartOption(results, palette) {
     // SSR 渲染实测：band=905.2、barWidth '22%' → 柱宽 199.1 = 905.2×0.22）。
     // 不显式指定时由 ECharts 自行分配 barGap/barCategoryGap，算出来的偏移
     // 与真实柱心对不上——曾出现"第 1、3 根柱子的误差线明显偏右"。
-    const barWidthPct = 100 / groups.length * 0.7;
+    const barGapPct = 12;
+    const barWidthPct = 100 / groups.length * 0.64;
+    const barStepFactor = 1 + barGapPct / 100;
+    const barWidthFraction = barWidthPct / 100;
 
     groups.forEach(function (group, groupIndex) {
         const data = genes.map(function (gene) {
@@ -1480,20 +1515,76 @@ function buildExpressionChartOption(results, palette) {
         series.push({
             name: group,
             type: 'bar',
-            barGap: 0,
+            barGap: barGapPct + '%',
             barWidth: barWidthPct + '%',
             data: data,
-            itemStyle: { color: colors[groupIndex % colors.length] },
-            label: {
-                show: true,
-                position: 'top',
-                fontSize: 12,
-                formatter: function (params) {
-                    const cell = cells[genes[params.dataIndex] + '\u001f' + group];
-                    return cell && cell.sig ? cell.sig : '';
-                }
+            itemStyle: { color: colors[groupIndex % colors.length] }
+        });
+
+        const groupOffset = (groupIndex - (groups.length - 1) / 2)
+            * barWidthFraction * barStepFactor;
+        const pointData = [];
+        const labelData = [];
+        genes.forEach(function (gene, geneIndex) {
+            const cell = cells[gene + '\u001f' + group];
+            if (!cell) {
+                return;
+            }
+            const observations = rawValues[gene + '\u001f' + group] || [];
+            if (observations.length > 0) {
+                observations.sort(function (a, b) { return a - b; });
+                const spread = barWidthFraction * 0.48;
+                observations.forEach(function (value, observationIndex) {
+                    const jitter = observations.length > 1
+                        ? (observationIndex / (observations.length - 1) - 0.5) * spread
+                        : 0;
+                    pointData.push([geneIndex + groupOffset + jitter, value]);
+                });
+            }
+            if (cell.sig) {
+                labelData.push({
+                    value: [geneIndex + groupOffset, cell.mean + cell.sd],
+                    sig: cell.sig
+                });
             }
         });
+
+        if (pointData.length > 0) {
+            series.push({
+                name: group + ' observations',
+                type: 'scatter',
+                z: 12,
+                symbol: 'circle',
+                symbolSize: 7,
+                itemStyle: {
+                    color: colors[groupIndex % colors.length],
+                    borderColor: '#222222',
+                    borderWidth: 0.7,
+                    opacity: 0.82
+                },
+                data: pointData
+            });
+        }
+        if (labelData.length > 0) {
+            series.push({
+                name: group + ' significance',
+                type: 'scatter',
+                symbolSize: 1,
+                z: 14,
+                label: {
+                    show: true,
+                    position: 'top',
+                    distance: 7,
+                    fontSize: 14,
+                    fontWeight: 'bold',
+                    color: '#111111',
+                    formatter: function (params) {
+                        return params.data && params.data.sig ? params.data.sig : '';
+                    }
+                },
+                data: labelData
+            });
+        }
     });
 
     // SD 误差线（custom series，逐项渲染：每项返回竖线 + 上下两条端帽）。
@@ -1519,7 +1610,8 @@ function buildExpressionChartOption(results, palette) {
             // 与 bar 系列的 barWidth:'<barWidthPct>%' 用同一个基准（类目带宽），
             // 保证误差线落在各自柱子的正中间。
             const barWidth = api.size([1, 0])[0] * barWidthPct / 100;
-            const offset = (groupIndex - (groups.length - 1) / 2) * barWidth;
+            const offset = (groupIndex - (groups.length - 1) / 2)
+                * barWidth * barStepFactor;
             const x = api.coord([geneIndex, 0])[0] + offset;
             const capHalf = Math.max(3, barWidth * 0.18);
             const yLow = api.coord([geneIndex, lower])[1];
@@ -1551,14 +1643,21 @@ function buildExpressionChartOption(results, palette) {
             textStyle: { fontSize: 15, fontWeight: 'bold' }
         },
         tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-        legend: { top: 26, left: 'center' },
+        legend: { top: 26, left: 'center', data: groups },
         grid: { left: '3%', right: '4%', bottom: '12%', top: '18%', containLabel: true },
         xAxis: {
             type: 'category',
             data: genes,
             axisLabel: { rotate: genes.length > 4 ? 45 : 0, fontSize: 12 }
         },
-        yAxis: { type: 'value', name: 'Relative expression', axisLabel: { fontSize: 12 } },
+        yAxis: {
+            type: 'value',
+            name: 'Relative expression',
+            axisLabel: { fontSize: 12 },
+            max: function (value) {
+                return Math.ceil(value.max * 1.16 * 10) / 10;
+            }
+        },
         series: series
     };
 }
@@ -1827,6 +1926,7 @@ function captureAnalysisParameters(ctx) {
         referenceGene: ctx.referenceGene,
         controlGroup: ctx.controlGroup,
         statisticalTest: ctx.statisticalTest,
+        pAdjustMethod: ctx.pAdjustMethod,
         removeOutliers: ctx.removeOutliers,
         lowestConcen: ctx.lowestConcen,
         highestConcen: ctx.highestConcen,
@@ -1898,6 +1998,7 @@ function buildAnalysisRecord(snapshot, appVersion, timestamp) {
         field('Reference gene(s)', snapshot.referenceGene);
         field('Control group', snapshot.controlGroup);
         field('Statistical test', snapshot.statisticalTest);
+        field('P-value adjustment', snapshot.pAdjustMethod);
         field('Remove outliers (IQR)', snapshot.removeOutliers ? 'yes' : 'no');
     }
     lines.push('');
@@ -1920,7 +2021,13 @@ function buildAnalysisRecord(snapshot, appVersion, timestamp) {
     lines.push('[Notes]');
     lines.push('- Group comparisons are performed on the linear relative-expression scale');
     lines.push('  (Welch t-test, Wilcoxon rank-sum, or one-way ANOVA with Tukey HSD),');
-    lines.push('  matching the R implementation.');
+    lines.push('  as in the R implementation.');
+    if (snapshot.statisticalTest === 'anova') {
+        lines.push('- P values are the overall ANOVA P value; letters are Tukey HSD groupings.');
+    } else {
+        lines.push('- P values are adjusted within each gene across comparisons against the control');
+        lines.push('  using the method listed above; raw P values are retained in exported tables.');
+    }
     lines.push('- Re-running the same input files with the parameters listed above');
     lines.push('  reproduces this analysis.');
     lines.push('');

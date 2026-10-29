@@ -18,7 +18,8 @@ namespace qpcr {
 
 ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
     const DeltaDeltaCtParams& params,
-    const QString& statMethod)
+    const QString& statMethod,
+    const QString& pAdjustMethod)
 {
     ExpressionResult result;
     result.method = "2^-DeltaDeltaCt";
@@ -179,8 +180,10 @@ ExpressionResult ExpressionCalculator::calculateByDeltaDeltaCt(
     if (statMethod == "anova") {
         runAnovaTests(allData, sortedGenes, sortedGroups, result.statistics);
     } else {
-        runPairwiseTests(allData, sortedGenes, sortedGroups, refGroup, statMethod, result.statistics);
+        runPairwiseTests(allData, sortedGenes, sortedGroups, refGroup, statMethod,
+                         pAdjustMethod, result.statistics);
     }
+    result.adjustmentMethod = statMethod == "anova" ? QStringLiteral("tukey") : pAdjustMethod;
 
     result.table = buildResultTableWithPValues(summaryGenes, summaryGroups, summaryMeans, summaryStdDevs, result.statistics);
 

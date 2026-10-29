@@ -1,81 +1,65 @@
-# Equivalence Validation Package
+# Independent Validation Package
 
-This directory reproduces the comparison between the **C++ desktop
-implementation** of qPCRtools and the original **R package**
-(`qPCRtools`, Li et al. 2022) reported in the paper's Results section.
+This directory checks the numerical implementation of qPCRtools against an
+independent base-R reference. The reference is computed directly from the raw
+Cq tables and does not load or call the `qPCRtools` R package.
 
 ## Scope
 
-Equivalence is validated on the three quantification methods shared by both
-implementations:
+Three quantification methods are covered:
 
-| Method | R function | C++ function | Data |
+| Method | Base-R reference | C++ implementation | Input |
 |---|---|---|---|
-| ΔΔCt | `CalExp2ddCt` | `ExpressionCalculator::calculateByDeltaDeltaCt` | `examples/cq.csv` + `examples/design.csv` |
-| RqPCR | `CalExpRqPCR` | `ExpressionCalculator::calculateByStandardCurve` | `examples/rqpcr_cq.csv` + `examples/rqpcr_design.csv` |
-| Standard curve | `CalCurve` | `StandardCurve::calculate` | `web/calsc.cq.txt` + `web/calsc.info.txt` |
+| ΔΔCt | `validation/reference_base_r.R` | `ExpressionCalculator::calculateByDeltaDeltaCt` | `examples/cq.csv` + `examples/design.csv` |
+| RqPCR | `validation/reference_base_r.R` | `ExpressionCalculator::calculateByStandardCurve` | `examples/rqpcr_cq.csv` + `examples/rqpcr_design.csv` |
+| Standard curve | `validation/reference_base_r.R` | `StandardCurve::calculate` | `web/calsc.cq.txt` + `web/calsc.info.txt` |
 
-The R functions `CalExpCurve` (slope–intercept) and `CalRTable` (RT volume)
-are **not** ported to C++ and are therefore out of scope (stated in the paper).
+`CalExpCurve` (slope–intercept) and `CalRTable` (RT volume) are not ported to
+C++ and remain outside the validation scope.
 
-## Example-dataset statistics (no dependency required)
+## Statistical convention
 
-The numbers quoted in the "typical analysis workflow" part of the paper's
-Results — group means, standard deviations and Welch two-sample *t*-test
-*p*-values for the bundled example dataset — are reproduced by a small
-standalone script that does **not** require the R package or the desktop
-application to be installed:
+The bundled example has two treatment groups compared with one control. Welch
+and Wilcoxon P values are adjusted by Holm's method within each gene, while
+the raw values remain in the application output. The example values on the
+linear relative-expression scale are:
 
-```bash
-Rscript validation/check_example_stats.R
-```
-
-Expected output (R 4.6.1, 2026-10-13):
-
-| Group | mean | sd | Welch *t*-test vs group 0 |
-|---|---|---|---|
-| 0   | 0.5872 | 0.1214 | — (control) |
-| 0.5 | 1.1095 | 0.1192 | *p* = 0.006027 |
-| 1   | 1.5861 | 0.3229 | *p* = 0.022191 |
-
-These agree exactly with the values displayed by the application on the same
-data (screenshots in `manuscript/figures/fig1c_results.jpg`). Note that, as in the
-R implementation, expression is normalized to the mean ΔCt over **all**
-samples, so the control group is not exactly 1.
+| Group | mean | SD | raw Welch P | Holm P |
+|---|---|---|---|---|
+| 0 | 1.0145 | 0.2098 | — (control) | — |
+| 0.5 | 1.9169 | 0.2060 | 0.006027 | 0.012055 |
+| 1 | 2.7403 | 0.5580 | 0.022191 | 0.022191 |
 
 ## Reproduce
 
-From the `code/` directory (the CMake project root; the build directory is
-kept at the repository root, consistent with CI):
+From `code/`:
 
 ```bash
-# 0. 进入软件工程目录（仓库根下的 code/）
-cd code/
+# 1. Independent base-R reference
+/opt/homebrew/bin/Rscript validation/reference_base_r.R
 
-# 1. R side  -> results/R_*.csv   (requires R + qPCRtools)
-Rscript validation/run_R.R
+# 2. C++ output
+cmake -S . -B /tmp/qpcr_validation -DQPCRTOOLS_BUILD_VALIDATION=ON
+cmake --build /tmp/qpcr_validation --target run_cpp
+/tmp/qpcr_validation/run_cpp round2
 
-# 2. C++ side -> results/cpp_*.csv
-cmake -S . -B ../build-val -DQPCRTOOLS_BUILD_VALIDATION=ON
-cmake --build ../build-val --target run_cpp
-../build-val/run_cpp
+# 3. Strict numerical comparison
+/opt/homebrew/bin/Rscript validation/compare_to_reference.R
 
-# 3. Compare  -> results/comparison.csv + ../manuscript/figures/fig3_equivalence.pdf
-python3 validation/compare.py
+# 4. Figures
+/Users/lixiang/miniforge3/envs/python/bin/python3 validation/plot_examples.py
+/Users/lixiang/miniforge3/envs/python/bin/python3 validation/compare.py
 ```
 
-## Expected outcome
+`compare_to_reference.R` exits with status 0 and prints
+`REFERENCE-COMPARE PASS` only when all compared quantities are within the
+tolerance. The current maximum relative differences are:
 
-For every shared method, all compared numeric quantities (expression values,
-statistics, p-values, standard-curve slope/R²/efficiency) agree within
-floating-point precision (relative difference < 1e-6). Figure 3 plots every
-C++ result against its R counterpart; all points fall on the y = x line.
+| Method | Compared quantities | Maximum relative difference |
+|---|---|---:|
+| ΔΔCt | mean, SD, raw and Holm P | 1.7 × 10^-14 |
+| RqPCR | mean, SD, SE, raw and Holm P | 1.9 × 10^-14 |
+| Standard curve | slope, intercept, R², efficiency | 4.2 × 10^-15 |
 
-## Notes
-
-- `run_R.R` reads the same on-disk files as `run_cpp`, so both sides analyze
-  identical input.
-- If your installed R version of `CalExp2ddCt` expects a `Treatment` column
-  rather than `Group`, uncomment the rename line in `run_R.R`.
-- `fig3_equivalence.pdf` is regenerated by `compare.py` and is the source for
-  the paper's Figure 3.
+Numerical agreement establishes consistency with the specified algorithms,
+not biological correctness.

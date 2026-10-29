@@ -101,7 +101,7 @@ setTimeout(() => {
   const recordSnapshot = {
     method: 'deltaDeltaCt', methodLabel: 'ΔΔCt Method',
     referenceGene: 'Beta Actin', controlGroup: '0',
-    statisticalTest: 't.test', removeOutliers: false,
+    statisticalTest: 't.test', pAdjustMethod: 'holm', removeOutliers: false,
     cqFileName: 'cq.csv', cqRows: 96, cqColumns: 4,
     designFileName: 'design.csv', designRows: 96, designColumns: 5,
     summaryRows: 3, rawRows: 9, statisticCount: 2,
@@ -115,6 +115,7 @@ setTimeout(() => {
     ['reference gene', record.includes('Beta Actin')],
     ['control group', record.includes('0')],
     ['statistical test', record.includes('t.test')],
+    ['P-value adjustment', record.includes('holm')],
     ['input file names', record.includes('cq.csv') && record.includes('design.csv')],
     ['input shape', record.includes('96 x 4') && record.includes('96 x 5')],
     ['output counts', record.includes('Summary rows') && record.includes('Statistical results')],
@@ -131,6 +132,11 @@ setTimeout(() => {
   if (w.buildAnalysisRecord(null, '1.1.0', 'x') !== '') {
     ok = false;
     console.log('✗ buildAnalysisRecord(null) must return an empty string');
+  }
+
+  if (!/adjusted within each gene/.test(record)) {
+    ok = false;
+    console.log('✗ Analysis record must describe within-gene P-value adjustment');
   }
 
   const scRecord = w.buildAnalysisRecord({
@@ -156,6 +162,16 @@ setTimeout(() => {
       { Group: 'T',  Gene: 'G1', Mean: 2.5, StdDev: 0.30, Significance: '**' },
       { Group: 'T',  Gene: 'G2', Mean: 0.4, StdDev: 0.05, Significance: '*' },
     ],
+    rawData: [
+      { Gene: 'G1', Group: 'CK', Expression: 0.9 },
+      { Gene: 'G1', Group: 'CK', Expression: 1.1 },
+      { Gene: 'G2', Group: 'CK', Expression: 0.8 },
+      { Gene: 'G2', Group: 'CK', Expression: 1.2 },
+      { Gene: 'G1', Group: 'T', Expression: 2.4 },
+      { Gene: 'G1', Group: 'T', Expression: 2.6 },
+      { Gene: 'G2', Group: 'T', Expression: 0.3 },
+      { Gene: 'G2', Group: 'T', Expression: 0.5 },
+    ],
   };
   const chartOption = w.buildExpressionChartOption(chartResults, ['#111111', '#222222']);
   // 误差线必须真的画出来：ECharts 5.4.4 按"每项"调用 renderItem，且
@@ -177,11 +193,12 @@ setTimeout(() => {
   // 柱宽 = band × (100 / 组数 × 0.7) / 100（band = api.size([1,0])[0]）。
   const band = 100;
   const nGroups = chartOption ? chartOption.series.filter(s => s.type === 'bar').length : 0;
-  const barW = band * (100 / nGroups * 0.7) / 100;
+  const barW = band * (100 / nGroups * 0.64) / 100;
+  const barStep = barW * 1.12;
   const sdCentered = !!sdSeries && sdSeries.data.length > 0 && sdSeries.data.every((d, i) => {
     const item = sdRendered[i];
     if (!item) return false;
-    const expectedX = (d[0] * 100) + (d[2] - (nGroups - 1) / 2) * barW;
+    const expectedX = (d[0] * 100) + (d[2] - (nGroups - 1) / 2) * barStep;
     const xs = item.children.map(c => c.shape.x1);
     return Math.abs(xs[0] - expectedX) < 1e-9
       && xs[1] === xs[2]
@@ -193,18 +210,29 @@ setTimeout(() => {
       chartOption && JSON.stringify(chartOption.xAxis.data) === JSON.stringify(['G1', 'G2'])],
     ['one bar series per group',
       chartOption && chartOption.series.filter(s => s.type === 'bar').length === 2],
+    ['legend excludes error bars and observations',
+      chartOption && JSON.stringify(chartOption.legend.data) === JSON.stringify(['CK', 'T'])],
+    ['bars have a visible gap',
+      chartOption && chartOption.series.filter(s => s.type === 'bar').every(s => s.barGap === '12%')],
     ['control means from table',
       chartOption && JSON.stringify(chartOption.series[0].data) === JSON.stringify([1, 1])],
     ['treatment means from table',
-      chartOption && JSON.stringify(chartOption.series[1].data) === JSON.stringify([2.5, 0.4])],
+      chartOption && JSON.stringify(
+        chartOption.series.find(s => s.type === 'bar' && s.name === 'T').data
+      ) === JSON.stringify([2.5, 0.4])],
     ['SD error bars (custom series, one per cell)',
       chartOption && chartOption.series.some(s => s.type === 'custom' && s.data.length === 4)],
     ['SD error bars actually rendered (3 lines per cell)',
       sdChildren === 12],
     ['SD error bars centred on their own bar',
       sdCentered],
-    ['significance labels',
-      chartOption && chartOption.series[1].label.formatter({ dataIndex: 0 }) === '**'],
+    ['individual biological replicates',
+      chartOption && chartOption.series.filter(s => s.type === 'scatter'
+        && /observations$/.test(s.name)).reduce((n, s) => n + s.data.length, 0) === 8],
+    ['significance labels drawn above error bars',
+      chartOption && chartOption.series.some(s => s.type === 'scatter'
+        && /significance$/.test(s.name) && s.data.length === 2
+        && s.label.formatter({ data: s.data[0] }) === '**')],
     ['palette applied',
       chartOption && chartOption.series[0].itemStyle.color === '#111111'],
   ];
@@ -350,6 +378,24 @@ setTimeout(() => {
     console.log('✗ Analysis record must include the QC warnings');
   } else {
     console.log('✓ Analysis record carries the QC warnings');
+  }
+
+  // P 值校正控件只在有组间比较时显示；标准曲线参数计算不显示。
+  const standardCurveRadio = w.document.querySelector('input[name="analysisMethod"][value="standardCurve"]');
+  standardCurveRadio.checked = true;
+  w.updateAnalysisMethodUI();
+  const pAdjustHiddenOnCurve =
+    w.document.getElementById('pAdjustField').style.display === 'none';
+  const deltaDeltaRadio = w.document.querySelector('input[name="analysisMethod"][value="deltaDeltaCt"]');
+  deltaDeltaRadio.checked = true;
+  w.updateAnalysisMethodUI();
+  const pAdjustShownOnDdct =
+    w.document.getElementById('pAdjustField').style.display === 'block';
+  if (!pAdjustHiddenOnCurve || !pAdjustShownOnDdct) {
+    ok = false;
+    console.log('✗ P-value adjustment control has incorrect visibility by method');
+  } else {
+    console.log('✓ P-value adjustment control visibility follows the analysis method');
   }
 
   console.log(ok ? '\nSMOKE PASS' : '\nSMOKE FAIL');

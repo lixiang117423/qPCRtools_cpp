@@ -17,7 +17,10 @@ struct StatisticalResult {
     QString group;             // 组别
     QString group1;            // 比较组1
     QString group2;            // 比较组2
-    double pValue;             // P值
+    double pValue;             // 校正后的 P 值（用于结果表与显著性标记）
+    double rawPValue;          // 未校正 P 值
+    double adjustedPValue;     // 多重比较校正后的 P 值
+    QString adjustmentMethod;  // 校正方法（"holm" / "none"）
     QString significance;      // 显著性标记: "***", "**", "*", "NS" 或字母标记 "a", "b", "ab", etc.
     QString letterGroup;       // ANOVA字母标记分组 (仅ANOVA使用)
 
@@ -35,6 +38,7 @@ struct ExpressionResult {
     DataFrame rawData;          // 原始数据表（每个BioRep的详细数据）
     QVector<StatisticalResult> statistics;  // 统计检验结果
     QString method;            // 使用的方法
+    QString adjustmentMethod;  // 统计校正方法（"holm" / "none"）
 };
 
 /**
@@ -91,7 +95,8 @@ public:
      */
     static ExpressionResult calculateByDeltaCt(
         const DeltaCtParams& params,
-        const QString& statMethod = "t.test"
+        const QString& statMethod = "t.test",
+        const QString& pAdjustMethod = "holm"
     );
 
     /**
@@ -107,7 +112,8 @@ public:
      */
     static ExpressionResult calculateByDeltaDeltaCt(
         const DeltaDeltaCtParams& params,
-        const QString& statMethod = "t.test"
+        const QString& statMethod = "t.test",
+        const QString& pAdjustMethod = "holm"
     );
 
     /**
@@ -123,7 +129,8 @@ public:
      */
     static ExpressionResult calculateByStandardCurve(
         const StandardCurveParams& params,
-        const QString& statMethod = "t.test"
+        const QString& statMethod = "t.test",
+        const QString& pAdjustMethod = "holm"
     );
 
     /**

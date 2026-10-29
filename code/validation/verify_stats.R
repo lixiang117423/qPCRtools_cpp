@@ -1,4 +1,7 @@
 #!/usr/bin/env Rscript
+# LEGACY: superseded by validation/reference_base_r.R and
+# validation/compare_to_reference.R. Kept only for historical comparison with
+# the 1.2.0 validation output.
 # validation/verify_stats.R
 #
 # 统计层的"独立参照"对账：把应用（C++，1.2.0）在捆绑示例数据上给出的

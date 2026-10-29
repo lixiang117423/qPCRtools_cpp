@@ -27,6 +27,7 @@ void runPairwiseTests(
     const QList<QString>& sortedGroups,
     const QString& refGroup,
     const QString& statMethod,
+    const QString& pAdjustMethod,
     QVector<StatisticalResult>& statistics);
 
 // 对每个基因做 ANOVA + Tukey HSD。
@@ -35,6 +36,19 @@ void runAnovaTests(
     const QList<QString>& sortedGenes,
     const QList<QString>& sortedGroups,
     QVector<StatisticalResult>& statistics);
+
+/**
+ * @brief 对同一基因内“各处理组 vs 对照”的原始 P 值做 Holm 校正
+ *
+ * 校正族定义为同一基因内的一组比较；不同基因之间不合并校正。
+ * pValue 保存校正后结果，rawPValue 保留未校正值，便于结果表追溯。
+ *
+ * @param statistics 待校正的统计结果（按引用原地修改）
+ * @param method "holm" 或 "none"
+ */
+void applyPairwisePAdjustment(
+    QVector<StatisticalResult>& statistics,
+    const QString& method);
 
 // 合并均值/SD 与 statistics 中的 p 值，构造结果 DataFrame。
 DataFrame buildResultTableWithPValues(

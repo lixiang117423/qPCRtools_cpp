@@ -91,6 +91,8 @@ const translations = {
         'param.dilution': '稀释倍数',
         'param.byMean': '使用平均Cq值',
         'param.statisticalTest': '统计检验方法',
+        'param.pAdjustMethod': 'P值校正方法',
+        'param.pAdjustHelp': '适用于各处理组与对照组的 t 检验/秩和检验；ANOVA 使用 Tukey HSD。',
         'param.removeOutliers': '移除异常值（IQR方法）',
         'param.colorPalette': '配色方案',
 
@@ -229,6 +231,8 @@ const translations = {
         'param.dilution': 'Dilution Factor',
         'param.byMean': 'Use Mean Cq Values',
         'param.statisticalTest': 'Statistical Test',
+        'param.pAdjustMethod': 'P-value adjustment',
+        'param.pAdjustHelp': 'Applies to t-test and Wilcoxon comparisons against the control; ANOVA uses Tukey HSD.',
         'param.removeOutliers': 'Remove Outliers (IQR method)',
         'param.colorPalette': 'Color Palette',
 

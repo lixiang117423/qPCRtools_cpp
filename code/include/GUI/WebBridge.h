@@ -126,7 +126,10 @@ public:
      * @param statMethod 统计方法
      * @return JSON格式的结果
      */
-    Q_INVOKABLE QString calculateByDeltaCt(const QString &params, const QString &statMethod = "t.test");
+    Q_INVOKABLE QString calculateByDeltaCt(
+        const QString &params,
+        const QString &statMethod = "t.test",
+        const QString &pAdjustMethod = "holm");
 
     /**
      * @brief 使用ΔΔCt方法计算基因表达
@@ -134,7 +137,10 @@ public:
      * @param statMethod 统计方法
      * @return JSON格式的结果
      */
-    Q_INVOKABLE QString calculateByDeltaDeltaCt(const QString &params, const QString &statMethod);
+    Q_INVOKABLE QString calculateByDeltaDeltaCt(
+        const QString &params,
+        const QString &statMethod,
+        const QString &pAdjustMethod = "holm");
 
     /**
      * @brief 使用标准曲线方法计算基因表达
@@ -142,7 +148,10 @@ public:
      * @param statMethod 统计方法
      * @return JSON格式的结果
      */
-    Q_INVOKABLE QString calculateByStandardCurve(const QString &params, const QString &statMethod);
+    Q_INVOKABLE QString calculateByStandardCurve(
+        const QString &params,
+        const QString &statMethod,
+        const QString &pAdjustMethod = "holm");
 
     /**
      * @brief 导出结果到CSV

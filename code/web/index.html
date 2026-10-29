@@ -443,14 +443,11 @@
                                     <small class="d-block text-muted">(Using Slope/Intercept)</small>
                                 </label>
 
-                                <!-- Standard Curve Expression temporarily disabled -->
-                                <!--
                                 <input type="radio" class="btn-check" name="analysisMethod" id="methodStandardCurveExp" value="standardCurveExp">
                                 <label class="btn btn-outline-primary text-start" for="methodStandardCurveExp">
                                     <span data-i18n="method.standardCurveExp">Standard Curve Expression</span>
                                     <small class="d-block text-muted">(Using Efficiency Values)</small>
                                 </label>
-                                -->
 
                                 <input type="radio" class="btn-check" name="analysisMethod" id="methodDeltaCt" value="deltaCt">
                                 <label class="btn btn-outline-primary text-start" for="methodDeltaCt">
@@ -539,6 +536,16 @@
                                         <option value="wilcox.test">Wilcoxon rank-sum test</option>
                                         <option value="anova">ANOVA</option>
                                     </select>
+                                </div>
+                                <div class="mb-3" id="pAdjustField">
+                                    <label class="form-label" data-i18n="param.pAdjustMethod">P-value adjustment</label>
+                                    <select class="form-select" id="pAdjustMethod">
+                                        <option value="holm" selected>Holm (within each gene)</option>
+                                        <option value="none">None (raw P values)</option>
+                                    </select>
+                                    <small class="form-text text-muted" data-i18n="param.pAdjustHelp">
+                                        Applies to t-test and Wilcoxon comparisons against the control; ANOVA uses Tukey HSD.
+                                    </small>
                                 </div>
                                 <div class="mb-3 form-check" id="removeOutliersField">
                                     <input type="checkbox" class="form-check-input" id="removeOutliers">

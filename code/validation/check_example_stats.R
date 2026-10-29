@@ -17,8 +17,8 @@
 #
 # 实测（R 4.6.1, aarch64-apple-darwin27.0.0, 2026-10-15，对照组基准）：
 #   group 0     mean 1.0145  sd 0.2098
-#   group 0.5   mean 1.9169  sd 0.2060   Welch t-test vs group 0: p = 0.006027
-#   group 1     mean 2.7403  sd 0.5580   Welch t-test vs group 0: p = 0.022191
+#   group 0.5   mean 1.9169  sd 0.2060   Welch raw p = 0.006027; Holm p = 0.012055
+#   group 1     mean 2.7403  sd 0.5580   Welch raw p = 0.022191; Holm p = 0.022191
 
 cat(R.version.string, "\n")
 
@@ -52,10 +52,17 @@ for (g in sort(unique(d$Group))) {
 }
 
 cat("\nWelch two-sample t-test vs control (group 0), on expression values:\n")
+raw_p <- numeric(0)
 for (g in setdiff(sort(unique(d$Group)), 0)) {
     tt <- t.test(d$expr[d$Group == g], d$expr[d$Group == 0])
+    raw_p <- c(raw_p, tt$p.value)
     cat(sprintf("  dose %-5s t=%.4f  df=%.4f  p=%.6f\n",
                 g, tt$statistic, tt$parameter, tt$p.value))
+}
+cat("\nHolm adjustment within this gene (comparisons against the control):\n")
+for (i in seq_along(raw_p)) {
+    cat(sprintf("  comparison %d  raw p=%.6f  Holm p=%.6f\n",
+                i, raw_p[i], p.adjust(raw_p, method = "holm")[i]))
 }
 
 dir.create("validation/results", showWarnings = FALSE, recursive = TRUE)

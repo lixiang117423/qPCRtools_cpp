@@ -109,7 +109,8 @@ cmake -S code -B build-tests -DBUILD_TESTS=ON [同上 Qt/Eigen] && cmake --build
 - ΔΔCt：全表重复 filter → 一次遍历索引；ΔCt：每 gene 重复 filter → 提升到 group 层
 - 新增回归测试 `tests/test_bugfixes.cpp`（20 个用例）与 Wilcoxon 并列黄金 fixture（R 4.5 生成）；现有 33/33 测试全绿
 
-**版本**：1.2.0-dev（2026-10-15 起：作图功能恢复——表达量图 bar + SD 误差线 + 显著性标注、
-标准曲线图 log_d(Conc) 散点 + 回归线 + 范围外空心点，均可导出 PNG；新增"分析记录"导出与
-质控预警（Cq 上限 35 / 技术重复 SD 0.5 Cq / 效率 90–110%，只提示不删数据，阈值可调）；
-另有 ΔΔCt 校准基准、Tukey/geNorm/RqPCR 若干修正，详见项目 `CHANGELOG.md`）
+**版本**：1.3.0-dev（2026-10-29 起：多组对同一对照的 Welch/Wilcoxon P 值按基因内 Holm
+校正，结果表同时输出 `RawPValue` / `AdjustedPValue` / `PAdjustMethod`；结果图增加单个
+生物学重复点、柱间间隔和校正后显著性标记，并移除 SD 图例项。此前 1.2.0 已恢复作图、
+加入分析记录与质控预警。当前 1.3.0 GitHub Release 尚未发布，见
+`manuscript/SUBMISSION_CHECKLIST.md` 的阻断项）

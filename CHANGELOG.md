@@ -1,5 +1,57 @@
 # CHANGELOG
 
+## 2026-10-29 10:12 — 1.3.0 发布准备：修复标曲表达量原始表归一化 + 建立真实数据端到端示例
+
+- **修复一个会影响结果解释的代码错误**：Standard Curve Expression
+  的汇总表按基因内最小组均值归一化，但“原始数据（生物学重复）”仍导出未归一化
+  的逐重复值，导致表中 `Mean/SD` 与同组 `Expression` 对不上。现在 raw 表使用
+  与汇总表相同的基因内归一化因子；新增 C++ 测试断言逐重复均值等于汇总均值。
+- **真实数据端到端示例**：从 2022 年 qPCRtools 论文附带的真实示例板建立
+  `code/examples/real_workflow/`，覆盖标准曲线、方法选择（基因特异性效率）、
+  组间分析、QC、汇总/原始表、两张图和 1.3.0 分析记录导出。输入文件记录
+  DOI、字节数、MD5 与 SHA-256；明确标曲板和处理板是论文中的两套独立示例板。
+- **确定性核验**：新增 `code/scripts/19_verify_real_workflow.py`，从孔级输入重算
+  4 条曲线的 slope/intercept/R²/efficiency，核对 5 个基因的逐重复均值/SD、
+  Welch/Holm P 值、显著性模式和全部导出文件；结果 `REAL-WORKFLOW PASS`。
+- **发布工作流**：Windows/macOS 包改为版本化文件名；新增单独的
+  `create-release` 作业，在两个平台构建成功后才一次发布 Release，避免并发
+  创建/覆盖同一 Release。
+- **验证结果**：C++ `ctest` **53/53 通过**；JS `SMOKE PASS`；
+  `REFERENCE-COMPARE PASS`；`REAL-WORKFLOW PASS`；GitHub Actions YAML 解析通过。
+
+## 2026-10-29 08:52 — 第二轮审稿返修：独立验证、Holm 校正、1.3.0 界面与投稿包重建
+
+- **稿件主张收紧**：题名改为 `qPCRtools: a cross-platform desktop application for
+  reproducible qPCR analysis without programming`；删除“与 R 包验证等价”作为中心卖点，
+  改为与不加载 R 包的独立 base-R 参照逐项对账。58 个配对值最大相对差 **1.9e-14**，
+  `REFERENCE-COMPARE PASS`。
+- **统计口径**：多组对同一对照的 Welch/Wilcoxon 检验按基因内 Holm 校正，导出表同时保留
+  `RawPValue`、`AdjustedPValue` 与 `PAdjustMethod`；示例中 dose 0.5 的校正 P 从 0.006027
+  变为 0.012055，显著性由 `**` 变为 `*`。ΔCt 尺度仅作敏感性分析，未声称界面提供该选项。
+- **软件与界面**：源码版本升至 1.3.0；加入 P 值校正选择、分析记录字段和导出列；结果图
+  移除 SD 图例项，加入生物重复点、柱间间隔，并把显著性标记移到误差线上方。重新构建
+  Qt/WebEngine 应用后实机跑通示例并重拍 Figure 1：
+  `manuscript/figures/fig1_results_page_en_v4_20261029.png`。
+- **验证与测试**：C++ `ctest` **53/53 通过**；JS `SMOKE PASS`；独立 base-R 对账
+  `REFERENCE-COMPARE PASS`。新增 `code/scripts/16_check_submission_package.py`，检查
+  PDF/DOCX 文字、A4 页数、表 1 不跨页、图片居中、标题页与版本声明，结果
+  `OK: LaTeX 8+3 pages; Word 10+4 pages; cover 1 page`。
+- **稿件文字**：补入 MIQE 2.0、qpcR、NormqPCR、EasyqpcR 引用；说明 RqPCR 的
+  within-block 前提、Gene1 `R² = 0.75` 不合格、macOS Apple Silicon/12+/未公证/无 Linux
+  发布包；AI 披露分别列 Claude Code 与 OpenAI Codex 的使用阶段；作者贡献段不再写
+  “两位作者已批准”，Cover letter 也不声称 1.3.0 已发布。
+- **交付文件**：主文 `manuscript/main_v15_20261029.pdf/.docx`；补充材料
+  `manuscript/supplementary_v8_20261029.pdf/.docx`；Cover letter
+  `manuscript/cover_letter_v5_20261029.pdf/.docx/.md`。文件字节数、MD5、SHA-256 已登记到
+  `项目文件记录.md`。
+- **归档与治理**：`paper.md`、`paper.bib`、`docs/superpowers` 已移动至 `archive/`，
+  消除 JOSS 平行投稿风险；新增项目级 `AGENTS.md`、`journal.md` 与投稿阻断清单。
+- **记录载体验证**：已回读更新语雀总览、02 核心算法页与 05 论文投稿页；Obsidian 流水账见
+  `/Users/lixiang/NutstoreFiles/98.软件数据/Obsidian/obsidian/分析记录/qPCRtools_cpp.md`。
+- **仍未完成（不得写成已完成）**：1.3.0 GitHub Release/Windows/macOS 包；R 包 1.0.2/2.0.1
+  发布、issue 回复与 2022 年论文影响评估；一套真实数据的完整端到端流程；单位通讯邮箱；
+  基金适用性；OUP 官方模板与 4 页限制；Associate Editor；两位作者最终批准。
+
 ## 2026-10-19 13:33 — 发导师前的最后自检：补 Word 版、修补充材料图注双编号、清 cover letter 占位
 
 - **补充 Word 版（此前缺失）**：新增 `code/scripts/15_make_manuscript_docx.py`，一条命令生成

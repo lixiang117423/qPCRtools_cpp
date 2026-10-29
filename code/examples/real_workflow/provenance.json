@@ -1,0 +1,37 @@
+{
+  "source": "qPCRtools 2022 Frontiers in Genetics example data",
+  "doi": "10.3389/fgene.2022.1002704",
+  "source_files": {
+    "/Users/lixiang/NutstoreFiles/03.编程相关/qPCRtools/CRAN/qPCRtools/inst/examples/calsc.cq.txt": {
+      "bytes": "1057",
+      "md5": "0238299a473e72a6ba4cac8e0d19002b",
+      "sha256": "2e6b81616db52f6b8dd1ad26e15849ccc4e07e9aacc05df30cb57c7dfb415cc7"
+    },
+    "/Users/lixiang/NutstoreFiles/03.编程相关/qPCRtools/CRAN/qPCRtools/inst/examples/calsc.info.txt": {
+      "bytes": "1364",
+      "md5": "55d002c46db5b71fcaf5bdacc5cd8f46",
+      "sha256": "bbd2bdae09e25e6f81aa072feb6afbfe60206c399ab58596e5392f5fcb43c3e6"
+    },
+    "/Users/lixiang/NutstoreFiles/03.编程相关/qPCRtools/CRAN/qPCRtools/inst/examples/cal.expre.rqpcr.cq.txt": {
+      "bytes": "980",
+      "md5": "c201b5028495a524f76b963543866beb",
+      "sha256": "07afdd83ebff5aab37f88cddbf473d8077d02172d98720c3a355a20907937010"
+    },
+    "/Users/lixiang/NutstoreFiles/03.编程相关/qPCRtools/CRAN/qPCRtools/inst/examples/cal.expre.rqpcr.design.txt": {
+      "bytes": "2624",
+      "md5": "517f8382c8a4f8f8e704044011fe11f8",
+      "sha256": "2693c585c57aabb9fe32ebcf688626cff9d6628dcc7091296507a4f25971f720"
+    },
+    "/Users/lixiang/NutstoreFiles/03.编程相关/qPCRtools/CRAN/qPCRtools/inst/examples/cal.expre.curve.sdc.txt": {
+      "bytes": "945",
+      "md5": "af64755cb0089a39c98ead55390db719",
+      "sha256": "f621ed1731b31913b797ae35cf67978947596408f4804e25ff6f113e628d4802"
+    }
+  },
+  "workflow": [
+    "fit the real dilution-series plate with CalCurve",
+    "screen target-gene standard curves and select efficiency correction",
+    "run the real treatment plate with Standard Curve Expression",
+    "export the summary table and analysis record"
+  ]
+}

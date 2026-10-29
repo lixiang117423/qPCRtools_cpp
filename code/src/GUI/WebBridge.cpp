@@ -415,7 +415,10 @@ QString WebBridge::calculateStandardCurve(const QString &params)
     }
 }
 
-QString WebBridge::calculateByDeltaCt(const QString &params, const QString &statMethod)
+QString WebBridge::calculateByDeltaCt(
+    const QString &params,
+    const QString &statMethod,
+    const QString &pAdjustMethod)
 {
     emit progressChanged(10, tr("Calculating gene expression (ΔCt method)..."));
 
@@ -446,7 +449,8 @@ QString WebBridge::calculateByDeltaCt(const QString &params, const QString &stat
 
         emit progressChanged(50, tr("Computing ΔCt values..."));
 
-        ExpressionResult result = m_expressionCalculator.calculateByDeltaCt(dcParams, statMethod);
+        ExpressionResult result = m_expressionCalculator.calculateByDeltaCt(
+            dcParams, statMethod, pAdjustMethod);
 
         if (result.table.rowCount() == 0) {
             emit errorOccurred(tr("No valid results. Please check your data."));
@@ -465,7 +469,10 @@ QString WebBridge::calculateByDeltaCt(const QString &params, const QString &stat
     }
 }
 
-QString WebBridge::calculateByDeltaDeltaCt(const QString &params, const QString &statMethod)
+QString WebBridge::calculateByDeltaDeltaCt(
+    const QString &params,
+    const QString &statMethod,
+    const QString &pAdjustMethod)
 {
     emit progressChanged(10, tr("Calculating gene expression (ΔΔCt method)..."));
 
@@ -504,7 +511,8 @@ QString WebBridge::calculateByDeltaDeltaCt(const QString &params, const QString 
 
         emit progressChanged(50, tr("Computing ΔΔCt values..."));
 
-        ExpressionResult result = m_expressionCalculator.calculateByDeltaDeltaCt(ddcParams, statMethod);
+        ExpressionResult result = m_expressionCalculator.calculateByDeltaDeltaCt(
+            ddcParams, statMethod, pAdjustMethod);
 
         qDebug() << "Result rows:" << result.table.rowCount()
                  << "Statistics:" << result.statistics.count();
@@ -526,7 +534,10 @@ QString WebBridge::calculateByDeltaDeltaCt(const QString &params, const QString 
     }
 }
 
-QString WebBridge::calculateByStandardCurve(const QString &params, const QString &statMethod)
+QString WebBridge::calculateByStandardCurve(
+    const QString &params,
+    const QString &statMethod,
+    const QString &pAdjustMethod)
 {
     emit progressChanged(10, tr("Calculating gene expression (Standard Curve method)..."));
 
@@ -573,7 +584,8 @@ QString WebBridge::calculateByStandardCurve(const QString &params, const QString
 
         emit progressChanged(50, tr("Computing quantities from efficiency values..."));
 
-        ExpressionResult result = m_expressionCalculator.calculateByStandardCurve(scParams, statMethod);
+        ExpressionResult result = m_expressionCalculator.calculateByStandardCurve(
+            scParams, statMethod, pAdjustMethod);
 
         qDebug() << "Result rows:" << result.table.rowCount()
                  << "Statistics:" << result.statistics.count();
@@ -801,6 +813,7 @@ QString WebBridge::jsonFromResult(const ExpressionResult &result)
 {
     QJsonObject obj;
     obj["method"] = result.method;
+    obj["adjustmentMethod"] = result.adjustmentMethod;
 
     // Convert table to JSON
     QJsonArray tableData;
@@ -844,6 +857,9 @@ QString WebBridge::jsonFromResult(const ExpressionResult &result)
         s["group1"] = stat.group1;
         s["group2"] = stat.group2;
         s["pValue"] = stat.pValue;
+        s["rawPValue"] = stat.rawPValue;
+        s["adjustedPValue"] = stat.adjustedPValue;
+        s["adjustmentMethod"] = stat.adjustmentMethod;
         s["significance"] = stat.significance;
         if (!std::isnan(stat.tStatistic)) s["tStatistic"] = stat.tStatistic;
         if (!std::isnan(stat.fStatistic)) s["fStatistic"] = stat.fStatistic;
