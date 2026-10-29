@@ -170,11 +170,21 @@ jobs:
         cp -R "$APP_PATH" dmg_temp/
         ln -s /Applications dmg_temp/Applications
 
-        hdiutil create -volname "qPCRtools" \
-          -srcfolder dmg_temp \
-          -ov -format UDZO \
-          -imagekey zlib-level=9 \
-          "$DMG_NAME"
+        # hdiutil intermittently returns "Resource busy" on hosted runners.
+        for attempt in 1 2 3; do
+          if hdiutil create -volname "qPCRtools-${VERSION}" \
+            -srcfolder dmg_temp \
+            -ov -format UDZO \
+            -imagekey zlib-level=9 \
+            "$DMG_NAME"; then
+            break
+          fi
+          if [ "$attempt" -eq 3 ]; then
+            echo "Failed to create DMG after 3 attempts"
+            exit 1
+          fi
+          sleep 10
+        done
 
         # 清理
         rm -rf dmg_temp
