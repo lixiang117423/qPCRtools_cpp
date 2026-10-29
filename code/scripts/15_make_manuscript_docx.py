@@ -24,7 +24,7 @@ import tempfile
 from pathlib import Path
 
 from docx import Document
-from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
@@ -38,8 +38,8 @@ CSL_CANDIDATES = [
 ]
 
 TITLE = (
-    "qPCRtools: a cross-platform C++ desktop application for qPCR data "
-    "analysis with validated equivalence to its R implementation"
+    "qPCRtools: a cross-platform desktop application for reproducible qPCR "
+    "analysis without programming"
 )
 AFFILIATIONS = [
     "1 State Key Laboratory for Conservation and Utilization of Bio-Resources "
@@ -121,6 +121,7 @@ def format_title_block(doc: Document, *, supplementary: bool) -> None:
         raise SystemExit("pandoc 输出里找不到 Title/Author 段落")
 
     title_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    title_p.paragraph_format.keep_with_next = True
     title_p.paragraph_format.space_before = Pt(0)
     title_p.paragraph_format.space_after = Pt(8)
     _clear_paragraph(title_p)
@@ -141,6 +142,7 @@ def format_title_block(doc: Document, *, supplementary: bool) -> None:
         run.font.name = "Arial"
 
     author_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    author_p.paragraph_format.keep_with_next = False
     author_p.paragraph_format.line_spacing = 1.0
     author_p.paragraph_format.space_after = Pt(12)
     _clear_paragraph(author_p)
@@ -163,6 +165,12 @@ def format_title_block(doc: Document, *, supplementary: bool) -> None:
         run = author_p.add_run(text)
         run.font.name = "Arial"
         run.font.size = Pt(9.5)
+
+    # pandoc 的 Abstract 样式默认 keepNext；四段摘要会连成不可分块，
+    # 把作者区整段挤到第二页。逐段关闭，仅保留摘要标题与 Summary 的绑定。
+    for p in doc.paragraphs:
+        if p.style.name == "Abstract":
+            p.paragraph_format.keep_with_next = False
 
 
 def set_table_borders(table) -> None:
@@ -195,6 +203,42 @@ def set_table_borders(table) -> None:
         cell_border(cell, "bottom", 8)
     for cell in table.rows[-1].cells:
         cell_border(cell, "bottom", 12)
+
+
+def format_tables(doc: Document, *, supplementary: bool) -> None:
+    """固定 Word 表格版心宽度，避免窄列把英文单词拆成碎片。"""
+    layouts = (
+        [(4.0, 7.0, 5.0), (9.0, 3.5, 3.5)]
+        if supplementary
+        else [(4.8, 1.2, 1.6, 1.4, 2.0, 1.6, 3.4)]
+    )
+
+    for index, table in enumerate(doc.tables):
+        widths = layouts[index] if index < len(layouts) else layouts[-1]
+        table.autofit = False
+        table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        for column, width_cm in zip(table.columns, widths, strict=False):
+            column.width = Cm(width_cm)
+        for row in table.rows:
+            tr_pr = row._tr.get_or_add_trPr()
+            if tr_pr.find(qn("w:cantSplit")) is None:
+                tr_pr.append(OxmlElement("w:cantSplit"))
+            for cell, width_cm in zip(row.cells, widths, strict=False):
+                cell.width = Cm(width_cm)
+                cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+                for p in cell.paragraphs:
+                    p.paragraph_format.space_before = Pt(1)
+                    p.paragraph_format.space_after = Pt(1)
+                    p.paragraph_format.line_spacing = 1.0
+                    for run in p.runs:
+                        run.font.name = "Arial"
+                        run.font.size = Pt(8)
+
+    captions = [p for p in doc.paragraphs if p.style.name == "Table Caption"]
+    for caption in captions:
+        caption.paragraph_format.keep_with_next = True
+    if captions:
+        captions[0].paragraph_format.page_break_before = True
 
 
 def fit_images(doc: Document, width_cm: float = 15.0) -> int:
@@ -270,9 +314,9 @@ def png_copy_of_pdf_figures(tmpdir: Path) -> dict[str, Path]:
 def build(kind: str) -> Path:
     src = MS / ("main.tex" if kind == "main" else "supplementary.tex")
     out = MS / (
-        "main_v10_20261015.docx"
+        "main_v16_20261029.docx"
         if kind == "main"
-        else "supplementary_v3_20261019.docx"
+        else "supplementary_v9_20261029.docx"
     )
 
     csl = next((p for p in CSL_CANDIDATES if p.exists()), None)
@@ -312,6 +356,7 @@ def build(kind: str) -> Path:
         set_page_a4(doc)
         for table in doc.tables:
             set_table_borders(table)
+        format_tables(doc, supplementary=(kind != "main"))
         n_img = fit_images(doc)
         center_image_paragraphs(doc)
         if kind == "main":

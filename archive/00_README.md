@@ -9,6 +9,9 @@ reused** as a source for the software, the manuscript, or any submission.
 | `manuscript_biorxiv_2026-03.docx`, `manuscript_2026-06_word_version.docx` | Word versions of the same two older manuscripts | **Kept locally only — excluded from git** (see `.gitignore`: `archive/*.docx`, ~3 MB of binary that duplicates the tracked `.md` and the extracted screenshot). The Figure-1 screenshot inside the June file was extracted to `manuscript/figures/fig1_home_en.png` before archiving, so nothing is lost from the repository's point of view. |
 | `PROGRESS_2025-01_obsolete.md` | Development-progress snapshot from January 2025 | The file itself states that it is out of date. Current status: `docs/08_status.md`. |
 | `legacy_qpcr_tools_en_stub.ts` | Empty Qt translation stub (`<TS language="en"/>`) from the first day of the repository | CMake only uses `translations/qpcr_tools_zh_CN.ts` and `translations/qpcr_tools_en_US.ts`. |
+| `paper_joss_20261013_archived.md` / `.bib` | The JOSS-format short paper and bibliography | Archived on 2026-10-29 to remove a parallel-submission risk during the Bioinformatics Application Note revision. Not an active submission. |
+| `docs_superpowers_20260629/` | June 2026 planning and design specs for the manuscript | Historical working notes; paths inside refer to the earlier `paper/` layout. |
+| `SUBMISSION_CHECKLIST_20261019_archived.md` | The superseded submission checklist snapshot | Preserved for traceability after the 2026-10-29 revision corrected its stale equivalence and release claims. |
 
 Renamed/moved on 2026-10-13 during the repository tidy-up; the old → new mapping
 is recorded in `CHANGELOG.md`.

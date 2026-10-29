@@ -8,43 +8,60 @@
 (\texttt{examples/cq.csv}, \texttt{examples/design.csv}): the target gene
 \textit{fos-glo-myc} against the reference gene \textit{Beta Actin} across
 three treatment groups (0, 0.5, 1) with three biological replicates each.
-With the $\Delta\Delta C_t$ method and Welch tests against the control,
-relative expression rose to 1.92 at dose~0.5 and 2.74 at dose~1, both
-significantly different from the control ($p = 0.006$ and $p = 0.022$); as
-defined by Livak and Schmittgen the calibrator is the control group, which is
-therefore $\approx 1$ (here $1.01 \pm 0.21$). These means, standard
-deviations and $p$-values are reproduced without the application or the R
-package by \texttt{validation/check\_example\_stats.R}, and the complete
+With the $\Delta\Delta C_t$ method and Welch tests against the control, the
+mean relative expression was 1.01, 1.92 and 2.74 in the three groups
+($n = 3$ biological replicates). The comparisons against the control had
+unadjusted $P = 0.0060$ and $P = 0.0222$; after Holm adjustment
+they were $P = 0.0121$ and $P = 0.0222$. As defined by Livak and Schmittgen,
+the calibrator is the control group. These values are reproduced without the
+application by \texttt{validation/}\allowbreak
+\texttt{check\_example\_stats.R}, and the complete
 output is shown in Supplementary Figure~S1B. On a four-fold dilution series
 of four genes, the standard-curve module recovered slopes of $-2.07$ to
-$-2.24$ $C_q$ per dilution step with $R^2 > 0.99$ for three of the four
-primers (efficiencies 0.85--0.95; Supplementary Figure~S1A), illustrating the
-efficiency estimation that, per MIQE guidance, determines which
-quantification method is appropriate. The quality-control panel flagged the
-single $C_q = 40$ well of the weakest primer, and the complete
-workflow---import, configuration, analysis, export---is performed in the
-graphical interface without writing code.\par}
+$-2.24$ $C_q$ per dilution step. Three curves had $R^2 > 0.99$ and
+efficiencies of 0.85--0.94; Gene1 had $R^2 = 0.75$ and was correctly flagged
+as unsuitable. The default 90--110\% rule additionally flagged Gene3 (85.5\%)
+and Gene4 (87.3\%), and the quality-control panel flagged the single
+$C_q = 40$ well of Gene1.
 
-\subsection{Equivalence to the R package}
+In a second analysis of the two published example plates distributed with the
+2022 \textit{qPCRtools} paper, we used the dilution series to fit four curves
+and the separate treatment plate to compare five target genes with
+\textit{OsUBQ} in two groups with four biological replicates. Gene1 failed
+quality control ($R^2 = 0.7509$), the other curves had
+$R^2 = 0.9983$--$0.9993$, and the supplied gene-specific efficiencies
+selected standard-curve expression rather than $2^{-\Delta\Delta C_t}$.
+Welch tests with Holm adjustment gave $P = 0.0368$ for \textit{OsPR10} and
+$P = 0.00230$ for \textit{OsWAK91}; the other three genes were not
+significant. The workflow exported summary and replicate-level tables, both
+figures and a parameter record, and is reproduced by a deterministic checker
+(Supplementary Table~S3). The two plates are separate published examples and
+are not presented as one biological experiment; the complete
+workflow---import, method selection, analysis and export---was performed in
+the graphical interface without writing code.\par}
 
-{\sloppy We ran the C++ implementation and the original R package
-\cite{li2022qpcrtools} on identical inputs for every shared
-method---$\Delta\Delta C_t$ (\texttt{CalExp2ddCt}), the standard curve
-(\texttt{CalCurve}) and the efficiency-based RqPCR method
-(\texttt{CalExpRqPCR})---reading the same on-disk files, so any difference
-reflects the implementations alone (Supplementary Table~S1 and Figure~S2).
-For both expression methods, expression values, standard deviations and
-standard errors matched to within floating-point precision (maximum relative
-difference $< 4 \times 10^{-15}$). For the standard curve, slope, intercept,
-$R^2$ and efficiency agreed to within $2.5 \times 10^{-3}$ relative
-difference, the residual being attributable to the R package rounding its
-tabulated output to two to four decimals while the underlying $C_q$ inputs
-are identical; every point falls on the line $y = x$.\par}
+\subsection{Validation against an independent reference}
 
-The validation is fully reproducible from the open scripts in
-\texttt{validation/} (see Availability). Preparing the port also revealed
-defects in result aggregation that the R implementation shared---the input of
-the reference-gene stability measure, replicate handling in the efficiency
-method and the $\Delta\Delta C_t$ calibrator---as well as one specific to the
-C++ code (multiple-comparison $p$-values); each was corrected and is covered
-by a regression test.
+{\sloppy We compared the application with an independent base-R implementation
+of the three quantification methods---$\Delta\Delta C_t$, the standard curve
+and the efficiency-based RqPCR method---using the same on-disk inputs
+(Supplementary Table~S1 and Figure~S2). The reference was computed directly
+from the raw $C_q$ tables and did not call the R package.
+Across 58 matched quantities, expression values, standard deviations,
+standard errors, raw and Holm-adjusted $P$ values, slopes, intercepts,
+$R^2$ values and efficiencies agreed to floating-point precision (maximum
+relative difference $1.9 \times 10^{-14}$). Every point falls on the line
+$y = x$.\par}
+
+The validation is reproducible from the open scripts in \texttt{validation/}
+(see Availability). Numerical agreement establishes consistency with the
+specified algorithms, not biological correctness, and the choice of scale
+remains a design decision. Preparing the port also revealed defects in result
+aggregation, including the input of the reference-gene stability measure,
+replicate handling in the efficiency method and the $\Delta\Delta C_t$
+calibrator, as well as multiple-comparison $P$ values in the C++ code. Each
+was corrected and is covered by a regression test. Earlier GUI releases
+contained these defects and should be re-run with version~1.3.0. The
+corresponding R package is available as version~2.0.1, and the CRAN-compatible
+1.0.2 source has been submitted to CRAN. A retrospective assessment of the
+2022 paper's example analyses is provided with the R-package release.

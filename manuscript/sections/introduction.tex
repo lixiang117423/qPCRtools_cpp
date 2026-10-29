@@ -2,7 +2,8 @@
 
 Quantitative real-time PCR (qPCR) is among the most widely used techniques
 in molecular biology for quantifying nucleic acids and measuring gene
-expression \cite{bustin2009miqe}. A sound analysis involves several
+expression \cite{bustin2009miqe}. Current reporting guidance is provided by
+MIQE~2.0 \cite{bustin2025miqe2}. A sound analysis involves several
 interdependent steps: estimating primer amplification efficiency, choosing a
 quantification strategy, testing groups statistically, and preparing figures
 \cite{bustin2010miqe}. When target and reference efficiencies are comparable,
@@ -30,35 +31,42 @@ implements relative quantification with the geNorm stability measure
 Auto-qPCR \cite{maussion2021autoqpcr}---integrate several steps but require
 uploading the data to a remote server or deploying the web stack locally. The
 gap is therefore not a missing algorithm but a missing delivery mode:
-\emph{validated numerical equivalence} to a published implementation combined
-with a \emph{native, cross-platform, zero-dependency} graphical workflow.
+\emph{auditable numerical implementation} combined with a \emph{native,
+cross-platform, zero-dependency} graphical workflow.
 \par}
 
 \begin{table}[h]
 \centering
 \footnotesize
-\setlength{\tabcolsep}{3pt}
+\setlength{\tabcolsep}{2pt}
 \caption{Delivery mode and functionality of representative qPCR analysis
-tools. $\bullet$~provided, $\circ$~not provided, $\circ$/$\bullet$~partial or
+tools. ``Free for non-commercial use'' means no purchase is required for
+academic users; software distributed with an instrument is marked as not
+free. ``Reference-gene stability'' denotes computational selection or ranking
+of reference genes, not merely normalisation to a chosen reference gene.
+$\bullet$~provided, $\circ$~not provided, $\circ$/$\bullet$~partial or
 version-dependent (statistics were added in the later qBase+ release; vendor
 software differs between instruments and versions). Compiled from the cited
 papers, the vendors' documentation and the survey of Pabinger \textit{et al.}
 \cite{pabinger2014survey}. \textsuperscript{a}~\textit{qPCRtools}
-\cite{li2022qpcrtools}, \textit{pcr} \cite{ahmed2018pcr}.
+\cite{li2022qpcrtools}, \textit{pcr} \cite{ahmed2018pcr}, qpcR
+\cite{ritz2008qpcr}, NormqPCR \cite{perkins2012normqpcr}, and the archived
+Bioconductor package EasyqpcR \cite{lepape2017easyqpcr}.
 \textsuperscript{b}~QuantStudio Design \& Analysis, CFX Maestro.
 \textsuperscript{c}~SATQPCR \cite{rancurel2019satqpcr}, DAG Expression
 \cite{ballester2013dag}, Auto-qPCR \cite{maussion2021autoqpcr}.}
 \label{tab:tools}
 \begin{tabular}{lcccccc}
 \toprule
-Tool & Free & No coding & Offline & Efficiency & Statistics & Ref.\ genes \\
+Tool & Free & No coding & Offline & Efficiency & Statistics & Ref.-gene stability \\
 \midrule
-R packages\textsuperscript{a} & $\bullet$ & $\circ$ & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ \\
+R packages\textsuperscript{a} & $\bullet$ & $\circ$ & $\bullet$ & $\bullet$ & $\circ$/$\bullet$ & $\bullet$ \\
 This application & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ \\
 REST & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\circ$ \\
 LinRegPCR & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\circ$ & $\circ$ \\
-qBase & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\circ$/$\bullet$ & $\bullet$ \\
-Instrument software\textsuperscript{b} & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\circ$/$\bullet$ & $\circ$ \\
+qBase & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\circ$ & $\bullet$ \\
+qBase+ & $\circ$ & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ \\
+Instrument software\textsuperscript{b} & $\circ$ & $\bullet$ & $\bullet$ & $\bullet$ & $\circ$/$\bullet$ & $\circ$ \\
 Web apps\textsuperscript{c} & $\bullet$ & $\bullet$ & $\circ$ & $\bullet$ & $\bullet$ & $\bullet$ \\
 \bottomrule
 \end{tabular}
@@ -73,23 +81,29 @@ few lines of code the analysis requires: newly enrolled students, visiting
 researchers, and wet-lab staff whose projects run for a single season. They
 fall back either on manual spreadsheet calculations---difficult to audit and
 easy to get wrong---or on whichever instrument software happens to be
-installed. Our R package \cite{li2022qpcrtools} provides the algorithms, and
-its adoption since 2022 shows that the analytical choices it implements are
-accepted in published work, but that adoption is bounded by the R environment
-itself.
+installed. Our R package \cite{li2022qpcrtools} provides the algorithms, but
+its use is bounded by the R environment itself.
+
+As a pragmatic test of the workflow, we re-analysed the two real example
+plates distributed with the 2022 \textit{qPCRtools} paper: one four-fold
+dilution series and one separate treatment plate with four biological
+replicates. Both analyses were completed through the graphical interface and
+exported with a parameter record, without a spreadsheet or custom script
+(Supplementary Table~S3). This is a reproducible published-data re-analysis,
+not a controlled human-factors trial.
 
 We therefore reimplemented the analytical core as a native desktop
-application, keeping the validated behaviour of the R implementation while
+application that implements the same three quantification methods while
 removing every prerequisite except a double-click. \textit{qPCRtools} makes
 three contributions: (i)~a C++/Qt architecture in which a tested core
 algorithm library is decoupled from a web-based user interface; (ii)~a
-validation demonstrating numerical equivalence to the R package across all
-shared methods, shipped as a reproducible validation package; and
+reproducible validation against an independent base-R reference across all
+quantification methods; and
 (iii)~statistical and functional extensions beyond the R version
 (non-parametric tests, effect sizes, outlier removal, quality-control
 warnings, automatic reference-gene selection). Preparing the port also
 revealed defects in result aggregation shared with the R package---the input
 of the reference-gene stability measure, replicate handling in the efficiency
 method, and the $\Delta\Delta C_t$ calibrator---as well as one specific to the
-C++ code (multiple-comparison $p$-values); all were corrected and are covered
+C++ code (multiple-comparison $P$-values); all were corrected and are covered
 by regression tests.

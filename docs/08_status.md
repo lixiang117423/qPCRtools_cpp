@@ -18,7 +18,7 @@ GUI 用 Qt WebEngine，前端是 web 技术（HTML/CSS/JS）；核心算法是 C
 |--------|----------|------|
 | `CalCurve()` | `StandardCurve` 类 | ✅ 对齐 R |
 | `CalExp2dCt()` | `ExpressionCalculator::calculateByDeltaCt` | ✅ 对齐 R |
-| `CalExp2ddCt()` | `calculateByDeltaDeltaCt` | ✅ 对齐 R（全数据均值归一化，对照≠1）|
+| `CalExp2ddCt()` | `calculateByDeltaDeltaCt` | ✅ 对照组校准（对照均值≈1；SE = SD/√n）|
 | `CalExpRqPCR()` | `calculateByStandardCurve`（效率法） | ✅ 对齐 R（min.meanCq/参考基因几何均值/最小组均值归一化）；**组内汇总有意偏离** R 的 `mean(unique(expression))`，改为对全部生物学重复求均值（见下方说明）|
 | `CalExpCurve()` | —（斜率截距法 `(Cq-Intercept)/Slope`） | ⏳ 未移植 |
 | `CalRTable()` / `CalExpRqPCR` 的 GeNorm 自动选参考基因 | `ExpressionCalculator::selectReferenceGenesByGeNorm` | ✅ 已实现（2026-10-15 按 geNorm 原文改正：**相对量 + 逐步剔除**；R 包 `find_ref_gene()` 用原始 Cq 相除，两者在部分数据上会选出不同内参——见下方说明）|
@@ -109,8 +109,8 @@ cmake -S code -B build-tests -DBUILD_TESTS=ON [同上 Qt/Eigen] && cmake --build
 - ΔΔCt：全表重复 filter → 一次遍历索引；ΔCt：每 gene 重复 filter → 提升到 group 层
 - 新增回归测试 `tests/test_bugfixes.cpp`（20 个用例）与 Wilcoxon 并列黄金 fixture（R 4.5 生成）；现有 33/33 测试全绿
 
-**版本**：1.3.0-dev（2026-10-29 起：多组对同一对照的 Welch/Wilcoxon P 值按基因内 Holm
+**版本**：1.3.0（2026-10-29 已发布：多组对同一对照的 Welch/Wilcoxon P 值按基因内 Holm
 校正，结果表同时输出 `RawPValue` / `AdjustedPValue` / `PAdjustMethod`；结果图增加单个
 生物学重复点、柱间间隔和校正后显著性标记，并移除 SD 图例项。此前 1.2.0 已恢复作图、
-加入分析记录与质控预警。当前 1.3.0 GitHub Release 尚未发布，见
-`manuscript/SUBMISSION_CHECKLIST.md` 的阻断项）
+加入分析记录与质控预警。1.3.0 的 Windows/macOS Release 与源码 tag 已发布，
+真实数据端到端示例位于 `code/examples/real_workflow/`）

@@ -7,7 +7,7 @@
 % 投稿要点（2026-10-15 按官方 Application Note 说明对齐）：
 %  1) 官方原文（Bioinformatics, Instructions to Authors，由用户 2026-10-15 提供）：
 %     "Application Notes — Up to 4 pages; this is approx. 2,600 words or 2,000 words plus one figure"。
-%     本稿按更严的"2,000 词 + 1 图"档执行：正文 1,777 词（摘要 231），主文只留
+%     当前正文约 2,229 词（摘要 306，均不含表/图注），主文只留
 %     1 图（界面截图）+ 1 表（工具功能对比）；标准曲线/表达量图、等价性散点与等价性汇总表
 %     移入 supplementary.tex（Figure S1–S2、Table S1）。
 %  2) 官方另三条硬要求已满足：Availability and Implementation 在正文写明（含"至少两年可用"承诺）；
@@ -29,11 +29,11 @@
 \usepackage{booktabs}
 \usepackage{amsmath}
 
-\title{qPCRtools: a cross-platform C++ desktop application for qPCR data
-analysis with validated equivalence to its R implementation}
+\title{qPCRtools: a cross-platform desktop application for reproducible qPCR
+analysis without programming}
 
 \author{%
-\parbox{\textwidth}{\centering\sloppy
+\parbox{\dimexpr\textwidth-12pt\relax}{\centering\sloppy
 Xiang Li\textsuperscript{1,2,*} \quad Huichuan Huang\textsuperscript{1,2,*}\\[6pt]
 \textsuperscript{1}~State Key Laboratory for Conservation and Utilization of Bio-Resources in Yunnan,
 Yunnan Agricultural University, Kunming, China\\
@@ -48,7 +48,7 @@ Present address (X.L.): Yazhouwan National Laboratory, Sanya, Hainan, China
 \date{}  % Application Note 通常不显示日期
 
 \begin{document}
-\maketitle
+{\setlength{\parindent}{0pt}\maketitle}
 
 \input{sections/abstract}
 \input{sections/introduction}

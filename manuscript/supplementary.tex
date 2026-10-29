@@ -1,6 +1,6 @@
 % Supplementary material for the Bioinformatics Application Note
-%   "qPCRtools: a cross-platform C++ desktop application for qPCR data
-%    analysis with validated equivalence to its R implementation"
+%   "qPCRtools: a cross-platform desktop application for reproducible qPCR
+%    analysis without programming"
 %
 % 单独编译（与 main.tex 同级，图形路径相同）：
 %   TECTONIC_CACHE_DIR="$HOME/Library/Caches/TectonicProject.Tectonic" tectonic supplementary.tex
@@ -18,17 +18,18 @@
 \usepackage{booktabs}
 \usepackage{amsmath}
 \usepackage{geometry}
+\usepackage{float}
 \geometry{margin=2.5cm}
 
 % 图/表按 S1、S2、S1 编号（原来 LaTeX 自动编号会输出 "Figure 1: Figure S1."）
 \renewcommand{\thefigure}{S\arabic{figure}}
 \renewcommand{\thetable}{S\arabic{table}}
 
-\title{Supplementary material\\[4pt]
-\large qPCRtools: a cross-platform C++ desktop application for qPCR data
-analysis with validated equivalence to its R implementation}
+\title{\sloppy Supplementary material\\[4pt]
+\large qPCRtools: a cross-platform desktop application for reproducible qPCR
+analysis without programming}
 \author{%
-\parbox{\textwidth}{\centering\sloppy
+\parbox{\dimexpr\textwidth-12pt\relax}{\centering\sloppy
 Xiang Li\textsuperscript{1,2,*} \quad Huichuan Huang\textsuperscript{1,2,*}\\[6pt]
 \textsuperscript{1}~State Key Laboratory for Conservation and Utilization of Bio-Resources in Yunnan,
 Yunnan Agricultural University, Kunming, China\\
@@ -39,108 +40,180 @@ Yunnan Agricultural University, Kunming, China%
 \date{}
 
 \begin{document}
-\maketitle
+{\setlength{\parindent}{0pt}\maketitle}
 
 \section*{Contents}
 
 \begin{itemize}
   \item Figure~S1 --- Analysis output on the bundled example data
         (standard curves and $\Delta\Delta C_t$ expression).
-  \item Figure~S2 --- Numerical equivalence of the C++ implementation and the
-        R package.
-  \item Table~S1 --- Equivalence summary across all shared methods.
-        Panel~(a): numerical equivalence with the R package.
-        Panel~(b): the statistical layer (means, Welch $p$-values, ANOVA and
-        Tukey letters) against an independent base-R reference.
+  \item Figure~S2 --- Agreement between the application and an independent
+        base-R reference.
+  \item Table~S1 --- Numerical agreement summary across all methods.
+        Panel~(a): expression and curve quantities.
+        Panel~(b): raw and Holm-adjusted $P$ values.
+  \item Table~S2 --- ${P}$-value sensitivity to the analysis scale.
+  \item Table~S3 --- Reproducible re-analysis of the published qPCR examples.
 \end{itemize}
 
 \section{Analysis output on the bundled example data}
 
-Figure~S1 shows the two analyses discussed in the main text, produced from the
+{\sloppy Figure~S1 shows the two analyses discussed in the main text, produced from the
 application's numerical output by the plotting script shipped in the
 repository (\texttt{code/validation/plot\_examples.py}, matplotlib), which
 gives finer control over the layout than the in-interface figure export. The
-per-group means, standard deviations and $p$-values were independently
+per-group means, standard deviations and $P$-values were independently
 reproduced without the application or the R package by
-\texttt{code/validation/check\_example\_stats.R}.
+\texttt{code/validation/}\allowbreak
+\texttt{check\_example\_stats.R}.\par}
 
-\begin{figure}[h]
+\begin{figure}[p]
 \centering
-\includegraphics[width=\linewidth]{figures/fig2_results_v2.pdf}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{figures/fig2_results_v2.pdf}
 \caption{Analysis output on real data.
 (A)~Standard curves for four genes over a four-fold dilution series, with
 fitted regressions and $R^2$. The abscissa is $\log_4$ concentration
-(dilution steps), matching the regression, and hollow symbols mark wells
-outside the calibrated range (4--4096) that are excluded from the fit.
+(dilution steps), matching the regression. Hollow symbols mark wells outside
+the calibrated range (4--4096). Gene1 has $R^2 = 0.75$ and is unsuitable for
+quantification; the other three have $R^2 > 0.99$.
 (B)~Relative expression of \textit{fos-glo-myc} across treatment groups
 ($\Delta\Delta C_t$ method, calibrated to the control group), with
-significance labels. Reproduced from \texttt{figures/fig2\_results\_v2.pdf}.}
+Holm-adjusted significance labels and individual biological replicates.
+Reproduced from \texttt{figures/fig2\_results\_v2.pdf}.}
 \label{fig:s1}
 \end{figure}
 
-\section{Numerical equivalence to the R package}
+\section{Reproducible re-analysis of published qPCR data}
 
-Both implementations were run on identical input files for every shared
-method---$\Delta\Delta C_t$ (\texttt{CalExp2ddCt}), the standard curve
-(\texttt{CalCurve}) and the efficiency-based RqPCR method
-(\texttt{CalExpRqPCR})---and every resulting quantity was compared pairwise
-(Figure~S2, Table~S1).
+The two real example plates distributed with the 2022 \textit{qPCRtools}
+paper were processed independently in the graphical interface. The
+four-gene dilution series was used to demonstrate curve fitting and
+quality-control rejection. The separate treatment plate contains six genes,
+two groups, four biological replicates and two technical replicates; its
+design table supplies the published gene-specific efficiencies. Because
+those efficiencies are not all equal to the reference gene, the
+efficiency-corrected standard-curve expression path was selected. The
+treatment data and dilution series are separate published examples and are
+not described as one biological experiment.
 
-\begin{figure}[h]
+\section{Validation against an independent base-R reference}
+
+The application and an independent base-R implementation were run on the same
+input files for all three quantification methods. The reference was computed
+directly from the raw $C_q$ tables and did not call the R package. Every
+resulting quantity was compared pairwise (Figure~S2, Table~S1).
+
+\begin{figure}[p]
 \centering
 \includegraphics[width=0.62\linewidth]{figures/fig3_equivalence.pdf}
-\caption{Numerical equivalence of the C++ implementation
-and the R package. Each C++ result is plotted against the corresponding R
-result across all shared methods; all points fall on the line $y = x$.}
+\caption{Agreement between the application and an independent base-R
+reference. Each application result is plotted against the corresponding
+reference value across all methods; all points fall on the line $y = x$.}
 \label{fig:s2}
 \end{figure}
 
-\begin{table}[h]
+\begin{table}[p]
 \centering
-\caption{Equivalence of the application (C++) with the
-reference implementations. (a)~Numerical equivalence with the R package on
-identical inputs; relative difference is $|R - \mathrm{C{+}{+}}|/|R|$.
-(b)~Statistical layer on the bundled $\Delta\Delta C_t$ example, recomputed
-independently in base R without installing any package
-(\texttt{code/validation/verify\_stats.R}).}
+\caption{Agreement of the application with an independent base-R reference.
+(a)~Compared quantities across all three methods; the maximum relative
+difference over all 58 paired values was $1.9 \times 10^{-14}$.
+(b)~Selected values from the bundled $\Delta\Delta C_t$ example.
+The unadjusted $P$ values (0.006027 and 0.022191) are retained, and Holm
+adjustment within the gene gives 0.012055 and 0.022191.
+Generated by \texttt{code/validation/}\allowbreak
+\texttt{reference\_base\_r.R} and
+\texttt{code/validation/}\allowbreak
+\texttt{compare\_to\_reference.R}.}
 \label{tab:s1}
-\small
-\begin{tabular}{lll}
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{0.26\linewidth}p{0.34\linewidth}p{0.32\linewidth}@{}}
 \toprule
-\multicolumn{3}{l}{\textit{(a) numerical equivalence to the R package}}\\
+\multicolumn{3}{l}{\textit{(a) agreement with the independent base-R reference}}\\
 \midrule
 Method & Compared quantities & Max.\ rel.\ diff.\ \\
 \midrule
-$\Delta\Delta C_t$  & expression, SD                      & $3.8 \times 10^{-15}$ \\
-Standard curve      & slope, intercept, $R^2$, efficiency & $2.5 \times 10^{-3}$  \\
-RqPCR               & expression, SE                      & $2.1 \times 10^{-15}$ \\
+$\Delta\Delta C_t$  & expression, SD, raw and Holm $P$    & $1.7 \times 10^{-14}$ \\
+Standard curve      & slope, intercept, $R^2$, efficiency & $4.2 \times 10^{-15}$ \\
+RqPCR               & expression, SD, SE, raw and Holm $P$ & $1.9 \times 10^{-14}$ \\
 \midrule
-\multicolumn{3}{l}{\textit{(b) statistical layer (bundled example, $\Delta\Delta C_t$)}}\\
+\multicolumn{3}{l}{\textit{(b) selected values (bundled example, $\Delta\Delta C_t$)}}\\
 \midrule
 Quantity & Application (C++) & Independent base-R reference \\
 \midrule
 Mean $\pm$ SD, group 0.0   & $1.0145 \pm 0.2098$ & $1.0145 \pm 0.2098$ \\
 Mean $\pm$ SD, group 0.5   & $1.9169 \pm 0.2060$ & $1.9169 \pm 0.2060$ \\
 Mean $\pm$ SD, group 1.0   & $2.7403 \pm 0.5580$ & $2.7403 \pm 0.5580$ \\
-Welch $p$ vs control       & 0.006027 / 0.022191 & 0.006027 / 0.022191 \\
-ANOVA $p$ (all groups)     & 0.0034471 & 0.0034471 \\
+Welch raw $P$ vs control   & 0.006027 / 0.022191 & 0.006027 / 0.022191 \\
+Welch Holm $P$ vs control  & 0.012055 / 0.022191 & 0.012055 / 0.022191 \\
+ANOVA $P$ (all groups)     & 0.0034471 & 0.0034471 \\
 Tukey letters              & b / ab / a & b / ab / a \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The residual $2.5 \times 10^{-3}$ for the standard curve is attributable to
-the R package rounding its tabulated output to two to four decimal places,
-since the underlying $C_q$ inputs are identical.
+\begin{table}[p]
+\centering
+\caption{Sensitivity of the Welch comparison to the analysis scale. The
+primary analysis uses linear relative expression; the alternative uses
+$\Delta C_t$. Holm correction is applied across the two treatment-control
+comparisons on each scale.}
+\label{tab:s2}
+\small
+\begin{tabular}{lcc}
+\toprule
+Scale and group & Raw $P$ & Holm-adjusted $P$ \\
+\midrule
+Linear relative expression, dose 0.5 & 0.006027 & 0.012055 \\
+Linear relative expression, dose 1   & 0.022191 & 0.022191 \\
+$\Delta C_t$, dose 0.5               & 0.017565 & 0.017565 \\
+$\Delta C_t$, dose 1                 & 0.004404 & 0.008809 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-The statistical layer in Table~S1(b) is reproduced by an independent base-R
-script that needs no package at all (\texttt{code/validation/verify\_stats.R}),
-so the reported $p$-values and letter groupings can be checked without
-installing the R package. The letter display is the compact letter display of
-the Tukey HSD: group~0 and group~1 differ ($p_{\mathrm{adj}} = 0.0028$), whereas
-group~0.5 is not separated from either ($p_{\mathrm{adj}} = 0.052$ and
-$0.073$), giving b~/~ab~/~a. That borderline comparison is exactly the case in
-which an incorrect multiple-comparison step is exposed, and it is covered by
-both the script above and the regression tests in the repository.
+\begin{table}[p]
+\centering
+\caption{End-to-end re-analysis of the published qPCRtools examples.
+The two plates are separate examples from the 2022 study. The workflow was
+run through the graphical interface and checked by
+\texttt{code/scripts/19\_verify\_real\_workflow.py}.}
+\label{tab:s3}
+\small
+\begin{tabular}{@{}p{0.19\linewidth}p{0.39\linewidth}p{0.34\linewidth}@{}}
+\toprule
+Stage & Input and settings & Result \\
+\midrule
+Dilution series & 96 wells; four genes; eight four-fold concentrations
+(4--4096); three wells per point & Gene1 $R^2 = 0.7509$ and was rejected;
+the other curves had $R^2 = 0.9983$--$0.9993$ \\
+
+Method selection & Published gene-specific efficiencies for six genes &
+Standard-curve expression selected instead of
+$2^{-\Delta\Delta C_t}$ \\
+
+Group comparison & 96 wells; five target genes plus \textit{OsUBQ};
+CK versus treatment; four biological and two technical replicates &
+Welch tests with Holm correction: \textit{OsPR10} $P = 0.0368$;
+\textit{OsWAK91} $P = 0.00230$; the other three genes were not significant \\
+
+QC and export & Default Cq and technical-replicate thresholds; summary,
+replicate-level table, two figures and analysis record exported &
+One well with $C_q > 35$; 13 samples with technical-replicate
+SD $> 0.5$; deterministic checker returned \texttt{REAL-WORKFLOW PASS} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The maximum relative difference over all compared values was
+$1.9 \times 10^{-14}$. Numerical agreement establishes consistency with the
+specified algorithms, not biological correctness.
+
+For the ANOVA path, the overall ANOVA $P$ value was 0.0034471 and the Tukey
+compact letter display was b~/~ab~/~a. Group~0 and group~1 differed
+($P_{\mathrm{adj}} = 0.0028$), whereas group~0.5 was not separated from either
+($P_{\mathrm{adj}} = 0.052$ and 0.073). The Holm-adjusted Welch comparison for
+the 0.5 group was $P = 0.0121$, so its symbol changed from ** to * relative to
+the unadjusted value.
 
 \end{document}

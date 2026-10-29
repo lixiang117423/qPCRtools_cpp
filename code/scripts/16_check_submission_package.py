@@ -11,17 +11,17 @@ from docx import Document
 
 ROOT = Path(__file__).resolve().parents[2]
 MS = ROOT / "manuscript"
-RENDER = Path("/Users/lixiang/tmp/qpcr_docx_render_v5")
+RENDER = Path("/Users/lixiang/tmp/qpcr_docx_render_v6")
 
 FINAL = {
-    "main_pdf": MS / "main_v15_20261029.pdf",
-    "main_docx": MS / "main_v15_20261029.docx",
-    "supp_pdf": MS / "supplementary_v8_20261029.pdf",
-    "supp_docx": MS / "supplementary_v8_20261029.docx",
-    "letter_docx": MS / "cover_letter_v5_20261029.docx",
-    "letter_pdf": RENDER / "cover_letter_v5_20261029.pdf",
-    "main_rendered": RENDER / "main_v15_20261029.pdf",
-    "supp_rendered": RENDER / "supplementary_v8_20261029.pdf",
+    "main_pdf": MS / "main_v16_20261029.pdf",
+    "main_docx": MS / "main_v16_20261029.docx",
+    "supp_pdf": MS / "supplementary_v9_20261029.pdf",
+    "supp_docx": MS / "supplementary_v9_20261029.docx",
+    "letter_docx": MS / "cover_letter_v6_20261029.docx",
+    "letter_pdf": RENDER / "cover_letter_v6_20261029.pdf",
+    "main_rendered": RENDER / "main_v16_20261029.pdf",
+    "supp_rendered": RENDER / "supplementary_v9_20261029.pdf",
 }
 
 BANNED = (
@@ -106,12 +106,12 @@ def main() -> None:
     main_latex = check_pdf(
         FINAL["main_pdf"],
         expected_max_pages=10,
-        required=("EasyqpcR", "1.3.0", "1.2.0", "Holm"),
+        required=("EasyqpcR", "1.3.0", "Holm", "qBase+", "Table S3"),
     )
     supp_latex = check_pdf(
         FINAL["supp_pdf"],
         expected_max_pages=5,
-        required=("Table S1", "Table S2", "1.9"),
+        required=("Table S1", "Table S2", "Table S3", "1.9"),
     )
     main_rendered = check_pdf(FINAL["main_rendered"], expected_max_pages=11)
     supp_rendered = check_pdf(FINAL["supp_rendered"], expected_max_pages=5)
@@ -140,7 +140,7 @@ def main() -> None:
         fail(f"Word Table 1 is split across pages: {table_pages}")
 
     check_docx(FINAL["main_docx"], images=1, tables=1)
-    check_docx(FINAL["supp_docx"], images=2, tables=2)
+    check_docx(FINAL["supp_docx"], images=2, tables=3)
     check_docx(FINAL["letter_docx"], images=0, tables=0)
 
     print(

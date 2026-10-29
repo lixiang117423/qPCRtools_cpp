@@ -11,27 +11,24 @@ while the presentation layer remains plain HTML, CSS and JavaScript. The
 analytical core is a standalone static library, \texttt{qpcr\_core}, that
 depends only on Qt~Core (plus optional Eigen and GSL) and is independent of
 the GUI, so it is exercised directly by the unit tests and by the
-command-line equivalence driver. Figure~\ref{fig:overview} shows the
+command-line validation driver. Figure~\ref{fig:overview} shows the
 interface at the end of a complete analysis.\par}
 
 \begin{figure}[tbp]
 \centering
-\includegraphics[width=0.85\linewidth]{figures/fig1_results_page_en_v3.png}
+\includegraphics[width=0.85\linewidth]{figures/fig1_results_page_en_v4_20261029.png}
 \caption{The \textit{qPCRtools} desktop interface (screen capture of
-version~1.2.0). A single cross-platform window hosts the web-based UI,
-giving access to the four analysis areas (standard curve,
-$\Delta C_t$/$\Delta\Delta C_t$, statistical tests and data-entry
-templates). Both parts are the results page of the bundled example---the
-target gene \textit{fos-glo-myc} normalised to \textit{Beta Actin},
+version~1.3.0). The upper panel is the summary table from the bundled
+example---the target gene \textit{fos-glo-myc} normalised to
+\textit{Beta Actin},
 three dose groups with three biological replicates each---analysed by the
-$\Delta\Delta C_t$ method with Welch tests against the control, the two
-parts being cropped from one window scrolled to two positions (upper
-part: summary table; lower part: the in-interface figure). The summary
-table reports the mean relative expression, its standard deviation, the
-$p$-value and the significance symbol for each group; the figure redraws
-the same means with standard-deviation error bars and the significance
-symbols. The interface is bilingual (Chinese/English); the English
-language is shown here.}
+$\Delta\Delta C_t$ method with Welch tests against the control. It reports
+the mean, standard deviation, Holm-adjusted and raw $P$ values, adjustment
+method and significance symbol. The lower panel redraws the group means with
+standard-deviation error bars, individual biological replicates and
+Holm-adjusted symbols; the error bars are not repeated as a legend entry.
+The interface is bilingual (Chinese/English); the English language is
+shown here.}
 \label{fig:overview}
 \end{figure}
 
@@ -41,7 +38,7 @@ The core reimplements the methods of the R package. Amplification efficiency
 is obtained by ordinary least squares of $C_q$ on
 $\log_{d}(\text{concentration})$, i.e.\ the number of $d$-fold dilution
 steps ($d$ = dilution factor, 4 in the bundled example), yielding slope $s$,
-intercept, $R^2$ and a regression $p$-value; efficiency is
+intercept, $R^2$ and a regression $P$-value; efficiency is
 \begin{equation}
 E = d^{-1/s} - 1,
 \end{equation}
@@ -50,29 +47,36 @@ Relative expression is computed by the
 $\Delta C_t$ and $\Delta\Delta C_t$ methods \cite{livak2001analysis},
 \begin{equation}
 \mathrm{RE} = 2^{-\big[(C_{q,\mathrm{target}}-C_{q,\mathrm{ref}})_{\mathrm{treated}}
-- (C_{q,\mathrm{target}}-C_{q,\mathrm{ref}})_{\mathrm{control}}\big]},
+- \overline{(C_{q,\mathrm{target}}-C_{q,\mathrm{ref}})}_{\mathrm{control}}\big]},
 \end{equation}
-and by an efficiency-based (RqPCR) method \cite{rancurel2019satqpcr} in which
+where the first term is sample-level and the overbar is the mean $\Delta C_t$
+across control biological replicates. Relative expression is also computed
+by an efficiency-based (RqPCR) method \cite{rancurel2019satqpcr} in which
 per-sample quantities are $E^{\,C_{q,\min}-C_q}$, normalized by the geometric
-mean of one or more reference genes \cite{pfaffl2001new}.
+mean of one or more reference genes \cite{pfaffl2001new}. In this method
+$C_{q,\min}$ is obtained separately within each biological replicate across
+the treatments, so the calculation is a within-block comparison rather than a
+general unpaired design. Efficiencies are supplied per gene in the design
+table (or estimated by the built-in standard-curve module).
 
 \subsection{Statistical analysis}
 
-{\sloppy Groups are compared on the linear relative-expression scale---the scale on
-which values are reported and plotted, and the one used by the R
-implementation---rather than on $\Delta C_t$; the choice is stated because
-the two scales give different $p$-values for the same data, and a single
-scale is applied throughout the application and the validation. The core
+{\sloppy Groups are compared on the linear relative-expression scale, which is
+the scale on which values are reported and plotted. Because the linear and
+$\Delta C_t$ scales can give different $P$ values for the same data, the
+$\Delta C_t$-scale comparison is reported as a sensitivity analysis in
+Supplementary Table~S2. The core
 library implements Welch and Student two-sample $t$-tests, the paired
 $t$-test, Wilcoxon rank-sum and signed-rank tests, one-way ANOVA with Tukey
 HSD letters, Cohen's $d$, IQR-based outlier removal and automatic
 reference-gene selection by geNorm \cite{vandesompele2002accurate}; the
 interface exposes the Welch $t$-test, the rank-sum test and ANOVA with Tukey
 HSD, while the paired tests are covered by the test suite but not yet offered
-in the interface. For multi-group designs Tukey's HSD controls the family-wise
-error rate across the pairwise comparisons of a gene; the reported $p$-values
-are per gene and are not additionally corrected across genes, which we state
-as a limitation rather than leave implicit.\par}
+in the interface. When several groups are compared with the same control,
+Welch and rank-sum $P$ values are adjusted by Holm's method within each gene,
+and the unadjusted value is retained in the exported table. ANOVA uses Tukey
+HSD. Correction is not applied across genes, which we state as a
+limitation.\par}
 
 \subsection{Software engineering and scope}
 
@@ -90,14 +94,17 @@ a configurable limit (default 35), samples whose technical replicates differ
 by more than a configurable standard deviation (default 0.5~$C_q$), and
 primers with efficiency outside 90--110\% are listed on the results page and
 repeated in the analysis record, while no data are removed automatically.
-MIQE requires these quantities to be reported rather than to satisfy fixed
-cut-offs \cite{bustin2009miqe}, so the defaults are meant to be adapted to
+MIQE~2.0 requires these quantities to be reported rather than to satisfy fixed
+cut-offs \cite{bustin2025miqe2}, so the defaults are meant to be adapted to
 the instrument and assay. \textit{qPCRtools} is managed with CMake and ships
 with unit tests; the interface is bilingual and reads CSV/TXT input, and Excel
 (\texttt{.xlsx}) workbooks when built with the optional OpenXLSX component
-(the released binaries read CSV/TXT). It is distributed as a single self-contained
-executable for Windows and macOS---requiring no R, Python or runtime
-installation---and the source compiles on Linux under the MIT license. Two R
+(the released binaries read CSV/TXT). It is distributed as a single
+self-contained executable for Windows and macOS, requiring no R, Python or
+runtime installation. The macOS binary is built for Apple Silicon, requires
+macOS~12 or newer, and is ad-hoc signed but not notarized. Linux builds are
+supported by the source and build scripts but are not part of the released
+binary set. Two R
 functions are not yet ported---the standard-curve
 slope--intercept quantification (\texttt{CalExpCurve}) and the
 reverse-transcription reagent volume calculation (\texttt{CalRTable})---and

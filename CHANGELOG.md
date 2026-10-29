@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## 2026-10-29 13:50 — 第二轮审稿意见 1–9 项闭环（第 10 项保留）
+
+- **稿件状态同步**：正文与可用性说明改为 1.3.0 已发布，删除“将在投稿前发布”
+  和“R 包修正版尚未上 CRAN”等过期表述；补充 Contact 的第二位通讯作者邮箱。
+- **实证补充**：把 2022 年 qPCRtools 论文的两套真实示例板作为已发表数据的完整
+  重分析写入正文，并新增 Supplementary Table S3；明确两板是独立示例，不声称来自
+  同一生物学实验。Statement of need 使用该重分析作为可复现证据，不伪造用户试验。
+- **表格与统计说明**：Table 1 将 qBase 与收费 qBase+ 分列；公式（2）明确对照组项
+  是各生物学重复 ΔCt 的均值；Results 明确 Gene3/Gene4 的 85.5%/87.3% 效率触发
+  90–110% 质控规则。
+- **旧发行说明**：v1.2.0 Release 已改为历史版本警告，逐项列出 t/Wilcoxon P 值、
+  Tukey、ΔΔCt 校准/SE、RqPCR 聚合等旧缺陷，并要求用户改用 v1.3.0。
+- **issue #1**：新增“3 个 vs 4 个 BioRep + IQR 离群值”回归测试；R 两个包树均通过，
+  已回复并关闭 #1。R 包 5 个公开 issue 现全部关闭。
+- **CRAN**：1.0.2 已通过 CRAN incoming 检查并进入处理队列（CRAN 自动邮件确认）。
+- **投稿包**：主文 `main_v16_20261029.pdf/.docx`（9/11 页）、补充材料
+  `supplementary_v9_20261029.pdf/.docx`（4/5 页）、Cover letter
+  `cover_letter_v6_20261029.pdf/.docx/.md`（1 页）；门禁
+  `OK: LaTeX 9+4 pages; Word 11+5 pages; cover 1 page`。
+- **保留项**：第 10 项（单位邮箱、基金适用性、OUP 官方模板/4 页限制、Associate
+  Editor）按用户要求暂不处理。
+
 ## 2026-10-29 10:12 — 1.3.0 发布准备：修复标曲表达量原始表归一化 + 建立真实数据端到端示例
 
 - **修复一个会影响结果解释的代码错误**：Standard Curve Expression

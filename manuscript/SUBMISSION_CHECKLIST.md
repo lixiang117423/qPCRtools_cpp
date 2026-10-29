@@ -1,6 +1,10 @@
 # 投稿前清单（Bioinformatics Application Note 主线）
 
-最后更新：2026-10-19 13:30。**官方要求以用户 2026-10-15 从 OUP 页面取得的原文为准**（本机再次抓取 `academic.oup.com/bioinformatics/pages/instructions_to_authors` 仍被 Cloudflare 拦成 "Just a moment..." 页面，无法复核当年指南，故不臆造任何新条款；投稿前若页面可访问，请再对一遍）。
+> **2026-10-29 更新：以下第一至六节是 2026-10-19 的历史快照，已不再代表当前状态。**
+> 旧版原文另存于 `archive/SUBMISSION_CHECKLIST_20261019_archived.md`。当前状态、阻断项和
+> 重新生成命令见文末“七、2026-10-29 当前状态”。
+
+最后更新：2026-10-29 13:42。**官方要求以用户 2026-10-15 从 OUP 页面取得的原文为准**（本机再次抓取 `academic.oup.com/bioinformatics/pages/instructions_to_authors` 仍被 Cloudflare 拦成 "Just a moment..." 页面，无法复核当年指南，故不臆造任何新条款；投稿前若页面可访问，请再对一遍）。
 
 ## 一、官方要求 ↔ 本文档设置（2026-10-15 核实）
 
@@ -96,3 +100,60 @@ Pabinger et al. 2014、Vandesompele et al. 2002、Rancurel et al. 2019、Wickham
 - **p 值口径**：Results 原写"p < 10⁻³"与实测不符，已改为实测的 0.006 / 0.022，并给出零依赖复算脚本。
 - **ΔΔCt 校准**：原按全样本均值归一化（对照组 0.59，与稿件公式矛盾）；已按 Livak & Schmittgen 改为以对照组为校准样品，对照组 ≈ 1（1.01 ± 0.21）。
 - **标准曲线横轴**：图 2A 原将点画在 log₁₀ 而回归线按 log₄ 斜率，已统一为 log₄（稀释步数），并把标定范围外的点标为空心。
+
+## 七、2026-10-29 当前状态
+
+| 项目 | 当前文件/事实 | 状态 |
+| --- | --- | --- |
+| 主文 PDF | `manuscript/main_v16_20261029.pdf`，A4，9 页（含参考文献） | 已编译并通过程序化门禁；4 页限制仍须按 OUP 官方模板复核 |
+| 主文 Word | `manuscript/main_v16_20261029.docx`，A4，渲染 11 页 | 已核对标题页、Table 1 不跨页、Figure 1 居中 |
+| 补充材料 PDF | `manuscript/supplementary_v9_20261029.pdf`，A4，4 页 | 已编译；图 S1/S2、表 S1/S2/S3 完整 |
+| 补充材料 Word | `manuscript/supplementary_v9_20261029.docx`，A4，渲染 5 页 | 已核对两图居中、三张表分页 |
+| 软件版本 | 1.3.0；[GitHub Release](https://github.com/lixiang117423/qPCRtools_cpp/releases/tag/v1.3.0) 已含 Windows ZIP 与 macOS DMG | ✅ |
+| Figure 1 | `manuscript/figures/fig1_results_page_en_v4_20261029.png`，来自重建版实机结果页 | 已更新 |
+| Cover letter | `manuscript/cover_letter_v6_20261029.pdf/.docx/.md`，A4，1 页 | 已生成并渲染核对 |
+| 目标期刊要求 | 仅记录用户 2026-10-15 提供的 Application Note 摘要 | **官网当前版未复核（Cloudflare），不能声称已核对最新指南** |
+| 投稿包门禁 | `code/scripts/16_check_submission_package.py` | `OK: LaTeX 8+3 pages; Word 10+4 pages; cover 1 page` |
+
+已解决：
+
+- 题名改为功能导向，不再以“与 R 版等价”为卖点。
+- 验证改为对独立 base-R 参照逐项对账；58 个配对值最大相对差 1.9 × 10^-14。
+- Welch/Wilcoxon 多组对同一对照按基因内 Holm 校正；原始和校正 P 值均保留。
+- ΔΔCt 对照组校准、SE = SD/√n、RqPCR 样本身份去重和逐步 geNorm 均有回归测试。
+- Figure 1 改为新版结果页截图：汇总表显示调整后与原始 P 值，图中有单个重复点、柱间间隔，显著性标记移到误差线上方，SD 不再作为图例项。
+- 标准曲线示例明确标出 Gene1 的 R² = 0.75 不合格；不再把 0.954 当作有效效率证据。
+- MIQE 2.0、qpcR、NormqPCR、EasyqpcR 引用已核验并加入；EasyqpcR 明确标为已归档的 Bioconductor 包。
+- AI 声明已分别列出 Claude Code 与 OpenAI Codex 的使用阶段。
+- `paper.md`、`paper.bib` 与 `docs/superpowers` 已移入 `archive/`，消除平行投稿风险。
+- macOS Apple Silicon、macOS 12+、未公证以及无 Linux 发布包的可用性限制已写清。
+- Word 标题页不再与作者区分离；Table 1 列宽、补充材料分页和图片居中均已重新渲染核对。
+- 可用性声明不再把尚未上传的 1.3.0 写成已公开；目前明确区分已发布 1.2.0 与将在投稿前发布的 1.3.0。
+
+投稿阻断项 / 待作者处理：
+
+1. **单位邮箱**：两位通讯作者的 institution 邮箱未提供；当前仍用 Gmail。
+2. **基金声明**：2021YFD1000200、31801792、31960554 与霍英东基金是否覆盖本项工作仍需确认。
+3. **官方模板与页数**：当前使用 `article` 骨架；若 Bioinformatics 提供 Application Note 专用模板，需替换并复核 4 页限制。
+4. **Associate Editor**：投稿系统内的人选和利益冲突确认未完成。
+
+已完成但属于外部队列：
+
+- CRAN 1.0.2 已提交并修正 incoming 预检问题，现等待 CRAN 审核上线。
+- R 包 GitHub 2.0.1 已发布；issues #2–#5 已关闭，#1 保留等待用户复测。
+
+2026-10-29 新增或复核的参考文献：
+
+| 文献 | DOI |
+| --- | --- |
+| Bustin et al. 2025, MIQE 2.0, Clinical Chemistry 71(6):634-651 | 10.1093/clinchem/hvaf043 |
+| Ritz & Spiess 2008, qpcR, Bioinformatics 24(13):1549-1551 | 10.1093/bioinformatics/btn227 |
+| Perkins et al. 2012, ReadqPCR/NormqPCR, BMC Genomics 13:296 | 10.1186/1471-2164-13-296 |
+| Le Pape 2017, EasyqpcR, archived Bioconductor package 3.12 | 10.18129/B9.bioc.EasyqpcR |
+
+投稿包最终门禁：
+
+```bash
+/Users/lixiang/miniforge3/envs/python/bin/python3 \
+  /Users/lixiang/NutstoreFiles/03.编程相关/qPCRtools_cpp/code/scripts/16_check_submission_package.py
+```
