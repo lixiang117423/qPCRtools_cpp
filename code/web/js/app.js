@@ -1486,7 +1486,7 @@ function buildExpressionChartOption(results, palette) {
         });
     }
 
-    // 柱宽固定成 band 的固定百分比，误差线才有确定的水平偏移。
+    // 柱宽固定成 band 的固定百分比，柱、误差线、散点和显著性标记才有确定的水平偏移。
     // ECharts 里 barWidth:'P%' 的百分比基准 = 类目带宽，而自定义 series 里
     // 能拿到同一个带宽的通道就是 api.size([1, 0])[0]（2026-10-15 用 5.4.4 的
     // SSR 渲染实测：band=905.2、barWidth '22%' → 柱宽 199.1 = 905.2×0.22）。
@@ -1496,6 +1496,13 @@ function buildExpressionChartOption(results, palette) {
     const barWidthPct = 100 / groups.length * 0.64;
     const barStepFactor = 1 + barGapPct / 100;
     const barWidthFraction = barWidthPct / 100;
+    function barMetrics(api) {
+        const barWidth = api.size([1, 0])[0] * barWidthFraction;
+        return {
+            barWidth: barWidth,
+            barStep: barWidth * barStepFactor
+        };
+    }
 
     groups.forEach(function (group, groupIndex) {
         const data = genes.map(function (gene) {
@@ -1521,8 +1528,6 @@ function buildExpressionChartOption(results, palette) {
             itemStyle: { color: colors[groupIndex % colors.length] }
         });
 
-        const groupOffset = (groupIndex - (groups.length - 1) / 2)
-            * barWidthFraction * barStepFactor;
         const pointData = [];
         const labelData = [];
         genes.forEach(function (gene, geneIndex) {
@@ -1533,34 +1538,44 @@ function buildExpressionChartOption(results, palette) {
             const observations = rawValues[gene + '\u001f' + group] || [];
             if (observations.length > 0) {
                 observations.sort(function (a, b) { return a - b; });
-                const spread = barWidthFraction * 0.48;
+                const spread = 0.48;
                 observations.forEach(function (value, observationIndex) {
-                    const jitter = observations.length > 1
+                    const jitterFraction = observations.length > 1
                         ? (observationIndex / (observations.length - 1) - 0.5) * spread
                         : 0;
-                    pointData.push([geneIndex + groupOffset + jitter, value]);
+                    pointData.push([geneIndex, value, jitterFraction]);
                 });
             }
             if (cell.sig) {
-                labelData.push({
-                    value: [geneIndex + groupOffset, cell.mean + cell.sd],
-                    sig: cell.sig
-                });
+                labelData.push([geneIndex, cell.mean + cell.sd, cell.sig]);
             }
         });
 
         if (pointData.length > 0) {
             series.push({
                 name: group + ' observations',
-                type: 'scatter',
+                type: 'custom',
                 z: 12,
-                symbol: 'circle',
-                symbolSize: 7,
-                itemStyle: {
-                    color: colors[groupIndex % colors.length],
-                    borderColor: '#222222',
-                    borderWidth: 0.7,
-                    opacity: 0.82
+                renderItem: function (params, api) {
+                    const geneIndex = api.value(0);
+                    const value = api.value(1);
+                    const jitterFraction = api.value(2);
+                    const metrics = barMetrics(api);
+                    const groupOffset = (groupIndex - (groups.length - 1) / 2)
+                        * metrics.barStep;
+                    const x = api.coord([geneIndex, 0])[0] + groupOffset
+                        + jitterFraction * metrics.barWidth;
+                    const y = api.coord([geneIndex, value])[1];
+                    return {
+                        type: 'circle',
+                        shape: { cx: x, cy: y, r: 3.5 },
+                        style: {
+                            fill: colors[groupIndex % colors.length],
+                            stroke: '#222222',
+                            lineWidth: 0.7,
+                            opacity: 0.82
+                        }
+                    };
                 },
                 data: pointData
             });
@@ -1568,19 +1583,29 @@ function buildExpressionChartOption(results, palette) {
         if (labelData.length > 0) {
             series.push({
                 name: group + ' significance',
-                type: 'scatter',
-                symbolSize: 1,
+                type: 'custom',
                 z: 14,
-                label: {
-                    show: true,
-                    position: 'top',
-                    distance: 7,
-                    fontSize: 14,
-                    fontWeight: 'bold',
-                    color: '#111111',
-                    formatter: function (params) {
-                        return params.data && params.data.sig ? params.data.sig : '';
-                    }
+                renderItem: function (params, api) {
+                    const geneIndex = api.value(0);
+                    const yValue = api.value(1);
+                    const sig = api.value(2);
+                    const metrics = barMetrics(api);
+                    const groupOffset = (groupIndex - (groups.length - 1) / 2)
+                        * metrics.barStep;
+                    const x = api.coord([geneIndex, 0])[0] + groupOffset;
+                    const y = api.coord([geneIndex, yValue])[1] - 7;
+                    return {
+                        type: 'text',
+                        style: {
+                            text: sig,
+                            x: x,
+                            y: y,
+                            fill: '#111111',
+                            font: 'bold 14px sans-serif',
+                            align: 'center',
+                            verticalAlign: 'bottom'
+                        }
+                    };
                 },
                 data: labelData
             });
@@ -1609,11 +1634,10 @@ function buildExpressionChartOption(results, palette) {
             const upper = api.value(3);
             // 与 bar 系列的 barWidth:'<barWidthPct>%' 用同一个基准（类目带宽），
             // 保证误差线落在各自柱子的正中间。
-            const barWidth = api.size([1, 0])[0] * barWidthPct / 100;
-            const offset = (groupIndex - (groups.length - 1) / 2)
-                * barWidth * barStepFactor;
+            const metrics = barMetrics(api);
+            const offset = (groupIndex - (groups.length - 1) / 2) * metrics.barStep;
             const x = api.coord([geneIndex, 0])[0] + offset;
-            const capHalf = Math.max(3, barWidth * 0.18);
+            const capHalf = Math.max(3, metrics.barWidth * 0.18);
             const yLow = api.coord([geneIndex, lower])[1];
             const yHigh = api.coord([geneIndex, upper])[1];
             return {

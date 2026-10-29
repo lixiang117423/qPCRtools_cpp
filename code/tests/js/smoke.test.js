@@ -178,9 +178,11 @@ setTimeout(() => {
   // renderItem 里的 params.data 是 undefined（必须用 api.value(dim)），
   // 每项应产出 3 条线（竖线 + 上下端帽）。2026-10-15 用 SSR 渲染实测确认：
   // 用 params.data 或 context.rendered 短路都会导致界面图里一根误差线都没有。
-  const sdSeries = chartOption ? chartOption.series.find(s => s.type === 'custom') : null;
+  const sdSeries = chartOption
+    ? chartOption.series.find(s => s.type === 'custom' && s.name === 'SD')
+    : null;
   const fakeApiFor = item => ({
-    value: dim => item[dim],
+    value: dim => (Array.isArray(item) ? item[dim] : item.value[dim]),
     size: () => [100, 0],
     coord: v => [v[0] * 100, 1000 - v[1] * 100],
   });
@@ -195,6 +197,47 @@ setTimeout(() => {
   const nGroups = chartOption ? chartOption.series.filter(s => s.type === 'bar').length : 0;
   const barW = band * (100 / nGroups * 0.64) / 100;
   const barStep = barW * 1.12;
+  const observationSeries = chartOption
+    ? chartOption.series.filter(s => s.type === 'custom' && /observations$/.test(s.name))
+    : [];
+  const observationRendered = observationSeries.reduce((out, s) => {
+    const groupIndex = ['CK', 'T'].indexOf(s.name.replace(/ observations$/, ''));
+    s.data.forEach((d, i) => {
+      const item = s.renderItem({ dataIndex: i }, fakeApiFor(d));
+      const expectedX = d[0] * band
+        + (groupIndex - (nGroups - 1) / 2) * barStep
+        + d[2] * barW;
+      out.push({ groupIndex: groupIndex, item: item, expectedX: expectedX });
+    });
+    return out;
+  }, []);
+  const observationGeometryOk = observationSeries.length === 2
+    && observationRendered.length === 8
+    && observationRendered.every(entry =>
+      Number.isFinite(entry.item.shape.cx)
+      && Math.abs(entry.item.shape.cx - entry.expectedX) < 1e-9
+      && entry.groupIndex >= 0
+    );
+  const labelSeries = chartOption
+    ? chartOption.series.filter(s => s.type === 'custom' && /significance$/.test(s.name))
+    : [];
+  const labelsRendered = labelSeries.reduce((out, s) => {
+    const groupIndex = ['CK', 'T'].indexOf(s.name.replace(/ significance$/, ''));
+    s.data.forEach((d, i) => {
+      const item = s.renderItem({ dataIndex: i }, fakeApiFor(d));
+      const values = Array.isArray(d) ? d : d.value;
+      const expectedX = values[0] * band
+        + (groupIndex - (nGroups - 1) / 2) * barStep;
+      out.push({ item: item, expectedX: expectedX, text: values[2] });
+    });
+    return out;
+  }, []);
+  const labelsCentered = labelSeries.length === 1 && labelsRendered.length === 2
+    && labelsRendered.every(entry =>
+      Number.isFinite(entry.item.style.x)
+      && Math.abs(entry.item.style.x - entry.expectedX) < 1e-9
+      && entry.item.style.text === entry.text
+    );
   const sdCentered = !!sdSeries && sdSeries.data.length > 0 && sdSeries.data.every((d, i) => {
     const item = sdRendered[i];
     if (!item) return false;
@@ -221,18 +264,17 @@ setTimeout(() => {
         chartOption.series.find(s => s.type === 'bar' && s.name === 'T').data
       ) === JSON.stringify([2.5, 0.4])],
     ['SD error bars (custom series, one per cell)',
-      chartOption && chartOption.series.some(s => s.type === 'custom' && s.data.length === 4)],
+      !!sdSeries && sdSeries.data.length === 4],
     ['SD error bars actually rendered (3 lines per cell)',
       sdChildren === 12],
     ['SD error bars centred on their own bar',
       sdCentered],
     ['individual biological replicates',
-      chartOption && chartOption.series.filter(s => s.type === 'scatter'
-        && /observations$/.test(s.name)).reduce((n, s) => n + s.data.length, 0) === 8],
-    ['significance labels drawn above error bars',
-      chartOption && chartOption.series.some(s => s.type === 'scatter'
-        && /significance$/.test(s.name) && s.data.length === 2
-        && s.label.formatter({ data: s.data[0] }) === '**')],
+      observationSeries.reduce((n, s) => n + s.data.length, 0) === 8],
+    ['observations use custom bar-relative geometry',
+      observationGeometryOk],
+    ['significance labels use custom bar-relative geometry',
+      labelsCentered],
     ['palette applied',
       chartOption && chartOption.series[0].itemStyle.color === '#111111'],
   ];
