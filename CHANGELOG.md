@@ -18,6 +18,11 @@
   创建/覆盖同一 Release。
 - **验证结果**：C++ `ctest` **53/53 通过**；JS `SMOKE PASS`；
   `REFERENCE-COMPARE PASS`；`REAL-WORKFLOW PASS`；GitHub Actions YAML 解析通过。
+- **正式发布**：annotated tag `v1.3.0`；GitHub Actions run `40806820842`
+  的 Windows、macOS 和 Release 三个作业全部成功：
+  <https://github.com/lixiang117423/qPCRtools_cpp/releases/tag/v1.3.0>。
+  Release 资产为 `qPCRtools-1.3.0-windows.zip`（146,699,165 bytes）与
+  `qPCRtools-1.3.0-macOS.dmg`（219,709,193 bytes）。
 
 ## 2026-10-29 08:52 — 第二轮审稿返修：独立验证、Holm 校正、1.3.0 界面与投稿包重建
 
