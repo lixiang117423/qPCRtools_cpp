@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## 2026-10-29 14:42 — qPCRtools 1.3.1 补丁发布与稿件 v18
+
+- **正式发布**：annotated tag `v1.3.1`，指向提交 `1cb40ee`；
+  GitHub Actions run `40829870695` 的 Windows、macOS、Create Release 三个作业全部成功：
+  <https://github.com/lixiang117423/qPCRtools_cpp/releases/tag/v1.3.1>。
+- **Release 说明**：已写明 1.3.0 包含结果图散点错位缺陷，1.3.1 修复重复点与显著性
+  标记的柱内定位，数值算法和统计结果不变。
+- **资产核验**：`qPCRtools-1.3.1-windows.zip` 146,699,347 bytes，MD5
+  `279b27bd44569bc86a7742a57548f0cf`，SHA-256
+  `69573bfd8fc6a623d3420bc6dcd2ac9cc97d2372fd2399805c5c83d9d0e03f82`；
+  `qPCRtools-1.3.1-macOS.dmg` 219,876,385 bytes，MD5
+  `32a9d4451449d827ac7659c07c5ea854`，SHA-256
+  `44b342cafa8eec85c4e07c80e6d3ffb9dd11d137ba45d9aeafd06f04ab7fbd1c`。
+- **安装包检查**：Windows ZIP `unzip -t` 通过，含 `qPCRtools.exe`、`web/` 与示例 CSV；
+  macOS DMG `hdiutil verify` 为 VALID，`codesign --verify --deep --strict` 通过，
+  `CFBundleShortVersionString = 1.3.1`，实际启动成功。两个包内 `app.js` 去除 CRLF 后
+  SHA-256 均为 `b988336cbd5eeb1bf357ecfbd6199f063bb39bd88756adef255dfef54a2cb686`，
+  与源码一致。
+- **稿件**：主文 `main_v18_20261029.pdf/.docx`（9/11 页），补充材料
+  `supplementary_v9_20261029.pdf/.docx`（4/5 页），Cover letter
+  `cover_letter_v7_20261029.pdf/.docx/.md`（1 页）；Figure 1 使用
+  `fig1_results_page_en_v5_20261029.png`。投稿包门禁
+  `OK: LaTeX 9+4 pages; Word 11+5 pages; cover 1 page`。
+
 ## 2026-10-29 14:26 — 修复结果图散点与显著性标记未跟随柱子
 
 - **根因**：表达量图使用类目轴，却把散点和显著性标记的 x 写成
@@ -13,8 +37,8 @@
   244.8/291.1/337.5、461.1/507.4/553.7、677.3/723.7/770，确认分别落在三根柱内。
 - **截图**：因用户明确报告图形异常，目视查看修复前后截图；新结果为
   `manuscript/figures/fig1_results_page_en_v5_20261029.png`（1270×995），v4 保留不覆盖。
-- **发布状态**：该缺陷存在于当前公开的 v1.3.0 资产中；源码已修复但尚未创建
-  v1.3.1 补丁 release，投稿前需决定是否发布补丁版并同步稿件版本号。
+- **发布状态**：该缺陷存在于当前公开的 v1.3.0 资产中；已通过 v1.3.1 补丁 release
+  修复并同步稿件版本号。
 
 ## 2026-10-29 14:00 — CRAN 1.0.2 源码上线与主文 v17
 

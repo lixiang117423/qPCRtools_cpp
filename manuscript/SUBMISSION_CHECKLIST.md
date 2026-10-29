@@ -4,7 +4,7 @@
 > 旧版原文另存于 `archive/SUBMISSION_CHECKLIST_20261019_archived.md`。当前状态、阻断项和
 > 重新生成命令见文末“七、2026-10-29 当前状态”。
 
-最后更新：2026-10-29 14:00。**官方要求以用户 2026-10-15 从 OUP 页面取得的原文为准**（本机再次抓取 `academic.oup.com/bioinformatics/pages/instructions_to_authors` 仍被 Cloudflare 拦成 "Just a moment..." 页面，无法复核当年指南，故不臆造任何新条款；投稿前若页面可访问，请再对一遍）。
+最后更新：2026-10-29 14:42。**官方要求以用户 2026-10-15 从 OUP 页面取得的原文为准**（本机再次抓取 `academic.oup.com/bioinformatics/pages/instructions_to_authors` 仍被 Cloudflare 拦成 "Just a moment..." 页面，无法复核当年指南，故不臆造任何新条款；投稿前若页面可访问，请再对一遍）。
 
 ## 一、官方要求 ↔ 本文档设置（2026-10-15 核实）
 
@@ -105,13 +105,13 @@ Pabinger et al. 2014、Vandesompele et al. 2002、Rancurel et al. 2019、Wickham
 
 | 项目 | 当前文件/事实 | 状态 |
 | --- | --- | --- |
-| 主文 PDF | `manuscript/main_v17_20261029.pdf`，A4，9 页（含参考文献） | 已编译并通过程序化门禁；4 页限制仍须按 OUP 官方模板复核 |
-| 主文 Word | `manuscript/main_v17_20261029.docx`，A4，渲染 11 页 | 已核对标题页、Table 1 不跨页、Figure 1 居中 |
+| 主文 PDF | `manuscript/main_v18_20261029.pdf`，A4，9 页（含参考文献） | 已编译并通过程序化门禁；4 页限制仍须按 OUP 官方模板复核 |
+| 主文 Word | `manuscript/main_v18_20261029.docx`，A4，渲染 11 页 | 已核对标题页、Table 1 不跨页、Figure 1 居中 |
 | 补充材料 PDF | `manuscript/supplementary_v9_20261029.pdf`，A4，4 页 | 已编译；图 S1/S2、表 S1/S2/S3 完整 |
 | 补充材料 Word | `manuscript/supplementary_v9_20261029.docx`，A4，渲染 5 页 | 已核对两图居中、三张表分页 |
-| 软件版本 | 1.3.0；[GitHub Release](https://github.com/lixiang117423/qPCRtools_cpp/releases/tag/v1.3.0) 已含 Windows ZIP 与 macOS DMG | ✅ |
-| Figure 1 | `manuscript/figures/fig1_results_page_en_v4_20261029.png`，来自重建版实机结果页 | 已更新 |
-| Cover letter | `manuscript/cover_letter_v6_20261029.pdf/.docx/.md`，A4，1 页 | 已生成并渲染核对 |
+| 软件版本 | 1.3.1；[GitHub Release](https://github.com/lixiang117423/qPCRtools_cpp/releases/tag/v1.3.1) 已含 Windows ZIP 与 macOS DMG | ✅ 资产、签名、版本号与包内 `app.js` 已核验 |
+| Figure 1 | `manuscript/figures/fig1_results_page_en_v5_20261029.png`，修复散点与显著性标记跟随柱子 | 已更新 |
+| Cover letter | `manuscript/cover_letter_v7_20261029.pdf/.docx/.md`，A4，1 页 | 已生成并渲染核对 |
 | 目标期刊要求 | 仅记录用户 2026-10-15 提供的 Application Note 摘要 | **官网当前版未复核（Cloudflare），不能声称已核对最新指南** |
 | 投稿包门禁 | `code/scripts/16_check_submission_package.py` | `OK: LaTeX 9+4 pages; Word 11+5 pages; cover 1 page` |
 
@@ -121,14 +121,15 @@ Pabinger et al. 2014、Vandesompele et al. 2002、Rancurel et al. 2019、Wickham
 - 验证改为对独立 base-R 参照逐项对账；58 个配对值最大相对差 1.9 × 10^-14。
 - Welch/Wilcoxon 多组对同一对照按基因内 Holm 校正；原始和校正 P 值均保留。
 - ΔΔCt 对照组校准、SE = SD/√n、RqPCR 样本身份去重和逐步 geNorm 均有回归测试。
-- Figure 1 改为新版结果页截图：汇总表显示调整后与原始 P 值，图中有单个重复点、柱间间隔，显著性标记移到误差线上方，SD 不再作为图例项。
+- Figure 1 改为新版结果页截图：汇总表显示调整后与原始 P 值，图中有单个重复点、
+  柱间间隔；散点与显著性标记现在跟随各自柱子，SD 不再作为图例项。
 - 标准曲线示例明确标出 Gene1 的 R² = 0.75 不合格；不再把 0.954 当作有效效率证据。
 - MIQE 2.0、qpcR、NormqPCR、EasyqpcR 引用已核验并加入；EasyqpcR 明确标为已归档的 Bioconductor 包。
 - AI 声明已分别列出 Claude Code 与 OpenAI Codex 的使用阶段。
 - `paper.md`、`paper.bib` 与 `docs/superpowers` 已移入 `archive/`，消除平行投稿风险。
 - macOS Apple Silicon、macOS 12+、未公证以及无 Linux 发布包的可用性限制已写清。
 - Word 标题页不再与作者区分离；Table 1 列宽、补充材料分页和图片居中均已重新渲染核对。
-- 可用性声明明确 1.3.0 已发布；R 包 1.0.2 源码包可从 CRAN 获取，
+- 可用性声明明确 1.3.1 已发布；R 包 1.0.2 源码包可从 CRAN 获取，
   CRAN 检查页与 Windows/macOS 二进制可能滞后更新。
 
 投稿阻断项 / 待作者处理：
