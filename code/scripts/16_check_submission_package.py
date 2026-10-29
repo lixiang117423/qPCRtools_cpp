@@ -11,16 +11,16 @@ from docx import Document
 
 ROOT = Path(__file__).resolve().parents[2]
 MS = ROOT / "manuscript"
-RENDER = Path("/Users/lixiang/tmp/qpcr_docx_render_v6")
+RENDER = Path("/Users/lixiang/tmp/qpcr_docx_render_v7")
 
 FINAL = {
-    "main_pdf": MS / "main_v16_20261029.pdf",
-    "main_docx": MS / "main_v16_20261029.docx",
+    "main_pdf": MS / "main_v17_20261029.pdf",
+    "main_docx": MS / "main_v17_20261029.docx",
     "supp_pdf": MS / "supplementary_v9_20261029.pdf",
     "supp_docx": MS / "supplementary_v9_20261029.docx",
     "letter_docx": MS / "cover_letter_v6_20261029.docx",
     "letter_pdf": RENDER / "cover_letter_v6_20261029.pdf",
-    "main_rendered": RENDER / "main_v16_20261029.pdf",
+    "main_rendered": RENDER / "main_v17_20261029.pdf",
     "supp_rendered": RENDER / "supplementary_v9_20261029.pdf",
 }
 

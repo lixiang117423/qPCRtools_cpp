@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -314,7 +315,7 @@ def png_copy_of_pdf_figures(tmpdir: Path) -> dict[str, Path]:
 def build(kind: str) -> Path:
     src = MS / ("main.tex" if kind == "main" else "supplementary.tex")
     out = MS / (
-        "main_v16_20261029.docx"
+        "main_v17_20261029.docx"
         if kind == "main"
         else "supplementary_v9_20261029.docx"
     )
@@ -372,8 +373,12 @@ def build(kind: str) -> Path:
 
 
 def main() -> None:
-    build("main")
-    build("supplementary")
+    kinds = sys.argv[1:] or ["main", "supplementary"]
+    invalid = set(kinds) - {"main", "supplementary"}
+    if invalid:
+        raise SystemExit(f"unknown document kind(s): {sorted(invalid)}")
+    for kind in kinds:
+        build(kind)
 
 
 if __name__ == "__main__":

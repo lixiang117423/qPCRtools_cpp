@@ -4,7 +4,7 @@
 > 旧版原文另存于 `archive/SUBMISSION_CHECKLIST_20261019_archived.md`。当前状态、阻断项和
 > 重新生成命令见文末“七、2026-10-29 当前状态”。
 
-最后更新：2026-10-29 13:42。**官方要求以用户 2026-10-15 从 OUP 页面取得的原文为准**（本机再次抓取 `academic.oup.com/bioinformatics/pages/instructions_to_authors` 仍被 Cloudflare 拦成 "Just a moment..." 页面，无法复核当年指南，故不臆造任何新条款；投稿前若页面可访问，请再对一遍）。
+最后更新：2026-10-29 14:00。**官方要求以用户 2026-10-15 从 OUP 页面取得的原文为准**（本机再次抓取 `academic.oup.com/bioinformatics/pages/instructions_to_authors` 仍被 Cloudflare 拦成 "Just a moment..." 页面，无法复核当年指南，故不臆造任何新条款；投稿前若页面可访问，请再对一遍）。
 
 ## 一、官方要求 ↔ 本文档设置（2026-10-15 核实）
 
@@ -105,15 +105,15 @@ Pabinger et al. 2014、Vandesompele et al. 2002、Rancurel et al. 2019、Wickham
 
 | 项目 | 当前文件/事实 | 状态 |
 | --- | --- | --- |
-| 主文 PDF | `manuscript/main_v16_20261029.pdf`，A4，9 页（含参考文献） | 已编译并通过程序化门禁；4 页限制仍须按 OUP 官方模板复核 |
-| 主文 Word | `manuscript/main_v16_20261029.docx`，A4，渲染 11 页 | 已核对标题页、Table 1 不跨页、Figure 1 居中 |
+| 主文 PDF | `manuscript/main_v17_20261029.pdf`，A4，9 页（含参考文献） | 已编译并通过程序化门禁；4 页限制仍须按 OUP 官方模板复核 |
+| 主文 Word | `manuscript/main_v17_20261029.docx`，A4，渲染 11 页 | 已核对标题页、Table 1 不跨页、Figure 1 居中 |
 | 补充材料 PDF | `manuscript/supplementary_v9_20261029.pdf`，A4，4 页 | 已编译；图 S1/S2、表 S1/S2/S3 完整 |
 | 补充材料 Word | `manuscript/supplementary_v9_20261029.docx`，A4，渲染 5 页 | 已核对两图居中、三张表分页 |
 | 软件版本 | 1.3.0；[GitHub Release](https://github.com/lixiang117423/qPCRtools_cpp/releases/tag/v1.3.0) 已含 Windows ZIP 与 macOS DMG | ✅ |
 | Figure 1 | `manuscript/figures/fig1_results_page_en_v4_20261029.png`，来自重建版实机结果页 | 已更新 |
 | Cover letter | `manuscript/cover_letter_v6_20261029.pdf/.docx/.md`，A4，1 页 | 已生成并渲染核对 |
 | 目标期刊要求 | 仅记录用户 2026-10-15 提供的 Application Note 摘要 | **官网当前版未复核（Cloudflare），不能声称已核对最新指南** |
-| 投稿包门禁 | `code/scripts/16_check_submission_package.py` | `OK: LaTeX 8+3 pages; Word 10+4 pages; cover 1 page` |
+| 投稿包门禁 | `code/scripts/16_check_submission_package.py` | `OK: LaTeX 9+4 pages; Word 11+5 pages; cover 1 page` |
 
 已解决：
 
@@ -128,7 +128,8 @@ Pabinger et al. 2014、Vandesompele et al. 2002、Rancurel et al. 2019、Wickham
 - `paper.md`、`paper.bib` 与 `docs/superpowers` 已移入 `archive/`，消除平行投稿风险。
 - macOS Apple Silicon、macOS 12+、未公证以及无 Linux 发布包的可用性限制已写清。
 - Word 标题页不再与作者区分离；Table 1 列宽、补充材料分页和图片居中均已重新渲染核对。
-- 可用性声明不再把尚未上传的 1.3.0 写成已公开；目前明确区分已发布 1.2.0 与将在投稿前发布的 1.3.0。
+- 可用性声明明确 1.3.0 已发布；R 包 1.0.2 源码包可从 CRAN 获取，
+  CRAN 检查页与 Windows/macOS 二进制可能滞后更新。
 
 投稿阻断项 / 待作者处理：
 
@@ -137,10 +138,11 @@ Pabinger et al. 2014、Vandesompele et al. 2002、Rancurel et al. 2019、Wickham
 3. **官方模板与页数**：当前使用 `article` 骨架；若 Bioinformatics 提供 Application Note 专用模板，需替换并复核 4 页限制。
 4. **Associate Editor**：投稿系统内的人选和利益冲突确认未完成。
 
-已完成但属于外部队列：
+已完成：
 
-- CRAN 1.0.2 已提交并修正 incoming 预检问题，现等待 CRAN 审核上线。
-- R 包 GitHub 2.0.1 已发布；issues #2–#5 已关闭，#1 保留等待用户复测。
+- CRAN 1.0.2 源码包已于 2026-10-29 发布，CRAN 包页现显示 1.0.2；
+  CRAN 检查页与 Windows/macOS 二进制可能滞后更新。
+- R 包 GitHub 2.0.1 已发布；公开 issues #1–#5 均已回复并关闭。
 
 2026-10-29 新增或复核的参考文献：
 

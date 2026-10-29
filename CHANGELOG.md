@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2026-10-29 14:00 — CRAN 1.0.2 源码上线与主文 v17
+
+- **CRAN 状态核实**：包主页显示 qPCRtools 1.0.2，发布日期 2026-10-29；
+  Windows/macOS 二进制和 CRAN 检查页此时仍显示 1.0.1，属于发布传播滞后，
+  已在记录中明确区分。
+- **正文同步**：`manuscript/sections/results.tex` 将“1.0.2 source has been
+  submitted to CRAN”改为“version 1.0.2 is available from CRAN”。
+- **另存版本**：主文重出为 `main_v17_20261029.pdf/.docx`，v16 保留不覆盖；
+  补充材料 `supplementary_v9_20261029` 与 Cover letter
+  `cover_letter_v6_20261029` 未改。
+- **门禁**：`OK: LaTeX 9+4 pages; Word 11+5 pages; cover 1 page`。
+- **记录**：Yuque 02/05 页已按实际状态更新并回读；05 当前有效版本升为 v8。
+
 ## 2026-10-29 13:50 — 第二轮审稿意见 1–9 项闭环（第 10 项保留）
 
 - **稿件状态同步**：正文与可用性说明改为 1.3.0 已发布，删除“将在投稿前发布”
@@ -14,7 +27,8 @@
   Tukey、ΔΔCt 校准/SE、RqPCR 聚合等旧缺陷，并要求用户改用 v1.3.0。
 - **issue #1**：新增“3 个 vs 4 个 BioRep + IQR 离群值”回归测试；R 两个包树均通过，
   已回复并关闭 #1。R 包 5 个公开 issue 现全部关闭。
-- **CRAN**：1.0.2 已通过 CRAN incoming 检查并进入处理队列（CRAN 自动邮件确认）。
+- **CRAN**：1.0.2 源码包已通过 CRAN incoming 检查，并于 2026-10-29 在 CRAN
+  发布；包页现显示 1.0.2。CRAN 检查页与 Windows/macOS 二进制可能滞后更新。
 - **投稿包**：主文 `main_v16_20261029.pdf/.docx`（9/11 页）、补充材料
   `supplementary_v9_20261029.pdf/.docx`（4/5 页）、Cover letter
   `cover_letter_v6_20261029.pdf/.docx/.md`（1 页）；门禁
